@@ -16,7 +16,12 @@ vi.mock("next-intl", () => ({
     vars ? `${key}:${JSON.stringify(vars)}` : key,
 }));
 vi.mock("@/components/ui/useToast", () => ({ toast: vi.fn() }));
-vi.mock("swr", () => ({ mutate: vi.fn() }));
+// Default `useSWR` too — the dialog now reads the coding config via useCodeConfig
+// (which falls back to defaults when data is undefined).
+vi.mock("swr", () => ({
+  default: () => ({ data: undefined, isLoading: false, mutate: vi.fn() }),
+  mutate: vi.fn(),
+}));
 vi.mock("@/lib/api", () => ({
   elementCategories: {
     validateImport: vi.fn(),

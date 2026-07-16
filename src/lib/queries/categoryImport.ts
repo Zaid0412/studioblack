@@ -98,6 +98,32 @@ const totalReferences = (r: CategoryReferences): number =>
  * silently takes its Sub-categories and Service Areas with it, and it is the
  * leaves that the elements actually hang off.
  */
+/**
+ * Whether a single category is referenced by any live data (its own row or any
+ * descendant it cascades to — but callers pass the exact id; the six ref tables
+ * point at leaf/any-level categories directly). A short-circuiting `EXISTS` over
+ * the same six indexed tables `referencesFor` uses — cheaper than counting.
+ * Used to lock a category's code once it's in use.
+ */
+export async function isCategoryReferenced(
+  db: Querier,
+  id: string
+): Promise<boolean> {
+  const { rows } = await db.query<{ referenced: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1 FROM element            WHERE category_id = $1
+       UNION ALL SELECT 1 FROM vendor_trade       WHERE category_id = $1
+       UNION ALL SELECT 1 FROM boq_item           WHERE category_id = $1
+       UNION ALL SELECT 1 FROM rfq_item           WHERE category_id = $1
+       UNION ALL SELECT 1 FROM rate_contract      WHERE category_id = $1
+       UNION ALL SELECT 1 FROM rate_contract_item WHERE category_id = $1
+       LIMIT 1
+     ) AS referenced`,
+    [id]
+  );
+  return rows[0]?.referenced ?? false;
+}
+
 async function referencesFor(
   db: Querier,
   ids: string[]

@@ -580,6 +580,8 @@ export interface ElementCategory {
   updated_at: string;
   /** Present when loaded via `getCategoryTree` — direct element count (archived included). */
   element_count?: number;
+  /** Present when loaded via `getCategoryTree` — referenced by any live data (code locks). */
+  in_use?: boolean;
 }
 
 /** Recursive tree node for nested category display. */
@@ -690,6 +692,20 @@ export interface Division {
   is_default: boolean;
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * Per-org options for auto-generating element-category codes (Coding system).
+ * A single row per org; the getter returns defaults when no row exists.
+ */
+export interface CategoryCodeConfig {
+  auto_generate: boolean;
+  /** Per-segment max length (3/4/5) — a tighter cap over CATEGORY_CODE_MAX. */
+  code_max_length: number;
+  force_uppercase: boolean;
+  prevent_duplicates: boolean;
+  /** Lock a category's code once it's referenced by live data. */
+  lock_after_use: boolean;
 }
 
 /** A section grouping within a BOQ (e.g., "Civil", "Electrical"). */

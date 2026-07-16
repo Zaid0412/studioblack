@@ -522,6 +522,7 @@
       "preferences": "Tercihler",
       "organization": "Organizasyon",
       "divisions": "Bölümler",
+      "coding": "Kodlama",
       "danger": "Tehlike bölgesi"
     },
     "profile": "Profil",
@@ -744,6 +745,20 @@
     "priorityHigh": "Yüksek",
     "priorityUrgent": "Acil"
   },
+  "coding": {
+    "title": "Kodlama",
+    "help": "Öğe kitaplığı genelinde Kategori / Alt Kategori / Hizmet Alanı kodlarının nasıl oluşturulduğu.",
+    "autoGenerate": "Kodları otomatik oluştur",
+    "autoGenerateHint": "Addan bir kod öner (Kitchen → KIT). Manuel giriş istemek için kapatın.",
+    "maxLength": "Maksimum kod uzunluğu",
+    "maxLengthHint": "Segment başına karakter (3, 4 veya 5).",
+    "forceUppercase": "Büyük harfe zorla",
+    "forceUppercaseHint": "Kodları büyük harfle sakla.",
+    "preventDuplicates": "Yinelemeleri önle",
+    "preventDuplicatesHint": "Bir kardeşle çakışan kodu reddet veya otomatik numaralandır.",
+    "lockAfterUse": "Kullanımdan sonra kilitle",
+    "lockAfterUseHint": "Bir kategori canlı veriyle kullanıldığında kodu artık değiştirilemez."
+  },
   "divisions": {
     "title": "Bölümler",
     "help": "BOQ kısımlarının üzerinde yer alan yeniden kullanılabilir gruplar. Yeniden adlandırın, devre dışı bırakın, sıralayın veya yeni projelere uygulanacakları belirleyin.",
@@ -943,6 +958,7 @@
     "categoryCodeSegmentPlaceholder": "örn. BASE",
     "categoryCodeComposed": "Tam kod: {code}",
     "categoryCodeHint": "Üst kategorinin koduna eklenir",
+    "categoryCodeLocked": "Kod kilitli — bu kategori zaten kullanımda",
     "categoryIcon": "İkon",
     "categoryColor": "Renk",
     "categoryCreatedToast": "Kategori oluşturuldu",

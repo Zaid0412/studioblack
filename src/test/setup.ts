@@ -319,6 +319,21 @@ vi.mock("@/lib/queries", () => ({
   updateCategory: vi.fn(),
   deleteCategory: vi.fn().mockResolvedValue({ deleted: true }),
   reorderCategories: vi.fn(),
+  isCategoryReferenced: vi.fn().mockResolvedValue(false),
+  getCategoryCodeConfig: vi.fn().mockResolvedValue({
+    auto_generate: true,
+    code_max_length: 4,
+    force_uppercase: true,
+    prevent_duplicates: true,
+    lock_after_use: true,
+  }),
+  upsertCategoryCodeConfig: vi.fn().mockResolvedValue({
+    auto_generate: true,
+    code_max_length: 4,
+    force_uppercase: true,
+    prevent_duplicates: true,
+    lock_after_use: true,
+  }),
   bulkCreateCategoriesFromTemplates: vi
     .fn()
     .mockResolvedValue({ created: [], skipped: [] }),

@@ -1,12 +1,65 @@
 import { describe, it, expect } from "vitest";
 import {
   CATEGORY_CODE_MAX,
+  applyCase,
   codeSegmentOf,
   composeCategoryCode,
+  dedupeSegment,
   maxSegmentLength,
   normalizeCodeSegment,
+  suggestCodeSegment,
   UNCATEGORIZED_PREFIX,
 } from "@/lib/categoryCode";
+
+describe("suggestCodeSegment", () => {
+  it("abbreviates the first word to the cap (the PRD examples)", () => {
+    expect(suggestCodeSegment("Kitchen", 4)).toBe("KITC");
+    expect(suggestCodeSegment("Cabinets", 4)).toBe("CABI");
+    expect(suggestCodeSegment("Base Cabinets", 4)).toBe("BASE");
+  });
+
+  it("honors the max length", () => {
+    expect(suggestCodeSegment("Kitchen", 3)).toBe("KIT");
+    expect(suggestCodeSegment("Structural", 5)).toBe("STRUC");
+  });
+
+  it("uses only the first alphanumeric word and uppercases", () => {
+    expect(suggestCodeSegment("  wall / ceiling ", 4)).toBe("WALL");
+  });
+
+  it("returns empty for an empty or symbol-only name", () => {
+    expect(suggestCodeSegment("", 4)).toBe("");
+    expect(suggestCodeSegment("--- ///", 4)).toBe("");
+  });
+});
+
+describe("applyCase", () => {
+  it("uppercases + strips when forced", () => {
+    expect(applyCase("ba se!", true)).toBe("BASE");
+  });
+  it("preserves case (but still strips) when not forced", () => {
+    expect(applyCase("baSe-1", false)).toBe("baSe1");
+  });
+});
+
+describe("dedupeSegment", () => {
+  it("returns the segment unchanged when unique", () => {
+    expect(dedupeSegment("BASE", ["WALL", "TALL"], 5)).toBe("BASE");
+  });
+
+  it("appends an incrementing number on a collision (BASE → BASE2)", () => {
+    expect(dedupeSegment("BASE", ["BASE"], 5)).toBe("BASE2");
+    expect(dedupeSegment("BASE", ["BASE", "BASE2"], 5)).toBe("BASE3");
+  });
+
+  it("truncates the base so the numbered code still fits the cap", () => {
+    expect(dedupeSegment("BASE", ["BASE"], 4)).toBe("BAS2");
+  });
+
+  it("compares case-insensitively", () => {
+    expect(dedupeSegment("Base", ["BASE"], 5)).toBe("Base2");
+  });
+});
 
 describe("normalizeCodeSegment", () => {
   it("uppercases", () => {

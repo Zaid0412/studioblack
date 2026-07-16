@@ -84,3 +84,48 @@ export function maxSegmentLength(
   if (!parent) return CATEGORY_CODE_MAX;
   return Math.max(0, CATEGORY_CODE_MAX - parent.length - 1);
 }
+
+/**
+ * Suggest a code segment from a category name — the auto-generation default
+ * ("Kitchen" → `KIT`, "Base Cabinets" → `BASE`). Takes the first alphanumeric
+ * word, uppercases it, and clamps to `maxLen`. It's only a suggestion the user
+ * can edit, so it need not match the curated seed codes exactly. Returns `""`
+ * for an empty or symbol-only name (the caller then leaves the field blank).
+ */
+export function suggestCodeSegment(name: string, maxLen: number): string {
+  const firstWord = name.match(/[A-Za-z0-9]+/)?.[0] ?? "";
+  return firstWord.toUpperCase().slice(0, Math.max(0, maxLen));
+}
+
+/**
+ * Apply the org's `force_uppercase` option to a raw segment. Kept separate from
+ * `normalizeCodeSegment` (which always uppercases and is relied on app-wide,
+ * including element-code composition) so the lowercase-allowed path doesn't
+ * change that shared helper. Always strips non-alphanumerics.
+ */
+export function applyCase(segment: string, forceUppercase: boolean): string {
+  const stripped = segment.replace(/[^A-Za-z0-9]/g, "");
+  return forceUppercase ? stripped.toUpperCase() : stripped;
+}
+
+/**
+ * Make `segment` unique among its siblings' segments (case-insensitive). If it
+ * already collides, append an incrementing number, truncating the base so the
+ * result still fits `maxLen` (`BASE` → `BASE2`; at cap 4 → `BAS2`). Returns the
+ * segment unchanged when there's no collision.
+ */
+export function dedupeSegment(
+  segment: string,
+  takenSegments: Iterable<string>,
+  maxLen: number
+): string {
+  const taken = new Set(Array.from(takenSegments, (s) => s.toUpperCase()));
+  if (!segment || !taken.has(segment.toUpperCase())) return segment;
+  for (let n = 2; n < 1000; n++) {
+    const suffix = String(n);
+    const base = segment.slice(0, Math.max(0, maxLen - suffix.length));
+    const candidate = `${base}${suffix}`;
+    if (!taken.has(candidate.toUpperCase())) return candidate;
+  }
+  return segment;
+}

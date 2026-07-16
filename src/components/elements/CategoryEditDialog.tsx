@@ -104,6 +104,8 @@ export function CategoryEditDialog({
           initial={initial}
           parentOptions={parentCategoryOptions(parentOptions)}
           fixedParent={fixedParent}
+          isEditing={mode === "edit"}
+          inUse={!!editing?.in_use}
           submitting={submitting}
           onSubmit={onSubmit}
           onCancel={() => onOpenChange(false)}
