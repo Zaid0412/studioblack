@@ -747,6 +747,7 @@
   "divisions": {
     "title": "Divisions",
     "help": "The reusable groups that sit above BOQ sections. Rename, disable, reorder, or set which apply to new projects.",
+    "backToBoq": "Back to BOQ",
     "restore": "Restore defaults",
     "restoredCount": "Added {count} default divisions",
     "restoredNone": "All default divisions are already present",

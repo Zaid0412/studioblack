@@ -187,7 +187,10 @@ export default function ProjectDetailLayout({
   // row sees it too.
   const settingsAction =
     projectScopedRole === "pm" ? (
-      <Link href={`${base}/settings`} className={pillClass}>
+      <Link
+        href={`${base}/settings?from=${encodeURIComponent(pathname)}`}
+        className={pillClass}
+      >
         <Settings className="w-3.5 h-3.5" />
         <span>{tpd("settings") || "Settings"}</span>
       </Link>

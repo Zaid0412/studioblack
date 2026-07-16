@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
   DndContext,
@@ -17,7 +19,14 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Plus, RotateCcw, Search, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  GripVertical,
+  Plus,
+  RotateCcw,
+  Search,
+  Trash2,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -135,6 +144,15 @@ export function DivisionsSection() {
   const t = useTranslations("divisions");
   const tc = useTranslations("common");
   const { divisions, isLoading, loaded, mutate } = useDivisions();
+  // Set by the BOQ header's "Divisions" link — lets us offer a precise route
+  // back to the BOQ the user came from. Guarded to a project's BOQ page.
+  const fromParam = useSearchParams().get("from");
+  const backToBoq =
+    fromParam &&
+    fromParam.startsWith("/projects/") &&
+    fromParam.includes("/boq")
+      ? fromParam
+      : null;
   const [query, setQuery] = useState("");
   const [newCode, setNewCode] = useState("");
   const [newName, setNewName] = useState("");
@@ -292,6 +310,15 @@ export function DivisionsSection() {
 
   return (
     <div className="flex flex-col gap-5">
+      {backToBoq && (
+        <Link
+          href={backToBoq}
+          className="flex w-fit items-center gap-2 text-sm text-text-secondary transition-colors hover:text-text-primary"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {t("backToBoq")}
+        </Link>
+      )}
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
           <h2 className="text-lg font-semibold text-text-primary">

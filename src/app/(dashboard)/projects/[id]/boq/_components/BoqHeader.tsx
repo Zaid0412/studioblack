@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { AlertTriangle, Layers, SlidersHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useUserRoleContext } from "@/contexts/UserRoleContext";
@@ -53,6 +54,9 @@ export function BoqHeader({
   phaseCounts,
 }: BoqHeaderProps) {
   const role = useUserRoleContext()?.role ?? null;
+  // Carry the BOQ page as `from` so the settings pages can offer a precise
+  // "back to BOQ" instead of dumping the user on the default tab.
+  const from = encodeURIComponent(usePathname());
   return (
     <div className="flex items-start justify-between gap-4 flex-wrap">
       <div className="flex flex-col gap-2 min-w-0">
@@ -77,7 +81,7 @@ export function BoqHeader({
             <>
               <span>·</span>
               <Link
-                href={numberingSettingsHref}
+                href={`${numberingSettingsHref}&from=${from}`}
                 className="inline-flex items-center gap-1 hover:text-text-primary transition-colors"
               >
                 <SlidersHorizontal className="h-3 w-3" />
@@ -85,7 +89,7 @@ export function BoqHeader({
               </Link>
               <span>·</span>
               <Link
-                href="/settings?section=divisions"
+                href={`/settings?section=divisions&from=${from}`}
                 className="inline-flex items-center gap-1 hover:text-text-primary transition-colors"
               >
                 <Layers className="h-3 w-3" />

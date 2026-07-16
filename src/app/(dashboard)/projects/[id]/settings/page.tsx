@@ -69,6 +69,18 @@ function ProjectSettingsInner({ projectId }: { projectId: string }) {
   const active: SectionId =
     navItems.find((s) => s.id === requested)?.id ?? "details";
 
+  // Return to the exact project page the user came from (Design / BOQ / Order),
+  // not always the default tab. `from` is set by the entry links; guard it to
+  // this project's own pages (and never back to settings itself) so a stale or
+  // forged value can't redirect elsewhere.
+  const from = searchParams.get("from");
+  const backHref =
+    from &&
+    from.startsWith(`/projects/${projectId}`) &&
+    !from.includes("/settings")
+      ? from
+      : `/projects/${projectId}`;
+
   // Until the project-scoped role resolves to PM, show a skeleton rather than
   // flashing the sections (a non-PM is redirected by the effect above).
   if (role !== "pm") {
@@ -84,7 +96,7 @@ function ProjectSettingsInner({ projectId }: { projectId: string }) {
   return (
     <div className="animate-in fade-in duration-300 ease-out motion-reduce:animate-none flex flex-col gap-6">
       <Link
-        href={`/projects/${projectId}`}
+        href={backHref}
         className="flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary transition-colors cursor-pointer w-fit"
       >
         <ArrowLeft className="w-4 h-4" />

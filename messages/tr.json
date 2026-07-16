@@ -747,6 +747,7 @@
   "divisions": {
     "title": "Bölümler",
     "help": "BOQ kısımlarının üzerinde yer alan yeniden kullanılabilir gruplar. Yeniden adlandırın, devre dışı bırakın, sıralayın veya yeni projelere uygulanacakları belirleyin.",
+    "backToBoq": "BOQ'ya dön",
     "restore": "Varsayılanları geri yükle",
     "restoredCount": "{count} varsayılan bölüm eklendi",
     "restoredNone": "Tüm varsayılan bölümler zaten mevcut",
