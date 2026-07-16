@@ -54,13 +54,14 @@ function wire(opts: {
   mockClientQuery.mockImplementation((sql: string) => {
     if (/INSERT INTO boq_item/.test(sql))
       return Promise.resolve({ rows: [{ id: "new-item" }] });
-    if (/SELECT pr\.line_increment FROM boq pb/.test(sql))
-      return Promise.resolve({ rows: [{ line_increment: opts.increment }] });
-    // The BOQ-wide continuous renumber (no-gap fallback).
+    // The BOQ-wide continuous renumber (no-gap fallback). Checked before the
+    // increment matcher — the renumber UPDATE now embeds the increment subquery.
     if (/line_number = o\.rn/.test(sql)) {
       renumbered = true;
       return Promise.resolve({ rows: [] });
     }
+    if (/SELECT pr\.line_increment FROM boq pb/.test(sql))
+      return Promise.resolve({ rows: [{ line_increment: opts.increment }] });
     if (
       /SELECT section_id, sort_order, line_number FROM boq_item WHERE id/.test(
         sql

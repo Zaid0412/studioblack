@@ -91,34 +91,40 @@ const BOQ_GLOBAL_ORDER_BY = `COALESCE(div.sort_order, 2147483647), COALESCE(bsec
  * alone: `line_number` is display-only, so bumping every row's optimistic token
  * on an unrelated reorder would falsely stale the whole BOQ's SWR cache. The
  * callers that change order already revalidate.
+ *
+ * The project's line increment is resolved inline (one `incr` row cross-joined
+ * in) so the whole renumber is a single round-trip — callers never fetch it
+ * separately just to feed this.
  */
 async function renumberBoqContinuous(
   executor: Pool | PoolClient,
-  boqId: string,
-  increment: number
+  boqId: string
 ): Promise<void> {
   await executor.query(
     `UPDATE boq_item t
-        SET line_number = o.rn * $2
+        SET line_number = o.rn * incr.v
        FROM (
          SELECT bi.id, ROW_NUMBER() OVER (ORDER BY ${BOQ_GLOBAL_ORDER_BY}) AS rn
            FROM boq_item bi ${BOQ_GLOBAL_ORDER_JOIN}
           WHERE bi.boq_id = $1
        ) o
-      WHERE t.id = o.id AND t.line_number <> o.rn * $2`,
-    [boqId, increment]
+       CROSS JOIN ${projectIncrementSql("$1")} AS incr(v)
+      WHERE t.id = o.id AND t.line_number <> o.rn * incr.v`,
+    [boqId]
   );
 }
 
 /**
  * Run `fn` inside a transaction holding the BOQ's line-number advisory lock,
- * then renumber the BOQ continuously. For the order-changing mutations that
- * don't need custom return/conflict handling (item + section reorder).
+ * then renumber the BOQ continuously, and return `fn`'s result. For the
+ * order-changing mutations with a known `boqId` up front (item + section
+ * reorder, plain add) — the ones that derive `boqId` in-tx or abort without
+ * renumbering (move, section update/delete) stay hand-rolled.
  */
-async function withBoqRenumber(
+async function withBoqRenumber<T>(
   boqId: string,
-  fn: (client: PoolClient) => Promise<void>
-): Promise<void> {
+  fn: (client: PoolClient) => Promise<T>
+): Promise<T> {
   const pool = getPool();
   const client = await pool.connect();
   try {
@@ -126,10 +132,10 @@ async function withBoqRenumber(
     await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [
       `boq-lines:${boqId}`,
     ]);
-    await fn(client);
-    const increment = await getProjectIncrement(client, boqId);
-    await renumberBoqContinuous(client, boqId, increment);
+    const result = await fn(client);
+    await renumberBoqContinuous(client, boqId);
     await client.query("COMMIT");
+    return result;
   } catch (err) {
     await client.query("ROLLBACK");
     throw err;
@@ -935,11 +941,7 @@ export async function updateBoqSection(
       `boq-lines:${boqId}`,
     ]);
     const { rows } = await client.query<BoqSection>(sql, values);
-    await renumberBoqContinuous(
-      client,
-      boqId,
-      await getProjectIncrement(client, boqId)
-    );
+    await renumberBoqContinuous(client, boqId);
     await client.query("COMMIT");
     return rows[0] ?? null;
   } catch (err) {
@@ -994,11 +996,7 @@ export async function deleteBoqSection(
     // Non-cascade orphans the section's items into Unassigned — their order
     // shifts, so re-flow the numbers. Cascade removed them entirely.
     if (!cascade) {
-      await renumberBoqContinuous(
-        client,
-        boqId,
-        await getProjectIncrement(client, boqId)
-      );
+      await renumberBoqContinuous(client, boqId);
     }
     await client.query("COMMIT");
     return (rowCount ?? 0) > 0;
@@ -1163,40 +1161,24 @@ export async function createBoqItem(
 /**
  * Add a single BOQ line (the plain "Add item" path, no anchor) and reconcile the
  * BOQ's continuous line numbers. `createBoqItem` appends at the numeric end, so
- * adding to a mid-BOQ section leaves it out of global order until this renumbers.
- * Runs in a transaction under the BOQ line lock, then re-reads the row so the
- * caller gets its final line number.
+ * adding to a mid-BOQ section leaves it out of global order until the renumber.
+ * `withBoqRenumber` owns the lock + renumber; the row is re-read after COMMIT
+ * (its committed line number is final) so the caller gets the reconciled value.
  */
 export async function addBoqItem(
   boqId: string,
   orgId: string,
   input: CreateBoqItemInput
 ): Promise<BoqItemWithComputed> {
-  const pool = getPool();
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [
-      `boq-lines:${boqId}`,
-    ]);
-    const created = await createBoqItem(boqId, orgId, input, client);
-    await renumberBoqContinuous(
-      client,
-      boqId,
-      await getProjectIncrement(client, boqId)
-    );
-    const { rows } = await client.query<BoqItemWithComputed>(
-      `${ITEM_SELECT} WHERE bi.id = $1`,
-      [created.id]
-    );
-    await client.query("COMMIT");
-    return rows[0];
-  } catch (err) {
-    await client.query("ROLLBACK");
-    throw err;
-  } finally {
-    client.release();
-  }
+  const id = await withBoqRenumber(
+    boqId,
+    async (client) => (await createBoqItem(boqId, orgId, input, client)).id
+  );
+  const { rows } = await getPool().query<BoqItemWithComputed>(
+    `${ITEM_SELECT} WHERE bi.id = $1`,
+    [id]
+  );
+  return rows[0];
 }
 
 /**
@@ -1308,7 +1290,7 @@ export async function insertBoqItemBetween(
       // clean multiples of the increment (numbers are BOQ-wide continuous, so
       // one section's respace wouldn't reopen a gap that spans sections).
       if (!opts.allowRenumber) throw new NeedsRenumberError();
-      await renumberBoqContinuous(client, boqId, increment);
+      await renumberBoqContinuous(client, boqId);
       b = await insertBounds(client, boqId, anchor.itemId, anchor.position);
       newLine = mid(b.lo, b.hi ?? b.lo + increment);
     }
@@ -1889,11 +1871,7 @@ export async function moveBoqItem(
       await client.query("ROLLBACK");
       return { ok: false, reason: "conflict" };
     }
-    await renumberBoqContinuous(
-      client,
-      boqId,
-      await getProjectIncrement(client, boqId)
-    );
+    await renumberBoqContinuous(client, boqId);
     const { rows } = await client.query<BoqItemWithComputed>(
       `${ITEM_SELECT} WHERE bi.id = $1`,
       [itemId]
@@ -2264,11 +2242,7 @@ export async function addElementsToBoq(
 
     // 4. One renumber for the whole batch, then re-read the inserted rows so
     // their line numbers reflect their final continuous positions.
-    await renumberBoqContinuous(
-      client,
-      boqId,
-      await getProjectIncrement(client, boqId)
-    );
+    await renumberBoqContinuous(client, boqId);
     const { rows: created } = await client.query<BoqItemWithComputed>(
       `${ITEM_SELECT} WHERE bi.id = ANY($1::uuid[])
         ORDER BY array_position($1::uuid[], bi.id)`,
@@ -2364,11 +2338,7 @@ export async function moveBoqItemsBulk(
 
     // 4. Re-flow the BOQ's continuous line numbers, then re-fetch the moved rows
     //    with computed columns, in the caller's order (so SWR merges cleanly).
-    await renumberBoqContinuous(
-      client,
-      boqId,
-      await getProjectIncrement(client, boqId)
-    );
+    await renumberBoqContinuous(client, boqId);
     const { rows } = await client.query<BoqItemWithComputed>(
       `${ITEM_SELECT}
        WHERE bi.id = ANY($1::uuid[])
@@ -3084,7 +3054,7 @@ export async function bulkInsertBoqItems(
 
     // Rows were numbered per-section as they inserted; re-flow to one continuous
     // BOQ-wide sequence so imported lines match the app's numbering.
-    await renumberBoqContinuous(client, boqId, increment);
+    await renumberBoqContinuous(client, boqId);
 
     await client.query("COMMIT");
     return result;

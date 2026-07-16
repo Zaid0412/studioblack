@@ -531,6 +531,17 @@ function SectionList(props: SectionListProps) {
     <SectionBody group={group} {...props} />
   );
 
+  // Per-division section count + total, derived in one pass (not re-filtered per
+  // band). Keyed by divisionId ("none" for the no-division run).
+  const divisionAgg = new Map<string, { count: number; total: number }>();
+  for (const g of realGroups) {
+    const key = g.divisionId ?? "none";
+    const agg = divisionAgg.get(key) ?? { count: 0, total: 0 };
+    agg.count += 1;
+    agg.total += g.total;
+    divisionAgg.set(key, agg);
+  }
+
   // Emit a division band before the first section of each new division. Pure
   // (index-based) so nothing is reassigned during render — the sections are
   // already division-ordered, so a run-length comparison against the previous
@@ -543,15 +554,13 @@ function SectionList(props: SectionListProps) {
     const showBand =
       index === 0 || realGroups[index - 1].divisionId !== group.divisionId;
     if (!showBand) return node;
-    const siblings = realGroups.filter(
-      (g) => g.divisionId === group.divisionId
-    );
+    const agg = divisionAgg.get(group.divisionId ?? "none")!;
     return (
       <div key={`band-${group.divisionId ?? "none"}`}>
         <BoqDivisionHeader
           name={group.divisionName ?? "No division"}
-          sectionCount={siblings.length}
-          divisionTotal={siblings.reduce((sum, g) => sum + g.total, 0)}
+          sectionCount={agg.count}
+          divisionTotal={agg.total}
           currency={currency}
         />
         {node}
