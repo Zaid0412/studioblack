@@ -44,6 +44,7 @@ export async function writeBoqSheet(boq: BoqExportInput): Promise<Buffer> {
   for (const item of boq.items) {
     const section = item.section_id ? sectionById.get(item.section_id) : null;
     ws.addRow({
+      divisionName: item.division_name ?? "",
       sectionTitle: section?.title ?? "",
       itemCode: item.item_code ?? "",
       categoryPath: item.category_id
@@ -86,6 +87,8 @@ function pickWidth(key: string): number {
     case "sectionTitle":
     case "description":
       return 32;
+    case "divisionName":
+      return 22;
     case "itemCode":
       return 16;
     case "notes":

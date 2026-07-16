@@ -38,6 +38,7 @@ const MAX_DATA_ROWS = 5_000;
 // ── Template definition ─────────────────────────────────────────────────────
 
 const TEMPLATE_COLUMNS = {
+  divisionName: "Division",
   sectionTitle: "Section",
   itemCode: "Item Code",
   categoryPath: "Category Path",
@@ -87,6 +88,7 @@ const TEMPLATE: TemplateConfig<TemplateKey> = {
 
 /** Hoisted out of the parse loop — avoids re-allocating per row × per import. */
 const OPTIONAL_STRING_FIELDS = [
+  ["divisionName", "Division", 150],
   ["sectionTitle", "Section", 255],
   ["itemCode", "Item Code", 50],
   ["notes", "Notes", 2000],

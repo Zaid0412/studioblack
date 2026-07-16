@@ -617,6 +617,7 @@ export function BoqItemDrawer({
             <div className="flex items-center gap-2 text-xs font-mono text-text-muted">
               Line {item.line_number}
               {item.item_code && <span>· {item.item_code}</span>}
+              {item.division_name && <span>· {item.division_name}</span>}
               {section && <span>· {section.title}</span>}
             </div>
             <SheetTitle>{item.description}</SheetTitle>

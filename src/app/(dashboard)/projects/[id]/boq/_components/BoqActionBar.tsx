@@ -7,8 +7,16 @@ import {
   Download,
   Upload,
   CheckSquare,
+  ChevronDown,
+  MoreHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/DropdownMenu";
 
 interface BoqActionBarProps {
   onAddItem: () => void;
@@ -25,7 +33,12 @@ interface BoqActionBarProps {
   onToggleSelectionMode?: () => void;
 }
 
-/** Right-aligned action row above the BOQ table. Edit buttons hide when `canEdit` is false. */
+/**
+ * Right-aligned action row above the BOQ table. The add actions collapse into a
+ * single "Add" menu and the Excel import/export into a "More" menu, so the bar
+ * stays to three controls instead of six. Edit controls hide when `canEdit` is
+ * false — the client view keeps only the bulk-select toggle.
+ */
 export function BoqActionBar({
   onAddItem,
   onAddFromLibrary,
@@ -59,55 +72,48 @@ export function BoqActionBar({
       )}
       {canEdit && (
         <>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={onExport}
-            disabled={exporting}
-          >
-            <Download className="h-4 w-4" />
-            {exporting ? "Exporting…" : "Export Excel"}
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={onImport}
-            disabled={disabled}
-          >
-            <Upload className="h-4 w-4" />
-            Import Excel
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={onAddSection}
-            disabled={disabled}
-          >
-            <FolderPlus className="h-4 w-4" />
-            Add section
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={onAddItem}
-            disabled={disabled}
-          >
-            <Plus className="h-4 w-4" />
-            Add manual
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            onClick={onAddFromLibrary}
-            disabled={disabled}
-          >
-            <BookOpen className="h-4 w-4" />
-            Add from library
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" variant="secondary" size="sm">
+                <MoreHorizontal className="h-4 w-4" />
+                <span className="hidden sm:inline">More</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={onExport} disabled={exporting}>
+                <Download className="h-4 w-4" />
+                {exporting ? "Exporting…" : "Export to Excel"}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={onImport} disabled={disabled}>
+                <Upload className="h-4 w-4" />
+                Import from Excel
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" size="sm" disabled={disabled}>
+                <Plus className="h-4 w-4" />
+                Add
+                <ChevronDown className="h-4 w-4 opacity-80" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={onAddFromLibrary}>
+                <BookOpen className="h-4 w-4" />
+                From element library…
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={onAddItem}>
+                <Plus className="h-4 w-4" />
+                New manual line
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={onAddSection}>
+                <FolderPlus className="h-4 w-4" />
+                New section
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </>
       )}
     </div>

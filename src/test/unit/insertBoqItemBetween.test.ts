@@ -54,21 +54,26 @@ function wire(opts: {
   mockClientQuery.mockImplementation((sql: string) => {
     if (/INSERT INTO boq_item/.test(sql))
       return Promise.resolve({ rows: [{ id: "new-item" }] });
-    if (/SELECT pr\.line_increment FROM boq pb/.test(sql))
-      return Promise.resolve({ rows: [{ line_increment: opts.increment }] });
-    if (/line_number = t\.rn/.test(sql)) {
-      renumbered = true; // the re-spacing UPDATE ran
+    // The BOQ-wide continuous renumber (no-gap fallback). Checked before the
+    // increment matcher — the renumber UPDATE now embeds the increment subquery.
+    if (/line_number = o\.rn/.test(sql)) {
+      renumbered = true;
       return Promise.resolve({ rows: [] });
     }
+    if (/SELECT pr\.line_increment FROM boq pb/.test(sql))
+      return Promise.resolve({ rows: [{ line_increment: opts.increment }] });
     if (
       /SELECT section_id, sort_order, line_number FROM boq_item WHERE id/.test(
         sql
       )
     )
       return Promise.resolve({ rows: [opts.anchor] });
-    if (/sort_order > \$3|sort_order < \$3/.test(sql)) {
+    // Global neighbour lookup (MIN above / MAX below) by line_number.
+    if (/line_number > \$2|line_number < \$2/.test(sql)) {
       const n = renumbered ? opts.afterRenumber : opts.neighbor;
-      return Promise.resolve({ rows: n ? [n] : [] });
+      return Promise.resolve({
+        rows: [{ line_number: n?.line_number ?? null }],
+      });
     }
     return Promise.resolve({ rows: [] }); // BEGIN / COMMIT / shift UPDATE
   });

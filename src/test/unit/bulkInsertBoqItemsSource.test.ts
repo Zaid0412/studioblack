@@ -41,6 +41,7 @@ describe("bulkInsertBoqItems — source derivation", () => {
       .mockResolvedValueOnce({ rows: [] }) // advisory lock
       .mockResolvedValueOnce({ rows: [{ id: SERVICE_AREA, level: 3 }] }) // Service Area gate
       .mockResolvedValueOnce({ rows: [] }) // existing sections
+      .mockResolvedValueOnce({ rows: [] }) // division library (name → id resolution)
       .mockResolvedValueOnce({
         // SELECT element by code — only LIB-1 exists
         rows: [{ id: "lib-element-id", code: "LIB-1" }],
@@ -48,6 +49,7 @@ describe("bulkInsertBoqItems — source derivation", () => {
       .mockResolvedValueOnce({ rows: [] }) // SELECT max sort_order per section
       .mockResolvedValueOnce({ rows: [] }) // INSERT row 1 (LIB-1 → linked)
       .mockResolvedValueOnce({ rows: [] }) // INSERT row 2 (CUSTOM-1 → unlinked)
+      .mockResolvedValueOnce({ rows: [] }) // BOQ-wide renumber
       .mockResolvedValueOnce({ rows: [] }); // COMMIT
 
     await realBulkInsertBoqItems(BOQ_ID, ORG, [

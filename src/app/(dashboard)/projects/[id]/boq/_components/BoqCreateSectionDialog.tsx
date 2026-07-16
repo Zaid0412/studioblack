@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { FormDialog } from "@/components/ui/FormDialog";
 import { toast } from "@/components/ui/useToast";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
+import { BoqDivisionSelect } from "./BoqDivisionSelect";
 import type { BoqSection } from "@/types";
 
 interface BoqCreateSectionDialogProps {
@@ -30,12 +31,14 @@ export function BoqCreateSectionDialog({
   const { createSection } = useBoqMutations(projectId);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [divisionId, setDivisionId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (open) {
       setTitle("");
       setDescription("");
+      setDivisionId(null);
     }
   }, [open]);
 
@@ -55,6 +58,7 @@ export function BoqCreateSectionDialog({
       const created = await createSection({
         boqId,
         title: trimmed,
+        divisionId,
         description: description.trim() || null,
         sortOrder: nextSortOrder,
         isVisibleToClient: true,
@@ -90,6 +94,13 @@ export function BoqCreateSectionDialog({
           autoFocus
           placeholder="e.g. Civil Works"
         />
+      </label>
+
+      <label className="flex flex-col gap-1.5">
+        <span className="text-xs font-medium text-text-secondary">
+          Division (optional)
+        </span>
+        <BoqDivisionSelect value={divisionId} onChange={setDivisionId} />
       </label>
 
       <label className="flex flex-col gap-1.5">

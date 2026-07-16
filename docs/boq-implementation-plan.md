@@ -62,6 +62,7 @@ RFQs nested under Order), not the 8-tab bar this plan describes.
 > - [Tab 4 — Error Handling & Phase 2](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.awk8tpqx406u)
 > - [Tab 5 — Client BOQ Sub-Nav (informal)](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.a3ma4anbiwbv)
 > - [Tab 6 — Operational Logic & State Machines](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.ts167vyji3xt)
+>   - [BOQ Div/Section](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.hgvsecaean3w)
 >
 > **Addendum tabs** (added after the plan — see "Revisions from PRD Tabs 7–10"):
 >

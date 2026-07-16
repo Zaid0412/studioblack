@@ -3,6 +3,7 @@ import {
   deleteBoqSection,
   updateBoqSection,
   verifyBoqSectionOwnership,
+  divisionBelongsToOrg,
 } from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
 import { parseRequest, updateBoqSectionSchema } from "@/lib/validations";
@@ -12,7 +13,7 @@ const notFound = () => notFoundResponse("Section not found in this project");
 
 export const PATCH = withAuth(
   { blockedRoles: ["client"], projectAccess: true },
-  async (req, _ctx, params) => {
+  async (req, { orgId }, params) => {
     const { id, sectionId } = params;
 
     if (!(await verifyBoqSectionOwnership(sectionId, id))) return notFound();
@@ -20,6 +21,16 @@ export const PATCH = withAuth(
     const parsed = await parseRequest(req, updateBoqSectionSchema);
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+
+    if (
+      parsed.data.divisionId &&
+      (!orgId || !(await divisionBelongsToOrg(parsed.data.divisionId, orgId)))
+    ) {
+      return NextResponse.json(
+        { error: "Division not found" },
+        { status: 400 }
+      );
     }
 
     const updated = await updateBoqSection(sectionId, parsed.data);

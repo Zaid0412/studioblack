@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import {
-  createBoqItem,
+  addBoqItem,
   insertBoqItemBetween,
   NeedsRenumberError,
   requireServiceArea,
@@ -41,7 +41,7 @@ export const POST = withAuth(
             itemInput,
             { allowRenumber }
           )
-        : await createBoqItem(result.boqId, orgId, itemInput);
+        : await addBoqItem(result.boqId, orgId, itemInput);
       return NextResponse.json(item, { status: 201 });
     } catch (err) {
       // A full section with no gap left needs the user's OK to renumber — tell

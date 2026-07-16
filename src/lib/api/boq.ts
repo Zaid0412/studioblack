@@ -74,6 +74,8 @@ export function update(projectId: string, data: UpdateBoqPayload) {
 export interface CreateSectionPayload {
   boqId: string;
   title: string;
+  /** The org-level division this section sits under; null = Unassigned. */
+  divisionId?: string | null;
   description?: string | null;
   sortOrder?: number;
   budgetCap?: number | null;

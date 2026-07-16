@@ -90,6 +90,12 @@ export const API = {
   changeEmail:           ()                            => "/api/settings/change-email",
   verifyEmailChange:     ()                            => "/api/settings/verify-email-change",
 
+  // ── Divisions ───────────────────────────────────
+  divisions:                ()                            => "/api/divisions",
+  division:                 (id: string)                  => `/api/divisions/${id}`,
+  divisionsReorder:         ()                            => "/api/divisions/reorder",
+  divisionsRestore:         ()                            => "/api/divisions/restore",
+
   // ── Element Categories ──────────────────────────
   elementCategories:        ()                            => "/api/element-categories",
   elementCategory:          (id: string)                  => `/api/element-categories/${id}`,

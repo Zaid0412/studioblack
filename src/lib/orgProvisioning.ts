@@ -1,13 +1,16 @@
-import { bulkCreateCategoriesFromTemplates } from "@/lib/queries";
+import {
+  bulkCreateCategoriesFromTemplates,
+  seedDefaultDivisions,
+} from "@/lib/queries";
 import { MASTER_TAXONOMY } from "@/lib/categoryTemplates";
 import type { BulkCategoryNode } from "@/lib/validations";
 
 /**
  * Provision a newly-created organisation with its default data.
  *
- * Currently seeds the shared master taxonomy (Category → Sub-category →
- * Service Area) so every org has categories out of the box. Idempotent — safe
- * to re-run, e.g. to backfill an org that predates auto-seeding.
+ * Seeds the shared master taxonomy (Category → Sub-category → Service Area) and
+ * the default BOQ Division library so every org has both out of the box.
+ * Idempotent — safe to re-run, e.g. to backfill an org that predates seeding.
  *
  * This is the single provisioning entry point: the `afterCreateOrganization`
  * auth hook calls it for the app's normal org-creation flow, and any script,
@@ -21,4 +24,5 @@ export async function provisionNewOrg(orgId: string): Promise<void> {
     orgId,
     MASTER_TAXONOMY as readonly BulkCategoryNode[]
   );
+  await seedDefaultDivisions(orgId);
 }

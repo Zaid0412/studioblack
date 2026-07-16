@@ -1,6 +1,12 @@
 "use client";
 
-import { useMemo, useState, type ReactNode, type WheelEvent } from "react";
+import {
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type WheelEvent,
+} from "react";
 import { useTranslations } from "next-intl";
 import { Search } from "lucide-react";
 import {
@@ -66,6 +72,7 @@ export function SearchableDropdown({
   const t = useTranslations("common");
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const normalizedQuery = useMemo(() => query.trim().toLowerCase(), [query]);
   const close = () => setOpen(false);
@@ -84,6 +91,13 @@ export function SearchableDropdown({
         align={align}
         className="w-[var(--radix-popover-trigger-width)] p-0"
         style={{ minWidth: minContentWidth }}
+        // Land focus on the search box every time the popover opens, instead of
+        // Radix's default (the content container). `preventDefault` stops the
+        // default focus, then we focus the input imperatively.
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          inputRef.current?.focus();
+        }}
       >
         <div className="flex flex-col">
           {typeof headerSlot === "function" ? headerSlot(close) : headerSlot}
@@ -93,11 +107,11 @@ export function SearchableDropdown({
               aria-hidden
             />
             <input
+              ref={inputRef}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t("search")}
               className="w-full bg-transparent pl-9 pr-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none border-b border-border-default"
-              autoFocus
             />
           </div>
           {subheaderSlot?.(normalizedQuery, close)}

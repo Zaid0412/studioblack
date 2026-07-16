@@ -9,6 +9,7 @@ export * as notifications from "./notifications";
 export * as upload from "./upload";
 export * as approvals from "./approvals";
 export * as elementCategories from "./element-categories";
+export * as divisions from "./divisions";
 export * as elements from "./elements";
 export * as boq from "./boq";
 export * as vendors from "./vendors";

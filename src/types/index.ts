@@ -674,10 +674,30 @@ export interface Boq {
   updated_at: string;
 }
 
+/**
+ * A reusable org-level Division — the grouping level above BOQ sections
+ * (Project → BOQ → Division → Section → BOQ Item). Master data, like
+ * `element_category`: renameable, disable-able, reorderable, with a
+ * default-for-new-projects flag.
+ */
+export interface Division {
+  id: string;
+  org_id: string;
+  code: string;
+  name: string;
+  sort_order: number;
+  enabled: boolean;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 /** A section grouping within a BOQ (e.g., "Civil", "Electrical"). */
 export interface BoqSection {
   id: string;
   boq_id: string;
+  /** The org-level division this section sits under; null = "Unassigned". */
+  division_id: string | null;
   title: string;
   sort_order: number;
   description: string | null;
@@ -685,6 +705,9 @@ export interface BoqSection {
   is_visible_to_client: boolean;
   created_at: string;
   updated_at: string;
+  /** Division code/name (joined on read). Null when unassigned. */
+  division_code?: string | null;
+  division_name?: string | null;
 }
 
 /** A BOQ line item (raw DB row, no computed cost columns). */
@@ -700,9 +723,9 @@ export interface BoqItem {
    */
   category_id: string | null;
   /**
-   * The item's gapped line number within its section (`10, 20, 30…`). Combined
-   * with the BOQ's `boq_number` this is the line's business reference
-   * (`P2026-001-BOQ-001 / Line 20`).
+   * The item's gapped line number, continuous across the whole BOQ (`10, 20,
+   * 30…` spanning every division/section). Combined with the BOQ's `boq_number`
+   * this is the line's business reference (`P2026-001-BOQ-001 / Line 20`).
    */
   line_number: number;
   /**
@@ -738,6 +761,9 @@ export interface BoqItem {
   element_name: string | null;
   /** Service-area name for `category_id` (joined). Null when unclassified. */
   category_name: string | null;
+  /** Division of the item's section (joined via boq_section). Null when unassigned. */
+  division_id: string | null;
+  division_name: string | null;
   installed_qty: string;
   has_snag: boolean;
   po_status: BoqItemPoStatus;
@@ -890,6 +916,7 @@ export type BoqUnit = ElementUnit;
 export interface ParsedBoqValues {
   rowNumber: number;
   sectionTitle?: string;
+  divisionName?: string;
   itemCode?: string;
   /**
    * The Service Area the line sits under — required. Either supplied as a
