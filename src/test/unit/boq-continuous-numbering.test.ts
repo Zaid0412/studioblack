@@ -33,6 +33,9 @@ describe("BOQ-wide continuous line numbers", () => {
     mockQuery.mockImplementation((sql: string) => {
       if (/INSERT INTO boq_item/.test(sql))
         return Promise.resolve({ rows: [{ id: "new" }] });
+      // Custom lines now auto-generate item_code from the shared sequence.
+      if (/INSERT INTO sequence_counter/.test(sql))
+        return Promise.resolve({ rows: [{ current_value: 1 }] });
       return Promise.resolve({ rows: [] });
     });
 

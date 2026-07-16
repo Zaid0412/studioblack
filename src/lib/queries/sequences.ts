@@ -236,16 +236,19 @@ export async function requireServiceArea(
 /**
  * Fast-forward the counter past every code already issued under `prefix`.
  *
- * The Excel import inserts the codes it is given verbatim and never advances
- * the counter, so a library seeded from another org's export can hold
+ * An import inserts the codes it is given verbatim and never advances the
+ * counter, so a library seeded from another org's export can hold
  * `KIT-0001…KIT-0005` while `(org, 'KIT')` still sits at 0. Without this, the
  * next generated code would collide, and the failed transaction would roll the
  * counter back — so every subsequent create in that category would fail the
  * same way, forever. Re-deriving the true high-water mark from the rows makes
  * that self-healing.
  *
- * Only codes shaped `<prefix>-<digits>` count; a hand-written `KIT-SPECIAL` is
- * not a sequence number and must not drag the counter anywhere.
+ * The counter is shared between `element.code` and `boq_item.item_code` (a
+ * manual BOQ line draws the same per-prefix sequence), so the high-water mark
+ * spans both tables — a code imported into either can't be re-issued to the
+ * other. Only codes shaped `<prefix>-<digits>` count; a hand-written
+ * `KIT-SPECIAL` is not a sequence number and must not drag the counter anywhere.
  */
 export async function syncElementCounter(
   executor: Executor,
@@ -259,6 +262,13 @@ export async function syncElementCounter(
            FROM element
           WHERE org_id = $1
             AND code LIKE $3 || '-%'
+         UNION ALL
+         SELECT substring(bi.item_code from char_length($2) + 2) AS suffix
+           FROM boq_item bi
+           JOIN boq b ON b.id = bi.boq_id
+           JOIN project p ON p.id = b.project_id
+          WHERE p.org_id = $1
+            AND bi.item_code LIKE $3 || '-%'
        ) s
       WHERE suffix ~ '^[0-9]+$'`,
     [orgId, prefix, escapeSqlLike(prefix)]

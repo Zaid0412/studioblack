@@ -51,7 +51,6 @@ interface Attribute {
 
 interface FormState {
   imageUrl: string | null;
-  itemCode: string;
   name: string;
   sectionId: string;
   description: string;
@@ -90,7 +89,6 @@ interface FormState {
 
 const INITIAL: FormState = {
   imageUrl: null,
-  itemCode: "",
   name: "",
   sectionId: BOQ_NO_SECTION_ID,
   description: "",
@@ -351,7 +349,6 @@ export function BoqCreateItemSheet({
     e.preventDefault();
     const trimmedDesc = v.description.trim();
     const trimmedName = v.name.trim();
-    const trimmedCode = v.itemCode.trim();
 
     if (!trimmedDesc) {
       toast({
@@ -387,6 +384,9 @@ export function BoqCreateItemSheet({
     setSubmitting(true);
     try {
       let elementId: string | null = null;
+      // Custom lines leave this undefined so the server auto-generates the code;
+      // a saved-to-library line carries its element's server-assigned code.
+      let itemCode: string | undefined;
 
       if (v.saveAsElement) {
         const element = await elementsApi.create({
@@ -416,6 +416,7 @@ export function BoqCreateItemSheet({
           specFileName: v.specFileName,
         });
         elementId = element.id;
+        itemCode = element.code;
       }
 
       const payload: CreateItemPayload = {
@@ -423,7 +424,7 @@ export function BoqCreateItemSheet({
         sectionId: v.sectionId === BOQ_NO_SECTION_ID ? null : v.sectionId,
         elementId,
         categoryId,
-        itemCode: trimmedCode || undefined,
+        itemCode,
         // Persist even when `saveAsElement` is off — the BOQ item's own
         // `name` is what the drawer shows when there's no linked element.
         name: trimmedName || null,
@@ -534,10 +535,10 @@ export function BoqCreateItemSheet({
                 <label className="flex flex-col gap-1.5">
                   <span className={labelCls}>Element code</span>
                   <Input
-                    value={v.itemCode}
-                    onChange={(e) => set("itemCode", e.target.value)}
-                    maxLength={50}
-                    placeholder="Optional"
+                    value=""
+                    readOnly
+                    disabled
+                    placeholder="Auto-generated"
                   />
                 </label>
                 <label className="flex flex-col gap-1.5">
