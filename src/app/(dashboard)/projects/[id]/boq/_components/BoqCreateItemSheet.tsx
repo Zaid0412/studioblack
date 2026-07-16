@@ -173,8 +173,11 @@ export function BoqCreateItemSheet({
   // the sheet opens.
   const [manualQty, setManualQty] = useState(false);
 
-  const { isServiceAreaId, options, loaded: treeLoaded } =
-    useCategoryTree(open);
+  const {
+    isServiceAreaId,
+    options,
+    loaded: treeLoaded,
+  } = useCategoryTree(open);
 
   // Project-level BOQ defaults (Settings → BOQ) pre-fill a new line's unit and
   // service charge; null falls back to INITIAL's global defaults.
