@@ -32,6 +32,19 @@ export const CATEGORY_LEVEL = 1;
 /** `element_category.code_prefix` is VARCHAR(20). */
 export const CATEGORY_CODE_MAX = 20;
 
+/**
+ * Defaults for an org with no `category_code_config` row. Lives here (a pure,
+ * client-safe module) rather than in the query module so client hooks can read
+ * it without pulling the `pg` driver into the browser bundle.
+ */
+export const CATEGORY_CODE_CONFIG_DEFAULTS = {
+  auto_generate: true,
+  code_max_length: 4,
+  force_uppercase: true,
+  prevent_duplicates: true,
+  lock_after_use: true,
+} as const;
+
 /** Path codes are uppercase alphanumeric segments joined by "-". */
 export function normalizeCodeSegment(segment: string): string {
   return segment.toUpperCase().replace(/[^A-Z0-9]/g, "");

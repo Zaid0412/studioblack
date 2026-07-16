@@ -5,7 +5,7 @@ import {
   parseRequest,
   updateCategoryCodeConfigSchema,
 } from "@/lib/validations";
-import { CATEGORY_CODE_CONFIG_DEFAULTS } from "@/lib/queries/categoryCodeConfig";
+import { CATEGORY_CODE_CONFIG_DEFAULTS } from "@/lib/categoryCode";
 
 /** GET /api/category-code-config — the org's coding config (defaults if unset). */
 export const GET = withAuth(

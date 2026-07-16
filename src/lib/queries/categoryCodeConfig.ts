@@ -1,17 +1,9 @@
 import type { Pool, PoolClient } from "pg";
 import { getPool } from "@/lib/db";
+import { CATEGORY_CODE_CONFIG_DEFAULTS } from "@/lib/categoryCode";
 import type { CategoryCodeConfig } from "@/types";
 
 type Querier = Pick<Pool | PoolClient, "query">;
-
-/** Defaults returned for an org that has no `category_code_config` row yet. */
-export const CATEGORY_CODE_CONFIG_DEFAULTS: CategoryCodeConfig = {
-  auto_generate: true,
-  code_max_length: 4,
-  force_uppercase: true,
-  prevent_duplicates: true,
-  lock_after_use: true,
-};
 
 /** Columns an update is allowed to set (route sends snake_case keys). */
 const CONFIG_COLS = new Set([

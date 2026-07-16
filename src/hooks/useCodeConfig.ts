@@ -2,7 +2,7 @@
 
 import useSWR from "swr";
 import { API } from "@/lib/api/routes";
-import { CATEGORY_CODE_CONFIG_DEFAULTS } from "@/lib/queries/categoryCodeConfig";
+import { CATEGORY_CODE_CONFIG_DEFAULTS } from "@/lib/categoryCode";
 import type { CategoryCodeConfig } from "@/types";
 
 /**
