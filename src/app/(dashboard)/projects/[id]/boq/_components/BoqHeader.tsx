@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { AlertTriangle, SlidersHorizontal } from "lucide-react";
+import { AlertTriangle, Layers, SlidersHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useUserRoleContext } from "@/contexts/UserRoleContext";
 import type { BoqItemPhase } from "@/lib/validations";
@@ -82,6 +82,14 @@ export function BoqHeader({
               >
                 <SlidersHorizontal className="h-3 w-3" />
                 Line numbering
+              </Link>
+              <span>·</span>
+              <Link
+                href="/settings?section=divisions"
+                className="inline-flex items-center gap-1 hover:text-text-primary transition-colors"
+              >
+                <Layers className="h-3 w-3" />
+                Divisions
               </Link>
             </>
           )}
