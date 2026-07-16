@@ -6,6 +6,22 @@ vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
 }));
 
+const codeConfig = {
+  auto_generate: true,
+  code_max_length: 4,
+  force_uppercase: true,
+  prevent_duplicates: true,
+  lock_after_use: true,
+};
+vi.mock("@/hooks/useCodeConfig", () => ({
+  useCodeConfig: () => ({
+    config: codeConfig,
+    isLoading: false,
+    loaded: true,
+    mutate: vi.fn(),
+  }),
+}));
+
 import { CategoryForm } from "@/components/elements/CategoryForm";
 import type { CategoryOption } from "@/app/(dashboard)/elements/_lib/categoryUtils";
 
@@ -76,5 +92,33 @@ describe("CategoryForm — parent field", () => {
 
     // The form edits only the last segment; the full path is composed.
     expect(screen.getByDisplayValue("BASE")).toBeTruthy();
+  });
+});
+
+describe("CategoryForm — code auto-generation", () => {
+  it("auto-fills the code from the name while creating (auto on)", () => {
+    // Creating with a name and no code — the segment is suggested from the name.
+    renderForm({ initial: { name: "Kitchen" } });
+    expect(screen.getByDisplayValue("KITC")).toBeTruthy();
+  });
+
+  it("locks the code field when editing an in-use category", () => {
+    renderForm({
+      isEditing: true,
+      inUse: true,
+      initial: { name: "Kitchen", codePrefix: "KIT" },
+    });
+    const code = screen.getByDisplayValue("KIT") as HTMLInputElement;
+    expect(code.disabled).toBe(true);
+  });
+
+  it("does not lock the code when the category isn't in use", () => {
+    renderForm({
+      isEditing: true,
+      inUse: false,
+      initial: { name: "Kitchen", codePrefix: "KIT" },
+    });
+    const code = screen.getByDisplayValue("KIT") as HTMLInputElement;
+    expect(code.disabled).toBe(false);
   });
 });

@@ -19,7 +19,9 @@ vi.mock("@/lib/db", () => ({
 
 import {
   createCategory,
+  updateCategory,
   DuplicateCodeError,
+  CategoryCodeLockedError,
 } from "@/lib/queries/elementCategories";
 
 /** Route the query mock. `config` and `siblings` are per-test. */
@@ -82,5 +84,56 @@ describe("createCategory — code auto-generation", () => {
     await expect(
       createCategory("org-1", { name: "Kitchen", codePrefix: "KIT" })
     ).rejects.toBeInstanceOf(DuplicateCodeError);
+  });
+});
+
+describe("updateCategory — lock after use", () => {
+  /** Route the update path: before-row, config, and the in-use EXISTS check. */
+  function wireUpdate(opts: { inUse: boolean; lockAfterUse?: boolean }) {
+    mockQuery.mockImplementation((sql: string) => {
+      if (/SELECT code_prefix, parent_id FROM element_category/.test(sql))
+        return Promise.resolve({
+          rows: [{ code_prefix: "OLD", parent_id: null }],
+        });
+      if (/FROM category_code_config/.test(sql))
+        return Promise.resolve({
+          rows:
+            opts.lockAfterUse === false
+              ? [
+                  {
+                    auto_generate: true,
+                    code_max_length: 4,
+                    force_uppercase: true,
+                    prevent_duplicates: true,
+                    lock_after_use: false,
+                  },
+                ]
+              : [], // default: lock_after_use = true
+        });
+      if (/SELECT EXISTS/.test(sql))
+        return Promise.resolve({ rows: [{ referenced: opts.inUse }] });
+      if (/UPDATE element_category/.test(sql))
+        return Promise.resolve({ rows: [{ id: "cat-1", code_prefix: "NEW" }] });
+      return Promise.resolve({ rows: [] }); // BEGIN / lock / COMMIT / ROLLBACK
+    });
+  }
+
+  it("blocks a code change on an in-use category", async () => {
+    wireUpdate({ inUse: true });
+    await expect(
+      updateCategory("cat-1", "org-1", { code_prefix: "NEW" })
+    ).rejects.toBeInstanceOf(CategoryCodeLockedError);
+  });
+
+  it("allows a code change when the category isn't in use", async () => {
+    wireUpdate({ inUse: false });
+    const res = await updateCategory("cat-1", "org-1", { code_prefix: "NEW" });
+    expect(res?.code_prefix).toBe("NEW");
+  });
+
+  it("allows a code change on an in-use category when lock is off", async () => {
+    wireUpdate({ inUse: true, lockAfterUse: false });
+    const res = await updateCategory("cat-1", "org-1", { code_prefix: "NEW" });
+    expect(res?.code_prefix).toBe("NEW");
   });
 });
