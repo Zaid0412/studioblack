@@ -40,6 +40,19 @@ interface Props {
 }
 
 /**
+ * Soft, per-status tint for a disabled row's reason pill — very light fills so
+ * the badges read as a quiet hint, not a loud status. Keyed by `po_status`;
+ * unknown statuses fall back to neutral.
+ */
+const DISABLED_TONE: Record<string, string> = {
+  rfq_issued: "bg-info/10 text-info border-info/20",
+  quoted: "bg-warning/10 text-warning border-warning/20",
+  po_raised: "bg-accent/10 text-accent border-accent/20",
+  delivered: "bg-success/10 text-success border-success/20",
+};
+const NEUTRAL_TONE = "bg-bg-elevated text-text-muted border-border-default";
+
+/**
  * Shared "pick BOQ items" table used by the RFQ create form and the
  * "add items to existing RFQ" dialog. Indeterminate-aware select-all
  * header plus the canonical code / description / unit / quantity columns.
@@ -131,7 +144,11 @@ export function BoqItemsPickerTable({
                     {it.description}
                   </span>
                   {reason && (
-                    <span className="inline-flex items-center rounded-full border border-border-default bg-bg-elevated px-2 py-0.5 text-[11px] text-text-muted whitespace-nowrap">
+                    <span
+                      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] whitespace-nowrap ${
+                        DISABLED_TONE[it.po_status] ?? NEUTRAL_TONE
+                      }`}
+                    >
                       {reason}
                     </span>
                   )}
