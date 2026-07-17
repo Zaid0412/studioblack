@@ -45,6 +45,10 @@ function wire(opts: { collisions?: number } = {}) {
   let counter = 0;
   let collisionsLeft = opts.collisions ?? 0;
   mockQuery.mockImplementation((sql: string) => {
+    // Division is mandatory: createBoqItem resolves one (section's, else GEN)
+    // when the input omits it — answer with a division id.
+    if (/lower\(d\.code\) = 'gen'/.test(sql))
+      return Promise.resolve({ rows: [{ id: "gen-div" }] });
     if (/code_prefix FROM element_category/.test(sql))
       return Promise.resolve({ rows: [{ code_prefix: PREFIX }] });
     // bumpSequenceCounter — advance and hand back the new value.

@@ -43,6 +43,7 @@ const insertParams = () =>
 function wire(opts: {
   increment: number;
   anchor: {
+    division_id: string;
     section_id: string | null;
     sort_order: number;
     line_number: number;
@@ -66,13 +67,14 @@ function wire(opts: {
     if (/SELECT pr\.line_increment FROM boq pb/.test(sql))
       return Promise.resolve({ rows: [{ line_increment: opts.increment }] });
     if (
-      /SELECT section_id, sort_order, line_number FROM boq_item WHERE id/.test(
+      /SELECT division_id, section_id, sort_order, line_number FROM boq_item WHERE id/.test(
         sql
       )
     )
       return Promise.resolve({ rows: [opts.anchor] });
-    // Global neighbour lookup (MIN above / MAX below) by line_number.
-    if (/line_number > \$2|line_number < \$2/.test(sql)) {
+    // Per-division neighbour lookup (MIN above / MAX below) by line_number,
+    // scoped to the anchor's division ($2) — so the line compares to $3.
+    if (/line_number > \$3|line_number < \$3/.test(sql)) {
       const n = renumbered ? opts.afterRenumber : opts.neighbor;
       return Promise.resolve({
         rows: [{ line_number: n?.line_number ?? null }],
@@ -91,7 +93,7 @@ describe("insertBoqItemBetween", () => {
   it("takes the midpoint of the gap below the anchor", async () => {
     wire({
       increment: 10,
-      anchor: { section_id: null, sort_order: 0, line_number: 10 },
+      anchor: { division_id: "div-1", section_id: null, sort_order: 0, line_number: 10 },
       neighbor: { line_number: 20 },
     });
 
@@ -105,7 +107,7 @@ describe("insertBoqItemBetween", () => {
   it("appends (anchor + increment) when the anchor is the last row", async () => {
     wire({
       increment: 10,
-      anchor: { section_id: null, sort_order: 3, line_number: 30 },
+      anchor: { division_id: "div-1", section_id: null, sort_order: 3, line_number: 30 },
       neighbor: null,
     });
 
@@ -117,7 +119,7 @@ describe("insertBoqItemBetween", () => {
   it("throws NeedsRenumberError when the gap can't be split", async () => {
     wire({
       increment: 10,
-      anchor: { section_id: null, sort_order: 0, line_number: 10 },
+      anchor: { division_id: "div-1", section_id: null, sort_order: 0, line_number: 10 },
       neighbor: { line_number: 11 },
     });
 
@@ -130,7 +132,7 @@ describe("insertBoqItemBetween", () => {
   it("re-spaces the section and inserts when allowRenumber is set", async () => {
     wire({
       increment: 10,
-      anchor: { section_id: null, sort_order: 0, line_number: 10 },
+      anchor: { division_id: "div-1", section_id: null, sort_order: 0, line_number: 10 },
       neighbor: { line_number: 11 },
       afterRenumber: { line_number: 20 }, // gap reopened by the re-spacing
     });

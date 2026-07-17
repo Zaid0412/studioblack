@@ -34,6 +34,10 @@ const ELEMENT_ID = "550e8400-e29b-41d4-a716-446655440005";
 /** Route the pooled/client query mock by SQL shape. */
 function wire(elementRow: Record<string, unknown> | null) {
   mocks.db.query.mockImplementation((sql: string) => {
+    // Division is mandatory — createBoqItem resolves one (section's, else GEN)
+    // for library adds that don't pass a division.
+    if (/lower\(d\.code\) = 'gen'/.test(sql))
+      return Promise.resolve({ rows: [{ id: "gen-div" }] });
     if (/FROM element WHERE/.test(sql))
       return Promise.resolve({ rows: elementRow ? [elementRow] : [] });
     if (/INSERT INTO boq_item/.test(sql))
@@ -98,12 +102,13 @@ describe("addElementToBoq", () => {
     const insertCall = insertParams()!;
     const params = insertCall[1] as unknown[];
     expect(insertCall[0]).toContain("INSERT INTO boq_item");
-    expect(params.length).toBe(29); // $29 is the optional explicit line_number
+    expect(params.length).toBe(30); // $30 division_id is the last param
     expect(params[3]).toBe("library"); // $4 source
     expect(params[4]).toBe(null); // $5 rate_contract_item_id
     expect(params[6]).toBe(null); // $7 name (not auto-copied from element)
     expect(params[14]).toBe(2.5); // $15 service_charge_pct (from element)
     expect(params[27]).toBe(null); // $28 category_id (element had none)
+    expect(params[29]).toBe("gen-div"); // $30 division_id (resolved to GEN)
 
     expect(insertCall[0]).toMatch(
       /\(1 \+ COALESCE\(bi\.service_charge_pct, 0\)\/100\)/

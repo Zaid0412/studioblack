@@ -36,6 +36,7 @@ import type { BoqItemWithComputed } from "@/types";
 
 const PROJECT_ID = "proj-1";
 const CATEGORY_ID = "44444444-4444-4444-8444-444444444444";
+const DIVISION_ID = "55555555-5555-4555-8555-555555555555";
 const BOQ_ID = "550e8400-e29b-41d4-a716-446655440000";
 const SECTION_ID = "550e8400-e29b-41d4-a716-446655440001";
 const ITEM_ID = "550e8400-e29b-41d4-a716-446655440003";
@@ -102,6 +103,7 @@ describe("POST /api/projects/[id]/boq/items", () => {
       body: {
         boqId: BOQ_ID,
         categoryId: CATEGORY_ID,
+        divisionId: DIVISION_ID,
         description: "Laying tiles",
         unit: "m2",
         quantity: 10,
@@ -134,6 +136,7 @@ describe("POST /api/projects/[id]/boq/items", () => {
       body: {
         boqId: BOQ_ID,
         categoryId: CATEGORY_ID,
+        divisionId: DIVISION_ID,
         description: "Inserted line",
         unit: "m2",
         anchorItemId: ITEM_ID,
@@ -165,6 +168,7 @@ describe("POST /api/projects/[id]/boq/items", () => {
       body: {
         boqId: BOQ_ID,
         categoryId: CATEGORY_ID,
+        divisionId: DIVISION_ID,
         description: "Inserted line",
         unit: "m2",
         anchorItemId: ITEM_ID,
@@ -224,6 +228,7 @@ describe("POST /api/projects/[id]/boq/items", () => {
       body: {
         boqId: BOQ_ID,
         categoryId: CATEGORY_ID,
+        divisionId: DIVISION_ID,
         description: "Laying tiles",
         unit: "m2",
         quantity: 10,
@@ -246,6 +251,7 @@ describe("POST /api/projects/[id]/boq/items", () => {
       body: {
         boqId: BOQ_ID,
         categoryId: CATEGORY_ID,
+        divisionId: DIVISION_ID,
         description: "x",
         unit: "m2",
       },
@@ -277,6 +283,7 @@ describe("POST /api/projects/[id]/boq/items", () => {
       body: {
         boqId: BOQ_ID,
         categoryId: CATEGORY_ID,
+        divisionId: DIVISION_ID,
         description: "x",
         unit: "m2",
         quantity: -5,
@@ -297,6 +304,7 @@ describe("POST /api/projects/[id]/boq/items", () => {
       body: {
         boqId: BOQ_ID,
         categoryId: CATEGORY_ID,
+        divisionId: DIVISION_ID,
         description: "x",
         unit: "m2",
       },
@@ -316,6 +324,7 @@ describe("POST /api/projects/[id]/boq/items", () => {
       body: {
         boqId: BOQ_ID,
         categoryId: CATEGORY_ID,
+        divisionId: DIVISION_ID,
         description: "Concrete footing M25",
         unit: "m3",
         quantity: 1.875,
@@ -348,6 +357,7 @@ describe("POST /api/projects/[id]/boq/items", () => {
       body: {
         boqId: BOQ_ID,
         categoryId: CATEGORY_ID,
+        divisionId: DIVISION_ID,
         description: "x",
         unit: "m2",
         length: -1,
@@ -368,6 +378,7 @@ describe("POST /api/projects/[id]/boq/items", () => {
       body: {
         boqId: BOQ_ID,
         categoryId: CATEGORY_ID,
+        divisionId: DIVISION_ID,
         description: "Engineered oak",
         unit: "m2",
         quantity: 8.2,
@@ -396,6 +407,7 @@ describe("POST /api/projects/[id]/boq/items", () => {
       body: {
         boqId: BOQ_ID,
         categoryId: CATEGORY_ID,
+        divisionId: DIVISION_ID,
         description: "x",
         unit: "m2",
         dimensionUnit: "cm",
@@ -769,6 +781,7 @@ describe("PATCH /api/projects/[id]/boq/items/reorder", () => {
       body: {
         boqId: BOQ_ID,
         categoryId: CATEGORY_ID,
+        divisionId: DIVISION_ID,
         sectionId: SECTION_ID,
         orderedIds: [ITEM_ID_2, ITEM_ID],
       },
@@ -792,6 +805,7 @@ describe("PATCH /api/projects/[id]/boq/items/reorder", () => {
       body: {
         boqId: BOQ_ID,
         categoryId: CATEGORY_ID,
+        divisionId: DIVISION_ID,
         sectionId: null,
         orderedIds: [ITEM_ID],
       },
@@ -847,6 +861,7 @@ describe("PATCH /api/projects/[id]/boq/items/reorder", () => {
       body: {
         boqId: BOQ_ID,
         categoryId: CATEGORY_ID,
+        divisionId: DIVISION_ID,
         description: "Laying tiles",
         unit: "m2",
         quantity: 10,
@@ -869,6 +884,7 @@ describe("PATCH /api/projects/[id]/boq/items/reorder", () => {
       body: {
         boqId: BOQ_ID,
         categoryId: CATEGORY_ID,
+        divisionId: DIVISION_ID,
         sectionId: SECTION_ID,
         orderedIds: [ITEM_ID],
       },
@@ -887,6 +903,7 @@ describe("PATCH /api/projects/[id]/boq/items/reorder", () => {
       body: {
         boqId: BOQ_ID,
         categoryId: CATEGORY_ID,
+        divisionId: DIVISION_ID,
         sectionId: "not-uuid",
         orderedIds: [ITEM_ID],
       },
@@ -906,6 +923,7 @@ describe("PATCH /api/projects/[id]/boq/items/reorder", () => {
       body: {
         boqId: BOQ_ID,
         categoryId: CATEGORY_ID,
+        divisionId: DIVISION_ID,
         sectionId: SECTION_ID,
         orderedIds: [ITEM_ID],
       },
@@ -1053,6 +1071,7 @@ describe("POST /api/projects/[id]/boq/items/from-element", () => {
       body: {
         boqId: BOQ_ID,
         categoryId: CATEGORY_ID,
+        divisionId: DIVISION_ID,
         description: "Laying tiles",
         unit: "m2",
         quantity: 10,
@@ -1265,6 +1284,7 @@ describe("POST /api/projects/[id]/boq/items/from-elements", () => {
       body: {
         boqId: BOQ_ID,
         categoryId: CATEGORY_ID,
+        divisionId: DIVISION_ID,
         description: "Laying tiles",
         unit: "m2",
         quantity: 10,

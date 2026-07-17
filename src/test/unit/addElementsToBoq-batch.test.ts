@@ -56,6 +56,10 @@ describe("addElementsToBoq (batched, transactional)", () => {
     // renumber, then re-reads the inserted rows via ITEM_SELECT (that re-read is
     // what the function returns).
     mocks.db.query.mockImplementation((sql: string) => {
+      // Division is mandatory — createBoqItem resolves one (section's, else GEN)
+      // per row when the batch doesn't pass a division.
+      if (/lower\(d\.code\) = 'gen'/.test(sql))
+        return Promise.resolve({ rows: [{ id: "gen-div" }] });
       if (/FROM element WHERE .* ANY/s.test(sql))
         return Promise.resolve({
           rows: [elementRow(EL_A, "EL-A"), elementRow(EL_B, "EL-B")],

@@ -6,7 +6,7 @@
  */
 
 export interface DivisionTemplate {
-  /** Short code stored in division.code (e.g. GEN, CIV, HVAC). */
+  /** Short 3-char code stored in division.code (e.g. GEN, CIV, HVC). */
   code: string;
   name: string;
 }
@@ -18,7 +18,7 @@ export const DIVISION_DEFAULTS: ReadonlyArray<DivisionTemplate> = [
   { code: "MAS", name: "Masonry" },
   { code: "PLB", name: "Plumbing" },
   { code: "ELE", name: "Electrical" },
-  { code: "HVAC", name: "HVAC" },
+  { code: "HVC", name: "HVAC" },
   { code: "INT", name: "Interior Works" },
   { code: "KIT", name: "Kitchen" },
   { code: "JNR", name: "Joinery" },

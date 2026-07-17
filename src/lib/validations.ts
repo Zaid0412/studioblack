@@ -611,13 +611,15 @@ export const reorderCategoriesSchema = z.object({
 // ─── Divisions (/api/divisions) ────────────────────────────────────────────
 
 export const createDivisionSchema = z.object({
-  code: trimmedString.max(10),
+  // A division code is the prefix of every line's reference (`PLB-20`), so it's
+  // capped at 3 chars to keep that reference short.
+  code: trimmedString.max(3),
   name: trimmedString.max(150),
   sortOrder: z.number().int().min(0).optional(),
 });
 
 export const updateDivisionSchema = z.object({
-  code: trimmedString.max(10).optional(),
+  code: trimmedString.max(3).optional(),
   name: trimmedString.max(150).optional(),
   enabled: z.boolean().optional(),
   isDefault: z.boolean().optional(),
@@ -956,6 +958,10 @@ export const reorderSectionsSchema = z.object({
  */
 export const createBoqItemSchema = z.object({
   sectionId: optionalUuid.nullable(),
+  // Mandatory: every line belongs to a Division. Drives the per-division line
+  // number and its `<code>-<number>` reference. Ownership is checked server-side
+  // (`divisionBelongsToOrg`) — a schema can't see the org's divisions.
+  divisionId: uuid,
   elementId: optionalUuid.nullable(),
   // Required, and must be a Service Area — it is what makes a line match rate
   // contracts and drive vendor suggestion, so an unclassified line silently
@@ -1013,6 +1019,9 @@ export type BoqItemChangeReason = (typeof BOQ_ITEM_CHANGE_REASONS)[number];
 export const updateBoqItemSchema = z.object({
   updatedAt: updatedAtToken,
   sectionId: z.string().uuid().nullable().optional(),
+  // Non-nullable: an edit may move the line to another Division, but division is
+  // mandatory so it can't be cleared. Changing it re-flows the line numbers.
+  divisionId: uuid.optional(),
   // Non-nullable: an edit may move the line to another Service Area, but may
   // not strip it back to unclassified.
   categoryId: uuid.optional(),

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   addBoqItem,
+  divisionBelongsToOrg,
   insertBoqItemBetween,
   NeedsRenumberError,
   requireServiceArea,
@@ -30,6 +31,15 @@ export const POST = withAuth(
       // would cost a query per row in a batch, and would make adding a
       // *grandfathered* element to a BOQ fail outright.
       await requireServiceArea(getPool(), orgId, result.data.categoryId);
+
+      // Division is mandatory and org-scoped — nothing DB-side ties a line's
+      // division to its org, so gate it here like the Service Area.
+      if (!(await divisionBelongsToOrg(result.data.divisionId, orgId))) {
+        return NextResponse.json(
+          { error: "Division not found in this organization" },
+          { status: 400 }
+        );
+      }
 
       const { anchorItemId, insertPosition, allowRenumber, ...itemInput } =
         result.data;

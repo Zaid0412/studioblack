@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   deleteBoqItem,
+  divisionBelongsToOrg,
   updateBoqItem,
   verifyBoqItemOwnership,
 } from "@/lib/queries";
@@ -29,6 +30,18 @@ export const PATCH = withAuth(
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
     const { updatedAt, ...fields } = parsed.data;
+
+    // A reclassify may move the line to another Division — gate it to the org,
+    // matching the create path (updateBoqItem re-flows the numbers).
+    if (
+      fields.divisionId !== undefined &&
+      !(await divisionBelongsToOrg(fields.divisionId, orgId))
+    ) {
+      return NextResponse.json(
+        { error: "Division not found in this organization" },
+        { status: 400 }
+      );
+    }
 
     try {
       const outcome = await updateBoqItem(
