@@ -723,6 +723,86 @@ export async function getRfqContactsForEmail(
   }));
 }
 
+/**
+ * A vendor contact due for an RFQ reminder: an active vendor invited to a still-
+ * open RFQ (`issued` / `quotes_received` / `under_review`) who has not responded
+ * (no current `vendor_quote` — a decline counts as a response), whose last touch
+ * (`last_reminder_at`, else `invited_at`) is at least 3 days old, and who has a
+ * `receives_rfq` contact with an email.
+ *
+ * Cross-org by design — the reminder cron runs system-wide, not under a user
+ * session. One row per emailable contact; a vendor with several such contacts
+ * yields several rows (all sharing one `rfq_vendor` reminder stamp).
+ */
+export interface DueRfqReminder {
+  rfqId: string;
+  rfqNumber: string;
+  rfqTitle: string;
+  projectName: string;
+  responseDeadline: string | null;
+  vendorId: string;
+  vendorName: string;
+  contactName: string;
+  contactEmail: string;
+  reminderCount: number;
+}
+
+export async function getDueRfqReminders(): Promise<DueRfqReminder[]> {
+  const { rows } = await getPool().query(
+    `SELECT r.id AS rfq_id, r.rfq_number, r.title AS rfq_title,
+            p.name AS project_name, r.response_deadline::text AS response_deadline,
+            rv.vendor_id, rv.reminder_count,
+            v.company_name AS vendor_name,
+            vc.name AS contact_name, vc.email AS contact_email
+       FROM rfq_vendor rv
+       JOIN rfq r ON r.id = rv.rfq_id
+       JOIN project p ON p.id = r.project_id
+       JOIN vendor v ON v.id = rv.vendor_id AND v.status = 'active'
+       JOIN vendor_contact vc ON vc.vendor_id = v.id
+            AND vc.receives_rfq = true AND vc.email IS NOT NULL
+      WHERE r.status IN ('issued', 'quotes_received', 'under_review')
+        AND COALESCE(rv.last_reminder_at, rv.invited_at) <= now() - interval '3 days'
+        AND NOT EXISTS (
+          SELECT 1 FROM vendor_quote vq
+           WHERE vq.rfq_id = rv.rfq_id
+             AND vq.vendor_id = rv.vendor_id
+             AND vq.is_current
+        )
+      ORDER BY r.id, lower(v.company_name), vc.is_primary DESC, lower(vc.name)`
+  );
+  return rows.map((r) => ({
+    rfqId: r.rfq_id,
+    rfqNumber: r.rfq_number,
+    rfqTitle: r.rfq_title,
+    projectName: r.project_name,
+    responseDeadline: r.response_deadline,
+    vendorId: r.vendor_id,
+    vendorName: r.vendor_name,
+    contactName: r.contact_name,
+    contactEmail: r.contact_email,
+    reminderCount: r.reminder_count,
+  }));
+}
+
+/**
+ * Stamp the reminder cadence for the given `(rfqId, vendorId)` pairs: set
+ * `last_reminder_at = now()` and bump `reminder_count`. Called once per vendor
+ * after a reminder run attempts its email(s), so the next run waits a full 3
+ * days — even for a vendor with multiple contacts, or one whose email bounced.
+ */
+export async function markRfqVendorsReminded(
+  pairs: ReadonlyArray<{ rfqId: string; vendorId: string }>
+): Promise<void> {
+  if (pairs.length === 0) return;
+  await getPool().query(
+    `UPDATE rfq_vendor rv
+        SET last_reminder_at = now(), reminder_count = reminder_count + 1
+       FROM UNNEST($1::uuid[], $2::uuid[]) AS t(rfq_id, vendor_id)
+      WHERE rv.rfq_id = t.rfq_id AND rv.vendor_id = t.vendor_id`,
+    [pairs.map((p) => p.rfqId), pairs.map((p) => p.vendorId)]
+  );
+}
+
 // ── Mutations ───────────────────────────────────────────────────────────────
 
 export interface NewRfqItem {
