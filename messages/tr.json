@@ -1327,6 +1327,12 @@
       },
       "useContract": "Sözleşmeyi kullan",
       "rateContractBanner": "{count, plural, =1 {# kalem için aktif bir birim fiyat sözleşmesi mevcut} other {# kalem için aktif birim fiyat sözleşmesi mevcut}} — teklif istemek yerine sözleşme fiyatını uygulayabilirsiniz.",
+      "itemDisabled": {
+        "rfq_issued": "Zaten bir talepte",
+        "quoted": "Teklif alındı",
+        "po_raised": "Sipariş oluşturuldu",
+        "delivered": "Teslim edildi"
+      },
       "cancel": "İptal",
       "save": "Taslağı kaydet",
       "successToast": "Talep taslağı oluşturuldu — hazır olduğunda tedarikçilere gönderin.",

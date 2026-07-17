@@ -25,6 +25,14 @@ interface Props {
   onToggleAll: () => void;
   labels: Labels;
   /**
+   * For each non-selectable row (keyed by item id; absent → selectable): the
+   * pill `label` and its `tone` (colour classes). Disabled rows still render —
+   * greyed out with the pill — so a row the caller can't pick doesn't silently
+   * disappear. The caller owns label + tone, so this table stays free of any
+   * workflow-specific styling.
+   */
+  disabledReasons?: Record<string, { label: string; tone: string }>;
+  /**
    * Best matching active rate per element id (RFQ-create only). When provided
    * together with `onUseContract`, a "rate contract available" column renders
    * with a one-click "Use contract" action.
@@ -44,11 +52,16 @@ export function BoqItemsPickerTable({
   onToggleItem,
   onToggleAll,
   labels,
+  disabledReasons,
   rateAvailability,
   onUseContract,
 }: Props) {
-  const allSelected = items.length > 0 && selected.size === items.length;
-  const someSelected = selected.size > 0 && selected.size < items.length;
+  // Select-all reflects only the selectable rows — disabled ones can't be picked.
+  const selectableCount = disabledReasons
+    ? items.filter((it) => !disabledReasons[it.id]).length
+    : items.length;
+  const allSelected = selectableCount > 0 && selected.size === selectableCount;
+  const someSelected = selected.size > 0 && selected.size < selectableCount;
   const showRates = !!rateAvailability && !!onUseContract;
 
   // Cascade the rows in on mount / when the item set changes.
@@ -81,16 +94,22 @@ export function BoqItemsPickerTable({
       </thead>
       <tbody ref={bodyRef}>
         {items.map((it) => {
+          const pill = disabledReasons?.[it.id];
+          const disabled = !!pill;
           const rate =
-            showRates && it.element_id
+            !disabled && showRates && it.element_id
               ? (rateAvailability?.[it.element_id] ?? null)
               : null;
           return (
             <tr
               key={it.id}
               data-anim-item
-              className="border-t border-border-default hover:bg-bg-elevated/30 cursor-pointer"
-              onClick={() => onToggleItem(it.id)}
+              className={`border-t border-border-default ${
+                disabled
+                  ? "opacity-60"
+                  : "hover:bg-bg-elevated/30 cursor-pointer"
+              }`}
+              onClick={disabled ? undefined : () => onToggleItem(it.id)}
             >
               <td className="px-4 py-3">
                 <span
@@ -99,7 +118,8 @@ export function BoqItemsPickerTable({
                 >
                   <Checkbox
                     checked={selected.has(it.id)}
-                    onCheckedChange={() => onToggleItem(it.id)}
+                    onCheckedChange={() => !disabled && onToggleItem(it.id)}
+                    disabled={disabled}
                     aria-label={it.description}
                   />
                 </span>
@@ -107,7 +127,20 @@ export function BoqItemsPickerTable({
               <td className="px-4 py-3 font-mono text-xs text-text-muted">
                 {it.item_code}
               </td>
-              <td className="px-4 py-3 text-text-primary">{it.description}</td>
+              <td className="px-4 py-3 text-text-primary">
+                <span className="inline-flex items-center gap-2">
+                  <span className={disabled ? "text-text-muted" : ""}>
+                    {it.description}
+                  </span>
+                  {pill && (
+                    <span
+                      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] whitespace-nowrap ${pill.tone}`}
+                    >
+                      {pill.label}
+                    </span>
+                  )}
+                </span>
+              </td>
               <td className="px-4 py-3 text-text-secondary">{it.unit}</td>
               <td className="px-4 py-3 text-right tabular-nums text-text-secondary">
                 {it.quantity}

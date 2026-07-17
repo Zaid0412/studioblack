@@ -20,6 +20,7 @@ import { toIsoDate } from "@/lib/formatDate";
 import {
   RFQ_ELIGIBLE_PHASES,
   RFQ_PACKAGE_TYPES,
+  isProcurementCommitted,
   type RfqPackageType,
 } from "@/lib/validations";
 import { RFQ_PACKAGE_TYPE_ICONS } from "@/lib/rfqLabels";
@@ -34,6 +35,19 @@ interface Props {
 }
 
 const EMPTY_AVAILABILITY: Record<string, AvailableRate | null> = {};
+
+/**
+ * Soft, per-status tint for a disabled row's reason pill — very light fills so
+ * the badges read as a quiet hint, not a loud status. Keyed by `po_status`;
+ * unknown statuses fall back to neutral.
+ */
+const DISABLED_TONE: Record<string, string> = {
+  rfq_issued: "bg-info/10 text-info border-info/20",
+  quoted: "bg-warning/10 text-warning border-warning/20",
+  po_raised: "bg-accent/10 text-accent border-accent/20",
+  delivered: "bg-success/10 text-success border-success/20",
+};
+const NEUTRAL_TONE = "bg-bg-elevated text-text-muted border-border-default";
 
 /**
  * Single-page RFQ creator. Title is required; at least one BOQ item must be
@@ -60,16 +74,39 @@ export function RfqCreateForm({ projectId }: Props) {
   const [applyRateItem, setApplyRateItem] =
     useState<BoqItemWithComputed | null>(null);
 
-  // RFQ-4a: only items the PM has marked Ready for Procurement and that aren't
-  // already committed to an RFQ are eligible.
+  // Show every Ready-for-Procurement item in the project. Ones already committed
+  // to procurement (po_status !== 'none') render disabled with a reason rather
+  // than vanishing — otherwise the PM wonders why an item they marked ready is
+  // missing, forgetting it's on another RFQ.
   const items: BoqItemWithComputed[] = useMemo(
     () =>
-      (boq?.items ?? []).filter(
-        (it) =>
-          RFQ_ELIGIBLE_PHASES.includes(it.phase) && it.po_status === "none"
-      ),
+      (boq?.items ?? []).filter((it) => RFQ_ELIGIBLE_PHASES.includes(it.phase)),
     [boq?.items]
   );
+
+  // RFQ-4a gate: only uncommitted items can actually be picked (same rule the
+  // server enforces). The rest are shown disabled. Kept off `t` so a locale
+  // change doesn't invalidate the downstream rate-availability fetch.
+  const selectableItems = useMemo(
+    () => items.filter((it) => !isProcurementCommitted(it.po_status)),
+    [items]
+  );
+
+  // Each disabled row's pill (label + tone), keyed by item id (absent →
+  // selectable). The tone lives here, not in the shared table, so the picker
+  // stays free of procurement-specific colours.
+  const disabledReasons = useMemo(() => {
+    const map: Record<string, { label: string; tone: string }> = {};
+    for (const it of items) {
+      if (isProcurementCommitted(it.po_status)) {
+        map[it.id] = {
+          label: t(`create.itemDisabled.${it.po_status}`),
+          tone: DISABLED_TONE[it.po_status] ?? NEUTRAL_TONE,
+        };
+      }
+    }
+    return map;
+  }, [items, t]);
 
   // PR C: flag eligible items that already have an active matching rate
   // contract, so the PM can procure via contract instead of requesting a quote.
@@ -77,12 +114,12 @@ export function RfqCreateForm({ projectId }: Props) {
     () =>
       [
         ...new Set(
-          items
+          selectableItems
             .map((it) => it.element_id)
             .filter((id): id is string => id !== null)
         ),
       ].sort(),
-    [items]
+    [selectableItems]
   );
   const elementIdsKey = elementIds.join(",");
 
@@ -102,9 +139,10 @@ export function RfqCreateForm({ projectId }: Props) {
 
   const availableCount = useMemo(
     () =>
-      items.filter((it) => it.element_id && rateAvailability[it.element_id])
-        .length,
-    [items, rateAvailability]
+      selectableItems.filter(
+        (it) => it.element_id && rateAvailability[it.element_id]
+      ).length,
+    [selectableItems, rateAvailability]
   );
 
   // "Use contract" applied a rate: the item's price changed so it reopens to
@@ -122,6 +160,7 @@ export function RfqCreateForm({ projectId }: Props) {
   };
 
   const toggleItem = (id: string) => {
+    if (disabledReasons[id]) return; // committed items can't be picked
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -132,7 +171,9 @@ export function RfqCreateForm({ projectId }: Props) {
 
   const toggleAll = () => {
     setSelected((prev) =>
-      prev.size === items.length ? new Set() : new Set(items.map((i) => i.id))
+      prev.size === selectableItems.length
+        ? new Set()
+        : new Set(selectableItems.map((i) => i.id))
     );
   };
 
@@ -150,7 +191,7 @@ export function RfqCreateForm({ projectId }: Props) {
     }
 
     setSubmitting(true);
-    const itemPayload = items
+    const itemPayload = selectableItems
       .filter((it) => selected.has(it.id))
       .map((it) => ({
         boqItemId: it.id,
@@ -265,13 +306,13 @@ export function RfqCreateForm({ projectId }: Props) {
             <p className="text-xs text-text-muted mt-1">
               {t("create.itemsSelectedCount", {
                 selected: selected.size,
-                total: items.length,
+                total: selectableItems.length,
               })}
             </p>
           </div>
-          {items.length > 0 && (
+          {selectableItems.length > 0 && (
             <Button type="button" variant="ghost" size="sm" onClick={toggleAll}>
-              {selected.size === items.length
+              {selected.size === selectableItems.length
                 ? t("create.deselectAll")
                 : t("create.selectAll")}
             </Button>
@@ -308,6 +349,7 @@ export function RfqCreateForm({ projectId }: Props) {
               selected={selected}
               onToggleItem={toggleItem}
               onToggleAll={toggleAll}
+              disabledReasons={disabledReasons}
               rateAvailability={rateAvailability}
               onUseContract={setApplyRateItem}
               labels={{
