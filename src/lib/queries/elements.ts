@@ -854,8 +854,17 @@ async function generateElementCode(
 
     const [candidate] = await nextElementCodes(client, orgId, prefix, 1);
     await lockElementCode(client, orgId, candidate);
+    // The counter is shared with BOQ line codes, so the candidate must be free
+    // in both `element.code` and `boq_item.item_code` — either could hold an
+    // imported literal the counter hasn't caught up to yet.
     const { rows } = await client.query(
-      `SELECT 1 FROM element WHERE org_id = $1 AND code = $2 LIMIT 1`,
+      `SELECT 1 FROM element WHERE org_id = $1 AND code = $2
+       UNION ALL
+       SELECT 1 FROM boq_item bi
+         JOIN boq b ON b.id = bi.boq_id
+         JOIN project p ON p.id = b.project_id
+        WHERE p.org_id = $1 AND bi.item_code = $2
+       LIMIT 1`,
       [orgId, candidate]
     );
     if (rows.length === 0) return candidate;
@@ -868,11 +877,13 @@ async function generateElementCode(
 }
 
 /**
- * Resolve the category's prefix, then generate. Used by `duplicateElement`,
- * which copies the source's category — and that may be a grandfathered NULL, so
- * this tolerates what `requireServiceArea` rejects.
+ * Resolve the category's prefix, then generate. Used by `duplicateElement`
+ * (which copies the source's category — that may be a grandfathered NULL, so
+ * this tolerates what `requireServiceArea` rejects) and by the manual BOQ-line
+ * create path (`createBoqItem`), which assigns a custom line the same
+ * Library-format code from the shared per-prefix sequence.
  */
-async function generateElementCodeFor(
+export async function generateElementCodeFor(
   client: PoolClient,
   orgId: string,
   categoryId: string | null | undefined

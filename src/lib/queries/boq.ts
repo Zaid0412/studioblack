@@ -9,6 +9,7 @@ import {
   nextDocumentNumber,
   requireServiceArea,
 } from "./sequences";
+import { generateElementCodeFor } from "./elements";
 import {
   elementAncestorCategoryIdsSql,
   categoryAncestorCategoryIdsSql,
@@ -1069,11 +1070,12 @@ export interface CreateBoqItemInput {
 }
 
 /**
- * Insert a BOQ item. `item_code` is no longer a per-item business number — the
- * item's business reference is its BOQ's number plus the `line_number` assigned
- * here (`P2026-001-BOQ-001 / Line 20`). `item_code` now only carries a linked
- * element's code (or an import-supplied code), so a custom line with none is
- * left blank.
+ * Insert a BOQ item. `item_code` is not the item's business number — that's its
+ * BOQ's number plus the `line_number` assigned here (`P2026-001-BOQ-001 /
+ * Line 20`). `item_code` is the element code: a linked element's code, an
+ * import-supplied code, or — for a custom line with neither — one auto-generated
+ * from the line's Service Area in the same Library format
+ * (`generateElementCodeFor`, drawn from the shared per-prefix sequence).
  *
  * The `line_number` append is the BOQ-wide `MAX + increment` (line numbers are
  * continuous across the whole BOQ, not per section), so a plain append lands at
@@ -1089,7 +1091,24 @@ export async function createBoqItem(
   input: CreateBoqItemInput,
   executor: Pool | PoolClient = getPool()
 ): Promise<BoqItemWithComputed> {
-  const itemCode = input.itemCode?.trim() || null;
+  let itemCode = input.itemCode?.trim() || null;
+  // A custom line (no linked element) with no code gets one auto-generated from
+  // its Service Area — the same Library-format code (`KIT-CAB-BASE-0001`), drawn
+  // from the shared per-prefix sequence. The two user create paths (`addBoqItem`,
+  // `insertBoqItemBetween`) are the only callers that reach this branch
+  // (library/batch/import callers supply `itemCode` or an `elementId`).
+  if (!itemCode && !input.elementId && input.categoryId) {
+    // Generation takes an advisory xact-lock and bumps the counter, which must
+    // commit / roll back with this INSERT — so it needs a transaction client,
+    // not the pool. Fail loud rather than silently run the lock outside a txn
+    // (`release` is on PoolClient, not Pool — the narrowing also drops the cast).
+    if (!("release" in executor)) {
+      throw new Error(
+        "createBoqItem: auto-generating item_code requires a transaction client"
+      );
+    }
+    itemCode = await generateElementCodeFor(executor, orgId, input.categoryId);
+  }
 
   // Explicit ::numeric / ::int casts on numeric placeholders. Without them
   // pg infers the type from `COALESCE($N, 0)` as INTEGER (because the literal
@@ -1475,6 +1494,12 @@ export async function updateBoqItem(
 ): Promise<UpdateBoqItemOutcome> {
   // A grandfathered line heals here: the drawer can't save without a Service
   // Area, and this is what makes that true of the API too.
+  //
+  // NOTE (create-time only): moving a custom line to another Service Area does
+  // NOT re-code its `item_code` (unlike the Library's `recodeForCategory`), so
+  // an auto-generated code can end up under a stale prefix. Deliberately out of
+  // scope for the auto-generation feature — revisit if edit-time recoding is
+  // wanted.
   if (input.categoryId !== undefined) {
     await requireServiceArea(getPool(), orgId, input.categoryId);
   }
@@ -2967,8 +2992,10 @@ export async function bulkInsertBoqItems(
         ? (sectionIdByLowerTitle.get(title.toLowerCase()) ?? null)
         : null;
 
-      // `item_code` now only carries a linked element's code; a custom row
-      // without one is left blank.
+      // `item_code` carries a linked element's code; a custom import row without
+      // one is left blank. NOTE: unlike the interactive create path
+      // (`createBoqItem`), the import does NOT auto-generate a code for a
+      // codeless custom row — intentional for now; unify if the asymmetry bites.
       const itemCode = row.itemCode?.trim() || null;
       const elementId = itemCode
         ? (elementIdByCode.get(itemCode) ?? null)

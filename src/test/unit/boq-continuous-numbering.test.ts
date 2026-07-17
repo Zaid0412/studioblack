@@ -20,6 +20,14 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import { createBoqItem, reorderBoqItems, moveBoqItem } from "@/lib/queries/boq";
+import type { PoolClient } from "pg";
+
+// createBoqItem's code-generation branch requires a transaction client (has
+// `release`), so drive it with one rather than the pool default.
+const txClient = {
+  query: mockQuery,
+  release: () => {},
+} as unknown as PoolClient;
 
 const calls = () => mockQuery.mock.calls.map((c) => String(c[0]));
 
@@ -33,15 +41,23 @@ describe("BOQ-wide continuous line numbers", () => {
     mockQuery.mockImplementation((sql: string) => {
       if (/INSERT INTO boq_item/.test(sql))
         return Promise.resolve({ rows: [{ id: "new" }] });
+      // Custom lines now auto-generate item_code from the shared sequence.
+      if (/INSERT INTO sequence_counter/.test(sql))
+        return Promise.resolve({ rows: [{ current_value: 1 }] });
       return Promise.resolve({ rows: [] });
     });
 
-    await createBoqItem("boq-1", "org-1", {
-      sectionId: "sec-1",
-      categoryId: "cat-1",
-      description: "x",
-      unit: "m2",
-    });
+    await createBoqItem(
+      "boq-1",
+      "org-1",
+      {
+        sectionId: "sec-1",
+        categoryId: "cat-1",
+        description: "x",
+        unit: "m2",
+      },
+      txClient
+    );
 
     const insertSql = calls().find((c) => c.includes("INSERT INTO boq_item"))!;
     // The line_number append is BOQ-wide: MAX over the whole boq, with no

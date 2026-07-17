@@ -54,6 +54,9 @@ function wire(opts: {
   mockClientQuery.mockImplementation((sql: string) => {
     if (/INSERT INTO boq_item/.test(sql))
       return Promise.resolve({ rows: [{ id: "new-item" }] });
+    // Custom lines now auto-generate item_code from the shared sequence.
+    if (/INSERT INTO sequence_counter/.test(sql))
+      return Promise.resolve({ rows: [{ current_value: 1 }] });
     // The BOQ-wide continuous renumber (no-gap fallback). Checked before the
     // increment matcher — the renumber UPDATE now embeds the increment subquery.
     if (/line_number = o\.rn/.test(sql)) {
