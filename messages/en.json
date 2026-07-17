@@ -1327,6 +1327,12 @@
       },
       "useContract": "Use contract",
       "rateContractBanner": "{count, plural, =1 {# item has an active rate contract available} other {# items have an active rate contract available}} — apply the contract rate instead of requesting a quote.",
+      "itemDisabled": {
+        "rfq_issued": "Already in an RFQ",
+        "quoted": "Quoted",
+        "po_raised": "PO raised",
+        "delivered": "Delivered"
+      },
       "cancel": "Cancel",
       "save": "Save draft",
       "successToast": "RFQ draft created — issue it to vendors when ready.",

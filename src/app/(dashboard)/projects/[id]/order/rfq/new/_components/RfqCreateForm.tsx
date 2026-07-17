@@ -60,16 +60,33 @@ export function RfqCreateForm({ projectId }: Props) {
   const [applyRateItem, setApplyRateItem] =
     useState<BoqItemWithComputed | null>(null);
 
-  // RFQ-4a: only items the PM has marked Ready for Procurement and that aren't
-  // already committed to an RFQ are eligible.
+  // Show every Ready-for-Procurement item in the project. Ones already committed
+  // to procurement (po_status !== 'none') render disabled with a reason rather
+  // than vanishing — otherwise the PM wonders why an item they marked ready is
+  // missing, forgetting it's on another RFQ.
   const items: BoqItemWithComputed[] = useMemo(
     () =>
-      (boq?.items ?? []).filter(
-        (it) =>
-          RFQ_ELIGIBLE_PHASES.includes(it.phase) && it.po_status === "none"
-      ),
+      (boq?.items ?? []).filter((it) => RFQ_ELIGIBLE_PHASES.includes(it.phase)),
     [boq?.items]
   );
+
+  // RFQ-4a gate: only uncommitted items can actually be picked (same rule the
+  // server enforces). The rest are shown disabled.
+  const selectableItems = useMemo(
+    () => items.filter((it) => it.po_status === "none"),
+    [items]
+  );
+
+  // Per-item disabled reason, keyed by item id (absent → selectable).
+  const disabledReasons = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const it of items) {
+      if (it.po_status !== "none") {
+        map[it.id] = t(`create.itemDisabled.${it.po_status}`);
+      }
+    }
+    return map;
+  }, [items, t]);
 
   // PR C: flag eligible items that already have an active matching rate
   // contract, so the PM can procure via contract instead of requesting a quote.
@@ -77,12 +94,12 @@ export function RfqCreateForm({ projectId }: Props) {
     () =>
       [
         ...new Set(
-          items
+          selectableItems
             .map((it) => it.element_id)
             .filter((id): id is string => id !== null)
         ),
       ].sort(),
-    [items]
+    [selectableItems]
   );
   const elementIdsKey = elementIds.join(",");
 
@@ -102,9 +119,10 @@ export function RfqCreateForm({ projectId }: Props) {
 
   const availableCount = useMemo(
     () =>
-      items.filter((it) => it.element_id && rateAvailability[it.element_id])
-        .length,
-    [items, rateAvailability]
+      selectableItems.filter(
+        (it) => it.element_id && rateAvailability[it.element_id]
+      ).length,
+    [selectableItems, rateAvailability]
   );
 
   // "Use contract" applied a rate: the item's price changed so it reopens to
@@ -122,6 +140,7 @@ export function RfqCreateForm({ projectId }: Props) {
   };
 
   const toggleItem = (id: string) => {
+    if (disabledReasons[id]) return; // committed items can't be picked
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -132,7 +151,9 @@ export function RfqCreateForm({ projectId }: Props) {
 
   const toggleAll = () => {
     setSelected((prev) =>
-      prev.size === items.length ? new Set() : new Set(items.map((i) => i.id))
+      prev.size === selectableItems.length
+        ? new Set()
+        : new Set(selectableItems.map((i) => i.id))
     );
   };
 
@@ -150,7 +171,7 @@ export function RfqCreateForm({ projectId }: Props) {
     }
 
     setSubmitting(true);
-    const itemPayload = items
+    const itemPayload = selectableItems
       .filter((it) => selected.has(it.id))
       .map((it) => ({
         boqItemId: it.id,
@@ -265,13 +286,13 @@ export function RfqCreateForm({ projectId }: Props) {
             <p className="text-xs text-text-muted mt-1">
               {t("create.itemsSelectedCount", {
                 selected: selected.size,
-                total: items.length,
+                total: selectableItems.length,
               })}
             </p>
           </div>
-          {items.length > 0 && (
+          {selectableItems.length > 0 && (
             <Button type="button" variant="ghost" size="sm" onClick={toggleAll}>
-              {selected.size === items.length
+              {selected.size === selectableItems.length
                 ? t("create.deselectAll")
                 : t("create.selectAll")}
             </Button>
@@ -308,6 +329,7 @@ export function RfqCreateForm({ projectId }: Props) {
               selected={selected}
               onToggleItem={toggleItem}
               onToggleAll={toggleAll}
+              disabledReasons={disabledReasons}
               rateAvailability={rateAvailability}
               onUseContract={setApplyRateItem}
               labels={{
