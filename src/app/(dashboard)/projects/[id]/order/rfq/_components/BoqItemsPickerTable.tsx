@@ -25,11 +25,13 @@ interface Props {
   onToggleAll: () => void;
   labels: Labels;
   /**
-   * Reason each non-selectable row is disabled, keyed by item id (absent → the
-   * row is selectable). Disabled rows still render — greyed out with the reason
-   * — so an item already committed to procurement doesn't silently disappear.
+   * For each non-selectable row (keyed by item id; absent → selectable): the
+   * pill `label` and its `tone` (colour classes). Disabled rows still render —
+   * greyed out with the pill — so a row the caller can't pick doesn't silently
+   * disappear. The caller owns label + tone, so this table stays free of any
+   * workflow-specific styling.
    */
-  disabledReasons?: Record<string, string>;
+  disabledReasons?: Record<string, { label: string; tone: string }>;
   /**
    * Best matching active rate per element id (RFQ-create only). When provided
    * together with `onUseContract`, a "rate contract available" column renders
@@ -38,19 +40,6 @@ interface Props {
   rateAvailability?: Record<string, AvailableRate | null>;
   onUseContract?: (item: BoqItemWithComputed) => void;
 }
-
-/**
- * Soft, per-status tint for a disabled row's reason pill — very light fills so
- * the badges read as a quiet hint, not a loud status. Keyed by `po_status`;
- * unknown statuses fall back to neutral.
- */
-const DISABLED_TONE: Record<string, string> = {
-  rfq_issued: "bg-info/10 text-info border-info/20",
-  quoted: "bg-warning/10 text-warning border-warning/20",
-  po_raised: "bg-accent/10 text-accent border-accent/20",
-  delivered: "bg-success/10 text-success border-success/20",
-};
-const NEUTRAL_TONE = "bg-bg-elevated text-text-muted border-border-default";
 
 /**
  * Shared "pick BOQ items" table used by the RFQ create form and the
@@ -105,8 +94,8 @@ export function BoqItemsPickerTable({
       </thead>
       <tbody ref={bodyRef}>
         {items.map((it) => {
-          const reason = disabledReasons?.[it.id];
-          const disabled = !!reason;
+          const pill = disabledReasons?.[it.id];
+          const disabled = !!pill;
           const rate =
             !disabled && showRates && it.element_id
               ? (rateAvailability?.[it.element_id] ?? null)
@@ -143,13 +132,11 @@ export function BoqItemsPickerTable({
                   <span className={disabled ? "text-text-muted" : ""}>
                     {it.description}
                   </span>
-                  {reason && (
+                  {pill && (
                     <span
-                      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] whitespace-nowrap ${
-                        DISABLED_TONE[it.po_status] ?? NEUTRAL_TONE
-                      }`}
+                      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] whitespace-nowrap ${pill.tone}`}
                     >
-                      {reason}
+                      {pill.label}
                     </span>
                   )}
                 </span>

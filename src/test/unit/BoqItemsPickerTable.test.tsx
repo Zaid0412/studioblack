@@ -30,7 +30,7 @@ const ITEMS = [
   item({ id: "a", description: "Free item" }),
   item({ id: "b", description: "Committed item" }),
 ];
-const DISABLED = { b: "Already in an RFQ" };
+const DISABLED = { b: { label: "Already in an RFQ", tone: "bg-info/10" } };
 
 function renderTable(
   props: Partial<Parameters<typeof BoqItemsPickerTable>[0]> = {}

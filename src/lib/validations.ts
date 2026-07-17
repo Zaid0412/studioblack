@@ -872,6 +872,17 @@ export const RFQ_ELIGIBLE_PHASES: readonly BoqItemPhase[] = [
 ];
 
 /**
+ * An item is committed to procurement once it's on an issued RFQ or beyond, i.e.
+ * its `po_status` has left `'none'`. Committed items can't enter a new RFQ — the
+ * client picker greys them out, and the server gate (`rfqs.ts`, `po_status =
+ * 'none'`) rejects them. Centralised here the way `RFQ_ELIGIBLE_PHASES` holds
+ * the phase half of the rule, so the client can't drift from the gate.
+ */
+export function isProcurementCommitted(poStatus: BoqItemPoStatus): boolean {
+  return poStatus !== "none";
+}
+
+/**
  * Move a single item to a new phase. `comment` is optional except when the
  * target is a kick-back (`*_changes_requested`) — the creator needs to know
  * what to fix.

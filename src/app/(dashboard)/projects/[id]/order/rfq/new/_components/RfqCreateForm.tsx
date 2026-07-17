@@ -20,6 +20,7 @@ import { toIsoDate } from "@/lib/formatDate";
 import {
   RFQ_ELIGIBLE_PHASES,
   RFQ_PACKAGE_TYPES,
+  isProcurementCommitted,
   type RfqPackageType,
 } from "@/lib/validations";
 import { RFQ_PACKAGE_TYPE_ICONS } from "@/lib/rfqLabels";
@@ -34,6 +35,19 @@ interface Props {
 }
 
 const EMPTY_AVAILABILITY: Record<string, AvailableRate | null> = {};
+
+/**
+ * Soft, per-status tint for a disabled row's reason pill — very light fills so
+ * the badges read as a quiet hint, not a loud status. Keyed by `po_status`;
+ * unknown statuses fall back to neutral.
+ */
+const DISABLED_TONE: Record<string, string> = {
+  rfq_issued: "bg-info/10 text-info border-info/20",
+  quoted: "bg-warning/10 text-warning border-warning/20",
+  po_raised: "bg-accent/10 text-accent border-accent/20",
+  delivered: "bg-success/10 text-success border-success/20",
+};
+const NEUTRAL_TONE = "bg-bg-elevated text-text-muted border-border-default";
 
 /**
  * Single-page RFQ creator. Title is required; at least one BOQ item must be
@@ -71,18 +85,24 @@ export function RfqCreateForm({ projectId }: Props) {
   );
 
   // RFQ-4a gate: only uncommitted items can actually be picked (same rule the
-  // server enforces). The rest are shown disabled.
+  // server enforces). The rest are shown disabled. Kept off `t` so a locale
+  // change doesn't invalidate the downstream rate-availability fetch.
   const selectableItems = useMemo(
-    () => items.filter((it) => it.po_status === "none"),
+    () => items.filter((it) => !isProcurementCommitted(it.po_status)),
     [items]
   );
 
-  // Per-item disabled reason, keyed by item id (absent → selectable).
+  // Each disabled row's pill (label + tone), keyed by item id (absent →
+  // selectable). The tone lives here, not in the shared table, so the picker
+  // stays free of procurement-specific colours.
   const disabledReasons = useMemo(() => {
-    const map: Record<string, string> = {};
+    const map: Record<string, { label: string; tone: string }> = {};
     for (const it of items) {
-      if (it.po_status !== "none") {
-        map[it.id] = t(`create.itemDisabled.${it.po_status}`);
+      if (isProcurementCommitted(it.po_status)) {
+        map[it.id] = {
+          label: t(`create.itemDisabled.${it.po_status}`),
+          tone: DISABLED_TONE[it.po_status] ?? NEUTRAL_TONE,
+        };
       }
     }
     return map;
