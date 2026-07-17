@@ -543,7 +543,7 @@ export async function sendRfqReminderEmail(
       <div style="padding-top: 24px;">
         ${ctaButton(args.deepLink, "View RFQ")}
       </div>
-      ${hintText("Open the link to review the scope and submit your quote. If you've already responded, please ignore this reminder.")}`,
+      ${hintText(`Reminder #${args.reminderNumber}. Open the link to review the scope and submit your quote. If you've already responded, please ignore this reminder.`)}`,
       "If you weren't expecting this RFQ, you can safely ignore this email."
     )
   );

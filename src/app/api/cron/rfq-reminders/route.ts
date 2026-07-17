@@ -1,10 +1,21 @@
 import { NextResponse } from "next/server";
+import { timingSafeEqual } from "node:crypto";
 import { env } from "@/env";
 import { runRfqReminders } from "@/lib/rfqReminders";
 import { logger } from "@/lib/logger";
 
 // Reads a request header and sends email — never statically optimised/cached.
 export const dynamic = "force-dynamic";
+// Sends emails sequentially; give the batch headroom over the 10s default.
+export const maxDuration = 60;
+
+/** Constant-time bearer check — avoids leaking the secret through timing. */
+function authorized(header: string | null, secret: string): boolean {
+  if (!header) return false;
+  const a = Buffer.from(header);
+  const b = Buffer.from(`Bearer ${secret}`);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
 
 /**
  * GET /api/cron/rfq-reminders — the daily RFQ response-reminder job.
@@ -20,7 +31,7 @@ export async function GET(req: Request): Promise<NextResponse> {
   if (!secret) {
     return NextResponse.json({ error: "Cron not configured" }, { status: 503 });
   }
-  if (req.headers.get("authorization") !== `Bearer ${secret}`) {
+  if (!authorized(req.headers.get("authorization"), secret)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

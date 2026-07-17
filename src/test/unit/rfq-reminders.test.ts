@@ -54,8 +54,13 @@ function wire(dueRows: ReturnType<typeof row>[]) {
   });
 }
 
-const markCall = () =>
-  mocks.db.query.mock.calls.find((c) => /UPDATE rfq_vendor/.test(String(c[0])));
+const markCalls = () =>
+  mocks.db.query.mock.calls.filter((c) =>
+    /UPDATE rfq_vendor/.test(String(c[0]))
+  );
+/** Vendor id stamped by each mark UPDATE, in call order. */
+const markedVendors = () =>
+  markCalls().map((c) => (c[1] as [string[], string[]])[1][0]);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -70,10 +75,11 @@ describe("runRfqReminders", () => {
     expect(sendRfqReminderEmail).toHaveBeenCalledTimes(3);
     expect(vi.mocked(sendRfqReminderEmail).mock.calls[0][0]).toBe("a1@x.com");
 
-    // Stamp deduped to the two distinct vendors on the RFQ.
-    const params = markCall()![1] as [string[], string[]];
-    expect(params[0]).toEqual([RFQ, RFQ]); // rfq ids
-    expect(params[1]).toEqual([VENDOR_A, VENDOR_B]); // vendor ids (deduped)
+    // Stamped once per vendor, right after its email(s) — vendor A's two
+    // contacts share a single stamp — and each stamp targets the one RFQ.
+    expect(markCalls()).toHaveLength(2);
+    expect(markedVendors()).toEqual([VENDOR_A, VENDOR_B]);
+    expect((markCalls()[0][1] as [string[], string[]])[0]).toEqual([RFQ]);
 
     expect(res).toEqual({ rfqs: 1, vendors: 2, emails: 3 });
   });
@@ -95,7 +101,7 @@ describe("runRfqReminders", () => {
     const res = await realRunRfqReminders();
 
     expect(res.emails).toBe(0); // the send failed
-    expect(markCall()).toBeDefined(); // but it was still stamped
+    expect(markCalls()).toHaveLength(1); // but it was still stamped
     expect(res.vendors).toBe(1);
   });
 
@@ -104,7 +110,7 @@ describe("runRfqReminders", () => {
     const res = await realRunRfqReminders();
 
     expect(sendRfqReminderEmail).not.toHaveBeenCalled();
-    expect(markCall()).toBeUndefined();
+    expect(markCalls()).toHaveLength(0);
     expect(res).toEqual({ rfqs: 0, vendors: 0, emails: 0 });
   });
 });
