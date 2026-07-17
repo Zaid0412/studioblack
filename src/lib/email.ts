@@ -507,6 +507,49 @@ export async function sendRfqIssuedEmail(
 }
 
 /**
+ * Remind a vendor contact that their quote on an open RFQ is still awaited.
+ * Sent by the daily reminder cron every 3 days until the vendor responds or the
+ * RFQ closes. Same deep link and contract as `sendRfqIssuedEmail`.
+ */
+export async function sendRfqReminderEmail(
+  email: string,
+  args: {
+    contactName: string;
+    projectName: string;
+    rfqNumber: string;
+    rfqTitle: string;
+    responseDeadline: string | null;
+    deepLink: string;
+    /** 1 for the first reminder, 2 for the second, … — drives the wording. */
+    reminderNumber: number;
+  }
+) {
+  const safeContact = escapeHtml(args.contactName);
+  const safeProject = escapeHtml(args.projectName);
+  const deadline = args.responseDeadline
+    ? `Response due by <strong style="color: ${colors.white};">${escapeHtml(args.responseDeadline)}</strong>.`
+    : "";
+  await sendEmail(
+    email,
+    `${getEnvTag()}${branding.appName} | Reminder: RFQ ${escapeHtml(args.rfqNumber)}`,
+    emailLayout(
+      "Quote Reminder",
+      `${bodyText(`Hi ${safeContact}, a quick reminder — your quotation for the RFQ on <strong style="color: ${colors.white};">${safeProject}</strong> is still awaited.`)}
+      <div style="text-align: center; margin: 0 0 24px;">
+        ${orgPill(`${args.rfqNumber} — ${args.rfqTitle}`)}
+      </div>
+      ${deadline ? bodyText(deadline) : ""}
+      ${divider()}
+      <div style="padding-top: 24px;">
+        ${ctaButton(args.deepLink, "View RFQ")}
+      </div>
+      ${hintText("Open the link to review the scope and submit your quote. If you've already responded, please ignore this reminder.")}`,
+      "If you weren't expecting this RFQ, you can safely ignore this email."
+    )
+  );
+}
+
+/**
  * Notify studio (RFQ creator / PMs on the project) that a vendor has just
  * submitted (or revised) a quote. Deep link lands on the architect's
  * RFQ detail page where they can view it inline and open the comparison.

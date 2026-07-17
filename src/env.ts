@@ -50,6 +50,11 @@ const serverSchema = z.object({
     .enum(["development", "production", "test"])
     .default("development"),
 
+  // Shared secret the RFQ-reminder cron endpoint checks (Vercel Cron sends it
+  // as `Authorization: Bearer <CRON_SECRET>`). Optional so dev/CI without a
+  // scheduler boots fine; the cron route refuses to run when it's unset.
+  CRON_SECRET: z.string().optional(),
+
   // SMTP (all optional — email features degrade gracefully)
   SMTP_HOST: z.string().default("smtp-relay.brevo.com"),
   SMTP_PORT: z.string().default("587"),

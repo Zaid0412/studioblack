@@ -75,6 +75,7 @@ vi.mock("@/lib/email", () => ({
   sendInvitationEmail: vi.fn(),
   sendChangeEmailVerification: vi.fn(),
   sendRfqIssuedEmail: vi.fn().mockResolvedValue(undefined),
+  sendRfqReminderEmail: vi.fn().mockResolvedValue(undefined),
   sendQuoteReceivedEmail: vi.fn().mockResolvedValue(undefined),
   sendQuoteAwardedEmail: vi.fn().mockResolvedValue(undefined),
   sendClientBoqEmail: vi.fn().mockResolvedValue(undefined),
