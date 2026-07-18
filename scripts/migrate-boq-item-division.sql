@@ -27,14 +27,17 @@ WHERE NOT EXISTS (
 );
 
 -- 3. Backfill: a line's division is its section's division, else the org's GEN.
---    The target `boq_item bi` is referenced in the FROM join conditions, which
---    Postgres allows for UPDATE.
+--    The section's division is a correlated scalar subquery (Postgres forbids
+--    joining another FROM table to the UPDATE target `bi` in an ON clause); GEN
+--    comes via the project's org in the FROM.
 UPDATE boq_item bi
-SET division_id = COALESCE(bs.division_id, gen.id)
+SET division_id = COALESCE(
+      (SELECT bs.division_id FROM boq_section bs WHERE bs.id = bi.section_id),
+      gen.id
+    )
 FROM boq b
 JOIN project p ON p.id = b.project_id
 LEFT JOIN division gen ON gen.org_id = p.org_id AND lower(gen.code) = 'gen'
-LEFT JOIN boq_section bs ON bs.id = bi.section_id
 WHERE bi.boq_id = b.id
   AND bi.division_id IS NULL;
 
