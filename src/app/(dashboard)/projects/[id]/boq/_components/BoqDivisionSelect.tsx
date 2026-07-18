@@ -17,15 +17,21 @@ import type { Division } from "@/types";
  *   is offered and `onChange(null)` can fire.
  * - `required` (BOQ item) — division is mandatory, so there's no "No division"
  *   option and `onChange` only ever fires with a real id.
+ *
+ * Pass `label` to render an own label + `flex-col` wrapper (matching the sibling
+ * field controls). Without it the bare dropdown is returned, so callers that
+ * already wrap it in their own `<label>` (the section dialog) aren't double-labelled.
  */
 export function BoqDivisionSelect({
   value,
   onChange,
   required = false,
+  label,
 }: {
   value: string | null;
   onChange: (divisionId: string | null) => void;
   required?: boolean;
+  label?: string;
 }) {
   const { enabledDivisions, byId } = useDivisions();
 
@@ -43,7 +49,7 @@ export function BoqDivisionSelect({
       ? "Select a division…"
       : "No division";
 
-  return (
+  const dropdown = (
     <SearchableDropdown
       minContentWidth={280}
       maxListHeight={240}
@@ -130,5 +136,21 @@ export function BoqDivisionSelect({
         );
       }}
     </SearchableDropdown>
+  );
+
+  if (!label) return dropdown;
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-xs font-medium text-text-secondary">
+        {label}
+        {required && (
+          <span className="text-danger" aria-hidden>
+            {" "}
+            *
+          </span>
+        )}
+      </span>
+      {dropdown}
+    </div>
   );
 }

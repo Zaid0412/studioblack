@@ -644,6 +644,7 @@ export function BoqCreateItemSheet({
                 (DIV-10, 20, …); the section is an optional grouping under it. */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <BoqDivisionSelect
+                label="Division"
                 value={v.divisionId}
                 onChange={(id) => id && changeDivision(id)}
                 required
