@@ -250,6 +250,7 @@ export function addElement(
   data: {
     boqId: string;
     sectionId: string | null;
+    divisionId?: string | null;
     elementId: string;
     quantity?: number;
     rateContractItemId?: string;
@@ -269,6 +270,7 @@ export function addElements(
   data: {
     boqId: string;
     sectionId: string | null;
+    divisionId?: string | null;
     items: Array<{
       elementId: string;
       quantity?: number;

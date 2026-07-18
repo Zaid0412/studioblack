@@ -1093,6 +1093,9 @@ export const reorderItemsSchema = z.object({
 
 export const addElementToBoqSchema = z.object({
   sectionId: z.string().uuid().nullable(),
+  // Optional: the picker sends the chosen division; omitted, the server falls
+  // back to the section's division, else the org's GEN.
+  divisionId: uuid.optional(),
   elementId: uuid,
   quantity: quantity.default(1),
   rateContractItemId: z.string().uuid().optional(),
@@ -1105,6 +1108,8 @@ export const addElementToBoqSchema = z.object({
  */
 export const addElementsToBoqSchema = z.object({
   sectionId: z.string().uuid().nullable(),
+  // Optional — see addElementToBoqSchema; one division for the whole batch.
+  divisionId: uuid.optional(),
   items: z
     .array(
       z.object({

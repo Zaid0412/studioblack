@@ -2095,6 +2095,8 @@ function elementRowToBoqItemInput(
   e: ElementCostRow,
   opts: {
     sectionId: string | null;
+    /** Explicit division for the line; omitted → createBoqItem resolves it. */
+    divisionId?: string | null;
     elementId: string;
     quantity?: number;
     rateContractItemId?: string | null;
@@ -2104,6 +2106,7 @@ function elementRowToBoqItemInput(
   const { rc } = opts;
   return {
     sectionId: opts.sectionId,
+    divisionId: opts.divisionId ?? null,
     elementId: opts.elementId,
     // The line inherits the element's Service Area — which is why adding from
     // the library needs no manual pick. `?? undefined` because a grandfathered
@@ -2143,6 +2146,7 @@ export async function addElementToBoq(
   orgId: string,
   params: {
     sectionId: string | null;
+    divisionId?: string | null;
     elementId: string;
     quantity?: number;
     rateContractItemId?: string;
@@ -2189,6 +2193,7 @@ export async function addElementToBoq(
     orgId,
     elementRowToBoqItemInput(e, {
       sectionId: params.sectionId,
+      divisionId: params.divisionId ?? null,
       elementId: params.elementId,
       quantity: params.quantity,
       rateContractItemId: params.rateContractItemId ?? null,
@@ -2212,6 +2217,7 @@ export async function addElementsToBoq(
   orgId: string,
   params: {
     sectionId: string | null;
+    divisionId?: string | null;
     items: Array<{
       elementId: string;
       quantity?: number;
@@ -2323,6 +2329,7 @@ export async function addElementsToBoq(
         orgId,
         elementRowToBoqItemInput(e, {
           sectionId: params.sectionId,
+          divisionId: params.divisionId ?? null,
           elementId: item.elementId,
           quantity: item.quantity,
           rateContractItemId: item.rateContractItemId ?? null,
