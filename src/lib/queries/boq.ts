@@ -1687,9 +1687,10 @@ export async function updateBoqItem(
       const { rows } = await client.query<BoqItemWithComputed>(editSql, values);
       if (rows.length === 0) {
         await client.query("ROLLBACK");
-        const exists = await pool.query(`SELECT 1 FROM boq_item WHERE id = $1`, [
-          itemId,
-        ]);
+        const exists = await pool.query(
+          `SELECT 1 FROM boq_item WHERE id = $1`,
+          [itemId]
+        );
         return {
           ok: false,
           reason: exists.rows.length > 0 ? "conflict" : "not_found",

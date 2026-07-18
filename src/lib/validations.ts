@@ -956,56 +956,58 @@ export const reorderSectionsSchema = z.object({
  * `scripts/migrate-boq-unit-nos-to-no.sql` rewrites that row, and both databases
  * are now verified free of off-enum units — so the enum locks nothing out.
  */
-export const createBoqItemSchema = z.object({
-  sectionId: optionalUuid.nullable(),
-  // Every line belongs to a Division (drives the per-division line number and
-  // its `<code>-<number>` reference). Required on a plain add; omitted on an
-  // insert-between, which inherits the anchor's division server-side (see the
-  // refine below). Ownership is checked in the route (`divisionBelongsToOrg`).
-  divisionId: uuid.optional(),
-  elementId: optionalUuid.nullable(),
-  // Required, and must be a Service Area — it is what makes a line match rate
-  // contracts and drive vendor suggestion, so an unclassified line silently
-  // gets neither. The *level* is checked server-side in `requireServiceArea`;
-  // a schema can't see the org's taxonomy.
-  categoryId: uuid,
-  itemCode: z.string().trim().max(50).optional(),
-  name: z.string().trim().max(255).nullable().optional(),
-  description: trimmedString,
-  unit: z.enum(ALLOWED_UNITS),
-  quantity: quantity.optional(),
-  unitCost: money.optional(),
-  materialCost: money.optional().nullable(),
-  labourCost: money.optional().nullable(),
-  overheadPct: boqPercent.optional(),
-  serviceChargePct: boqPercent.optional(),
-  marginPct: boqPercent.optional(),
-  // See `createElementSchema` for the rationale on these two fields.
-  clientRate: money.optional().nullable(),
-  budgetRate: money.optional().nullable(),
-  // Per-line physical dimensions (m). Optional — only set for items
-  // whose quantity is naturally L × B × H. NOT promoted to `element`
-  // when the line is saved to the library (dimensions are BoQ-specific).
-  length: dimension.optional().nullable(),
-  breadth: dimension.optional().nullable(),
-  height: dimension.optional().nullable(),
-  dimensionUnit: z.enum(["m", "ft"]).optional(),
-  notes: z.string().optional().nullable(),
-  clientNotes: z.string().optional().nullable(),
-  sortOrder: z.coerce.number().int().min(0).optional(),
-  isProvisional: z.boolean().optional(),
-  isExcluded: z.boolean().optional(),
-  // Insert-between: place the new line above/below an anchor row, taking the
-  // midpoint of the gap. `allowRenumber` lets the server re-space the section
-  // when the gap is exhausted (the UI asks first).
-  anchorItemId: optionalUuid,
-  insertPosition: z.enum(["above", "below"]).optional(),
-  allowRenumber: z.boolean().optional(),
-}).refine((v) => v.divisionId != null || v.anchorItemId != null, {
-  // A plain add must name its division; an insert-between inherits the anchor's.
-  message: "Division is required.",
-  path: ["divisionId"],
-});
+export const createBoqItemSchema = z
+  .object({
+    sectionId: optionalUuid.nullable(),
+    // Every line belongs to a Division (drives the per-division line number and
+    // its `<code>-<number>` reference). Required on a plain add; omitted on an
+    // insert-between, which inherits the anchor's division server-side (see the
+    // refine below). Ownership is checked in the route (`divisionBelongsToOrg`).
+    divisionId: uuid.optional(),
+    elementId: optionalUuid.nullable(),
+    // Required, and must be a Service Area — it is what makes a line match rate
+    // contracts and drive vendor suggestion, so an unclassified line silently
+    // gets neither. The *level* is checked server-side in `requireServiceArea`;
+    // a schema can't see the org's taxonomy.
+    categoryId: uuid,
+    itemCode: z.string().trim().max(50).optional(),
+    name: z.string().trim().max(255).nullable().optional(),
+    description: trimmedString,
+    unit: z.enum(ALLOWED_UNITS),
+    quantity: quantity.optional(),
+    unitCost: money.optional(),
+    materialCost: money.optional().nullable(),
+    labourCost: money.optional().nullable(),
+    overheadPct: boqPercent.optional(),
+    serviceChargePct: boqPercent.optional(),
+    marginPct: boqPercent.optional(),
+    // See `createElementSchema` for the rationale on these two fields.
+    clientRate: money.optional().nullable(),
+    budgetRate: money.optional().nullable(),
+    // Per-line physical dimensions (m). Optional — only set for items
+    // whose quantity is naturally L × B × H. NOT promoted to `element`
+    // when the line is saved to the library (dimensions are BoQ-specific).
+    length: dimension.optional().nullable(),
+    breadth: dimension.optional().nullable(),
+    height: dimension.optional().nullable(),
+    dimensionUnit: z.enum(["m", "ft"]).optional(),
+    notes: z.string().optional().nullable(),
+    clientNotes: z.string().optional().nullable(),
+    sortOrder: z.coerce.number().int().min(0).optional(),
+    isProvisional: z.boolean().optional(),
+    isExcluded: z.boolean().optional(),
+    // Insert-between: place the new line above/below an anchor row, taking the
+    // midpoint of the gap. `allowRenumber` lets the server re-space the section
+    // when the gap is exhausted (the UI asks first).
+    anchorItemId: optionalUuid,
+    insertPosition: z.enum(["above", "below"]).optional(),
+    allowRenumber: z.boolean().optional(),
+  })
+  .refine((v) => v.divisionId != null || v.anchorItemId != null, {
+    // A plain add must name its division; an insert-between inherits the anchor's.
+    message: "Division is required.",
+    path: ["divisionId"],
+  });
 
 /**
  * Why a BOQ item's qty/spec/cost changed. Auto-derived from the edited fields
