@@ -7,7 +7,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // edit does not, and version diffs are computed against the next snapshot.
 const { mockQuery } = vi.hoisted(() => ({ mockQuery: vi.fn() }));
 vi.mock("@/lib/db", () => ({
-  getPool: () => ({ query: mockQuery, connect: vi.fn() }),
+  // `connect` hands back a client backed by the same mock, so the division-change
+  // path (which opens a transaction) routes through the shared shape matcher.
+  getPool: () => ({
+    query: mockQuery,
+    connect: () => Promise.resolve({ query: mockQuery, release: vi.fn() }),
+  }),
 }));
 
 import { updateBoqItem, getBoqItemVersions } from "@/lib/queries/boq";
@@ -122,6 +127,76 @@ describe("updateBoqItem — change versioning (RFQ-3a)", () => {
       ACTOR
     );
     expect(gone).toEqual({ ok: false, reason: "not_found" });
+  });
+});
+
+describe("updateBoqItem — division change (atomic per-division renumber)", () => {
+  const DIV = "770e8400-e29b-41d4-a716-446655440009";
+
+  it("re-flows numbers in ONE locked transaction, then re-reads the row", async () => {
+    mockQuery.mockImplementation((sql: string) => {
+      // boqId lookup taken before the transaction opens.
+      if (/SELECT boq_id FROM boq_item/.test(sql))
+        return Promise.resolve({ rows: [{ boq_id: "boq-1" }] });
+      // The optimistic-lock edit statement returns the updated row.
+      if (/WITH prev AS/.test(sql))
+        return Promise.resolve({ rows: [{ id: ITEM_ID, boq_id: "boq-1" }] });
+      // The post-renumber re-read (ITEM_SELECT), distinguished from the edit by
+      // not carrying the `WITH prev` CTE.
+      if (/SELECT bi\.\*/.test(sql) && /WHERE bi\.id = \$1/.test(sql))
+        return Promise.resolve({
+          rows: [{ id: ITEM_ID, line_number: 20, division_code: "PLB" }],
+        });
+      return Promise.resolve({ rows: [] }); // BEGIN / lock / renumber / COMMIT
+    });
+
+    const res = await updateBoqItem(
+      ITEM_ID,
+      ORG_ID,
+      TOKEN,
+      { divisionId: DIV },
+      ACTOR
+    );
+
+    expect(res.ok).toBe(true);
+    if (res.ok) expect(res.item.line_number).toBe(20);
+
+    const calls = mockQuery.mock.calls.map((c) => String(c[0]));
+    // Everything under one transaction with the BOQ line lock…
+    expect(calls.some((s) => s.includes("BEGIN"))).toBe(true);
+    expect(calls.some((s) => s.includes("pg_advisory_xact_lock"))).toBe(true);
+    expect(calls.some((s) => s.includes("COMMIT"))).toBe(true);
+    // …and the renumber is per-division.
+    const renumber = calls.find((s) => s.includes("line_number = o.rn"))!;
+    expect(renumber).toContain("PARTITION BY bi.division_id");
+    // The edit statement ran on the transaction client, before the renumber.
+    expect(calls.findIndex((s) => s.includes("WITH prev AS"))).toBeLessThan(
+      calls.findIndex((s) => s.includes("line_number = o.rn"))
+    );
+  });
+
+  it("rolls back without renumbering on an optimistic-lock conflict", async () => {
+    mockQuery.mockImplementation((sql: string) => {
+      if (/SELECT boq_id FROM boq_item/.test(sql))
+        return Promise.resolve({ rows: [{ boq_id: "boq-1" }] });
+      if (/WITH prev AS/.test(sql)) return Promise.resolve({ rows: [] }); // token drifted
+      if (/SELECT 1 FROM boq_item WHERE id/.test(sql))
+        return Promise.resolve({ rows: [{ "?column?": 1 }] }); // row still exists
+      return Promise.resolve({ rows: [] });
+    });
+
+    const res = await updateBoqItem(
+      ITEM_ID,
+      ORG_ID,
+      TOKEN,
+      { divisionId: DIV },
+      ACTOR
+    );
+
+    expect(res).toEqual({ ok: false, reason: "conflict" });
+    const calls = mockQuery.mock.calls.map((c) => String(c[0]));
+    expect(calls.some((s) => s.includes("ROLLBACK"))).toBe(true);
+    expect(calls.some((s) => s.includes("line_number = o.rn"))).toBe(false);
   });
 });
 

@@ -32,9 +32,13 @@ export const POST = withAuth(
       // *grandfathered* element to a BOQ fail outright.
       await requireServiceArea(getPool(), orgId, result.data.categoryId);
 
-      // Division is mandatory and org-scoped — nothing DB-side ties a line's
-      // division to its org, so gate it here like the Service Area.
-      if (!(await divisionBelongsToOrg(result.data.divisionId, orgId))) {
+      // Division is org-scoped — nothing DB-side ties a line's division to its
+      // org, so gate it here like the Service Area. Present on a plain add;
+      // an insert-between omits it (inherits the anchor's division).
+      if (
+        result.data.divisionId !== undefined &&
+        !(await divisionBelongsToOrg(result.data.divisionId, orgId))
+      ) {
         return NextResponse.json(
           { error: "Division not found in this organization" },
           { status: 400 }

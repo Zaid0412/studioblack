@@ -6,8 +6,11 @@
 -- #207) to restarting at the increment for EACH division (DIV -> 10, 20, 30…).
 -- The line's business reference is then `<division.code>-<line_number>` (PLB-20).
 --
--- Idempotent: the column add / index are IF (NOT) EXISTS, the GEN backfill is
--- guarded, and the one-time renumber is safe to re-run (it recomputes from order).
+-- Safe to run once: the column add / index are IF (NOT) EXISTS and the GEN
+-- backfill is guarded, so re-running errors nothing. Step 4, however, renumbers
+-- EVERY line to clean division multiples — running it again after go-live would
+-- overwrite any insert-between midpoints (e.g. PLB-15 back to 10/20/30). This is
+-- a one-time migration; don't re-run it against a live BOQ.
 -- boq.snapshot JSONB (locked/superseded BOQs) holds historical numbers and is
 -- intentionally left untouched, matching the other migrate-boq-* scripts.
 

@@ -423,9 +423,11 @@ export function BoqCreateItemSheet({
       return;
     }
 
-    // Division is mandatory — it drives the line's per-division number.
+    // Division is mandatory on a plain add — it drives the line's per-division
+    // number. An insert-between inherits the anchor's division server-side, so
+    // its picker is hidden and this guard doesn't apply.
     const divisionId = v.divisionId;
-    if (!divisionId) {
+    if (!isInsert && !divisionId) {
       toast({
         title: "Division required",
         description: "Pick the Division this line belongs to.",
@@ -497,7 +499,8 @@ export function BoqCreateItemSheet({
       const payload: CreateItemPayload = {
         boqId,
         sectionId: v.sectionId === BOQ_NO_SECTION_ID ? null : v.sectionId,
-        divisionId,
+        // Omitted on insert-between (server inherits the anchor's division).
+        divisionId: divisionId ?? undefined,
         elementId,
         categoryId,
         itemCode,
@@ -641,14 +644,10 @@ export function BoqCreateItemSheet({
             </div>
 
             {/* Division (required) | Section. Line numbers restart per division
-                (DIV-10, 20, …); the section is an optional grouping under it. */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <BoqDivisionSelect
-                label="Division"
-                value={v.divisionId}
-                onChange={(id) => id && changeDivision(id)}
-                required
-              />
+                (DIV-10, 20, …); the section is an optional grouping under it. An
+                insert-between inherits the anchor's division, so its picker is
+                hidden — only the section (also anchor-derived) shows. */}
+            {isInsert ? (
               <BoqSectionSelect
                 value={v.sectionId}
                 onChange={changeSection}
@@ -657,7 +656,24 @@ export function BoqCreateItemSheet({
                 boqId={boqId}
                 nextSortOrder={sections.length}
               />
-            </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <BoqDivisionSelect
+                  label="Division"
+                  value={v.divisionId}
+                  onChange={(id) => id && changeDivision(id)}
+                  required
+                />
+                <BoqSectionSelect
+                  value={v.sectionId}
+                  onChange={changeSection}
+                  sections={sectionsForDivision}
+                  projectId={projectId}
+                  boqId={boqId}
+                  nextSortOrder={sections.length}
+                />
+              </div>
+            )}
 
             {/* Required on every line, not just the ones going to the library:
                 the Service Area is what makes a line match rate contracts and

@@ -210,6 +210,18 @@ describe("createBoqItemSchema", () => {
     });
   });
 
+  // Insert-between inherits the anchor's division server-side, so the client
+  // doesn't send one — the refine allows it when anchorItemId is present.
+  it("allows a missing divisionId for an insert-between", () => {
+    expectPass(createBoqItemSchema, {
+      categoryId: VALID_UUID,
+      description: "Inserted",
+      unit: "m2",
+      anchorItemId: VALID_UUID,
+      insertPosition: "below",
+    });
+  });
+
   it("accepts minimal valid input", () => {
     const data = expectPass(createBoqItemSchema, {
       categoryId: VALID_UUID,

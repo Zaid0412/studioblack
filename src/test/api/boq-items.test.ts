@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   requireServiceArea,
+  divisionBelongsToOrg,
   addBoqItem,
   insertBoqItemBetween,
   NeedsRenumberError,
@@ -125,6 +126,28 @@ describe("POST /api/projects/[id]/boq/items", () => {
         unitCost: 100,
       })
     );
+  });
+
+  it("returns 400 when the division isn't in the org", async () => {
+    vi.mocked(verifyBoqOwnership).mockResolvedValue(true);
+    vi.mocked(divisionBelongsToOrg).mockResolvedValueOnce(false);
+
+    const req = buildRequest(`/api/projects/${PROJECT_ID}/boq/items`, {
+      method: "POST",
+      body: {
+        boqId: BOQ_ID,
+        categoryId: CATEGORY_ID,
+        divisionId: DIVISION_ID,
+        description: "Laying tiles",
+        unit: "m2",
+      },
+    });
+    const res = await POST_ITEM(req, buildParams({ id: PROJECT_ID }));
+    const { status, body } = await parseResponse<{ error: string }>(res);
+
+    expect(status).toBe(400);
+    expect(body.error).toContain("Division not found");
+    expect(addBoqItem).not.toHaveBeenCalled();
   });
 
   it("routes to insertBoqItemBetween when an anchor is given", async () => {

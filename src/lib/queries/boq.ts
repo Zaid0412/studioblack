@@ -1077,6 +1077,28 @@ export interface CreateBoqItemInput {
 }
 
 /**
+ * Resolve the mandatory division for a line whose caller didn't pick one: the
+ * section's division, else the org's General (GEN). Returns null only if the org
+ * has no GEN division (shouldn't happen post-migration). Shared by the create
+ * path and the batch add so `boq_item.division_id`'s NOT NULL always holds
+ * without threading a division through every internal caller.
+ */
+async function resolveLineDivisionId(
+  executor: Pool | PoolClient,
+  orgId: string,
+  sectionId: string | null
+): Promise<string | null> {
+  const { rows } = await executor.query<{ id: string | null }>(
+    `SELECT COALESCE(
+       (SELECT bs.division_id FROM boq_section bs WHERE bs.id = $1::uuid),
+       (SELECT d.id FROM division d WHERE d.org_id = $2 AND lower(d.code) = 'gen' LIMIT 1)
+     ) AS id`,
+    [sectionId, orgId]
+  );
+  return rows[0]?.id ?? null;
+}
+
+/**
  * Insert a BOQ item. `item_code` is not the item's business number — that's its
  * BOQ's number plus the `line_number` assigned here (`P2026-001-BOQ-001 /
  * Line 20`). `item_code` is the element code: a linked element's code, an
@@ -1110,14 +1132,11 @@ export async function createBoqItem(
   // passes `divisionId`, so it skips this.
   let divisionId = input.divisionId ?? null;
   if (!divisionId) {
-    const { rows: dr } = await executor.query<{ id: string | null }>(
-      `SELECT COALESCE(
-         (SELECT bs.division_id FROM boq_section bs WHERE bs.id = $1::uuid),
-         (SELECT d.id FROM division d WHERE d.org_id = $2 AND lower(d.code) = 'gen' LIMIT 1)
-       ) AS id`,
-      [input.sectionId ?? null, orgId]
+    divisionId = await resolveLineDivisionId(
+      executor,
+      orgId,
+      input.sectionId ?? null
     );
-    divisionId = dr[0]?.id ?? null;
     if (!divisionId) {
       throw new Error(
         "createBoqItem: could not resolve a division (org has no GEN division?)"
@@ -1613,8 +1632,7 @@ export async function updateBoqItem(
   // `pg` deserializes TIMESTAMPTZ into JS Date (ms precision), so the
   // round-tripped token loses the row's microseconds. Truncate both sides.
   const pool = getPool();
-  const { rows } = await pool.query<BoqItemWithComputed>(
-    `WITH prev AS (
+  const editSql = `WITH prev AS (
        SELECT * FROM boq_item bi
        WHERE bi.id = $${pId}
          AND date_trunc('milliseconds', bi.updated_at)
@@ -1645,26 +1663,55 @@ export async function updateBoqItem(
      SELECT bi.*, ${ITEM_LIBRARY_COLS}, ${ITEM_COMPUTED_COLS}
      FROM updated bi
      JOIN boq b ON b.id = bi.boq_id
-     ${ITEM_LIBRARY_JOIN}`,
-    values
-  );
+     ${ITEM_LIBRARY_JOIN}`;
 
-  if (rows.length > 0) {
-    // Moving a line to another division changes which per-division sequence it
-    // belongs to, so re-flow the BOQ's numbers (under the line lock) and re-read
-    // the row with its reconciled line number. Only when the division actually
-    // moved — the common edit skips this entirely.
-    if (input.divisionId !== undefined) {
-      const boqId = rows[0].boq_id;
-      await withBoqRenumber(boqId, async () => {});
-      const { rows: reread } = await pool.query<BoqItemWithComputed>(
+  // A division change re-flows the per-division line numbers, so it must run in
+  // the SAME transaction as the edit (under the BOQ line lock) — otherwise the
+  // row would briefly carry a stale number from its old division, and (the index
+  // isn't unique) could transiently collide within the new one. The common edit
+  // stays a single pooled statement.
+  if (input.divisionId !== undefined) {
+    const { rows: br } = await pool.query<{ boq_id: string }>(
+      `SELECT boq_id FROM boq_item WHERE id = $1`,
+      [itemId]
+    );
+    if (!br[0]) return { ok: false, reason: "not_found" };
+    const boqId = br[0].boq_id;
+
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [
+        `boq-lines:${boqId}`,
+      ]);
+      const { rows } = await client.query<BoqItemWithComputed>(editSql, values);
+      if (rows.length === 0) {
+        await client.query("ROLLBACK");
+        const exists = await pool.query(`SELECT 1 FROM boq_item WHERE id = $1`, [
+          itemId,
+        ]);
+        return {
+          ok: false,
+          reason: exists.rows.length > 0 ? "conflict" : "not_found",
+        };
+      }
+      await renumberBoqContinuous(client, boqId);
+      const { rows: reread } = await client.query<BoqItemWithComputed>(
         `${ITEM_SELECT} WHERE bi.id = $1`,
         [itemId]
       );
+      await client.query("COMMIT");
       return { ok: true, item: reread[0] ?? rows[0] };
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
     }
-    return { ok: true, item: rows[0] };
   }
+
+  const { rows } = await pool.query<BoqItemWithComputed>(editSql, values);
+  if (rows.length > 0) return { ok: true, item: rows[0] };
 
   // 0 rows updated — either the row doesn't exist, or updated_at drifted.
   const exists = await pool.query(`SELECT 1 FROM boq_item WHERE id = $1`, [
@@ -2317,7 +2364,13 @@ export async function addElementsToBoq(
     }
 
     // 3. Insert each row on the transaction client (createBoqItem's in-tx
-    // MAX(sort_order) sees the prior inserts, so ordering stays correct).
+    // MAX(sort_order) sees the prior inserts, so ordering stays correct). The
+    // whole batch shares one section, so resolve its mandatory division ONCE
+    // (section's division, else GEN) rather than letting createBoqItem re-resolve
+    // per row.
+    const batchDivisionId =
+      params.divisionId ??
+      (await resolveLineDivisionId(client, orgId, params.sectionId));
     const insertedIds: string[] = [];
     for (const item of params.items) {
       const e = elemById.get(item.elementId)!;
@@ -2329,7 +2382,7 @@ export async function addElementsToBoq(
         orgId,
         elementRowToBoqItemInput(e, {
           sectionId: params.sectionId,
-          divisionId: params.divisionId ?? null,
+          divisionId: batchDivisionId,
           elementId: item.elementId,
           quantity: item.quantity,
           rateContractItemId: item.rateContractItemId ?? null,

@@ -958,10 +958,11 @@ export const reorderSectionsSchema = z.object({
  */
 export const createBoqItemSchema = z.object({
   sectionId: optionalUuid.nullable(),
-  // Mandatory: every line belongs to a Division. Drives the per-division line
-  // number and its `<code>-<number>` reference. Ownership is checked server-side
-  // (`divisionBelongsToOrg`) — a schema can't see the org's divisions.
-  divisionId: uuid,
+  // Every line belongs to a Division (drives the per-division line number and
+  // its `<code>-<number>` reference). Required on a plain add; omitted on an
+  // insert-between, which inherits the anchor's division server-side (see the
+  // refine below). Ownership is checked in the route (`divisionBelongsToOrg`).
+  divisionId: uuid.optional(),
   elementId: optionalUuid.nullable(),
   // Required, and must be a Service Area — it is what makes a line match rate
   // contracts and drive vendor suggestion, so an unclassified line silently
@@ -1000,6 +1001,10 @@ export const createBoqItemSchema = z.object({
   anchorItemId: optionalUuid,
   insertPosition: z.enum(["above", "below"]).optional(),
   allowRenumber: z.boolean().optional(),
+}).refine((v) => v.divisionId != null || v.anchorItemId != null, {
+  // A plain add must name its division; an insert-between inherits the anchor's.
+  message: "Division is required.",
+  path: ["divisionId"],
 });
 
 /**
