@@ -93,7 +93,12 @@ describe("insertBoqItemBetween", () => {
   it("takes the midpoint of the gap below the anchor", async () => {
     wire({
       increment: 10,
-      anchor: { division_id: "div-1", section_id: null, sort_order: 0, line_number: 10 },
+      anchor: {
+        division_id: "div-1",
+        section_id: null,
+        sort_order: 0,
+        line_number: 10,
+      },
       neighbor: { line_number: 20 },
     });
 
@@ -107,7 +112,12 @@ describe("insertBoqItemBetween", () => {
   it("appends (anchor + increment) when the anchor is the last row", async () => {
     wire({
       increment: 10,
-      anchor: { division_id: "div-1", section_id: null, sort_order: 3, line_number: 30 },
+      anchor: {
+        division_id: "div-1",
+        section_id: null,
+        sort_order: 3,
+        line_number: 30,
+      },
       neighbor: null,
     });
 
@@ -119,7 +129,12 @@ describe("insertBoqItemBetween", () => {
   it("throws NeedsRenumberError when the gap can't be split", async () => {
     wire({
       increment: 10,
-      anchor: { division_id: "div-1", section_id: null, sort_order: 0, line_number: 10 },
+      anchor: {
+        division_id: "div-1",
+        section_id: null,
+        sort_order: 0,
+        line_number: 10,
+      },
       neighbor: { line_number: 11 },
     });
 
@@ -132,7 +147,12 @@ describe("insertBoqItemBetween", () => {
   it("re-spaces the section and inserts when allowRenumber is set", async () => {
     wire({
       increment: 10,
-      anchor: { division_id: "div-1", section_id: null, sort_order: 0, line_number: 10 },
+      anchor: {
+        division_id: "div-1",
+        section_id: null,
+        sort_order: 0,
+        line_number: 10,
+      },
       neighbor: { line_number: 11 },
       afterRenumber: { line_number: 20 }, // gap reopened by the re-spacing
     });

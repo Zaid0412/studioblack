@@ -15,7 +15,7 @@ Per the BOQ Structure & Division Design spec (PRD sub-doc under Tab 6, §§2–4
 
 - Division lives on the **section** (`boq_item → section → division`), both hops
   nullable — so division is **optional**, and there's no division field on the
-  add-line form (the required classification there is *Service Area* /
+  add-line form (the required classification there is _Service Area_ /
   `category_id`, a separate concept).
 - Line numbering is **BOQ-wide continuous** (#207): `MAX(line_number)` across the
   whole BOQ; one `ROW_NUMBER()` renumber over the whole BOQ.
@@ -29,7 +29,7 @@ add-line UI, and the display.
 
 1. **Prefix source** — the division's existing admin-editable **`code`** (Plumbing
    → `PLB`), matching the doc. Tighten codes to exactly 3 chars (rename the one
-   4-char default, `HVAC` → `HVC`). *Not* "first 3 letters of the name."
+   4-char default, `HVAC` → `HVC`). _Not_ "first 3 letters of the name."
 2. **Division placement** — a new **`division_id` directly on the line**
    (mandatory), with a division picker on the add-line form. Matches the doc
    hierarchy (items belong to a division; sections optional under it).
@@ -39,7 +39,9 @@ add-line UI, and the display.
 ## Stages
 
 ### Stage 1 — Schema + backfill
+
 `scripts/migrate-boq-item-division.sql`:
+
 - `ALTER TABLE boq_item ADD COLUMN division_id UUID REFERENCES division(id)` — nullable first.
 - Ensure every org has a **General `GEN`** division (create if missing — already in the seed).
 - Backfill `boq_item.division_id` = its section's `division_id`, else the org's `GEN`.
@@ -47,6 +49,7 @@ add-line UI, and the display.
 - Replace index `idx_boq_item_line(boq_id, line_number)` → `(boq_id, division_id, line_number)`.
 
 ### Stage 2 — Division mandatory on the line
+
 - `src/lib/validations.ts`: `createBoqItemSchema.divisionId: uuid` (required);
   `updateBoqItemSchema.divisionId: uuid.optional()` (allow reclassify).
 - Route `src/app/api/projects/[id]/boq/items/route.ts`: validate the division via
@@ -56,6 +59,7 @@ add-line UI, and the display.
   `GEN` division so `NOT NULL` always holds without threading division through every path.
 
 ### Stage 3 — Per-division numbering (core — `src/lib/queries/boq.ts`)
+
 - `createBoqItem` append: `MAX(line_number) WHERE boq_id=$1 AND division_id=$div) + increment`
   → first line in a division = 10.
 - `renumberBoqContinuous` → **partition by division**:
@@ -68,23 +72,27 @@ add-line UI, and the display.
   reassigns it into the new division's sequence).
 
 ### Stage 4 — Add-line UI (`BoqCreateItemSheet.tsx`)
+
 - Add a **required Division picker** (via the `useDivisions` hook). The optional
   Section picker is filtered to that division; picking a section defaults/locks the
   division to the section's. Service Area (`category_id`) stays as its own field.
 
 ### Stage 5 — `CODE-NN` display
+
 - Join `div.code` into item rows (`ITEM_LIBRARY_COLS` currently selects only `div.name`).
 - New shared `formatBoqLineRef(code, lineNumber)` → `PLB-20`; use it in the 3 sites
   that render the bare integer today: `BoqTable.tsx`, `BoqItemDrawer.tsx`, `src/lib/boq/pdf.tsx`.
   Falls back to the bare number if a code is somehow absent.
 
 ### Stage 6 — 3-char codes
+
 - Tighten `createDivisionSchema` / `updateDivisionSchema` code to **max 3**
   (`src/lib/validations.ts`); migrate existing >3-char codes (seed's `HVAC` → `HVC`) and
   update `src/lib/divisionTemplates.ts`. Optionally narrow `division.code` `VARCHAR(10)` →
   `VARCHAR(3)` after the rename (or leave the column and rely on validation).
 
 ### Stage 7 — Tests
+
 - Per-division numbering: restart at 10, per-division insert-between, per-division renumber.
 - Division-required validation + route gate; internal-caller `GEN` fallback.
 - `formatBoqLineRef` unit test.

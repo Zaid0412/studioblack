@@ -236,7 +236,8 @@ export function BoqCreateItemSheet({
         prev.sectionId === BOQ_NO_SECTION_ID
           ? null
           : sections.find((s) => s.id === prev.sectionId);
-      const keep = !sec || sec.division_id === null || sec.division_id === divisionId;
+      const keep =
+        !sec || sec.division_id === null || sec.division_id === divisionId;
       return {
         ...prev,
         divisionId,
