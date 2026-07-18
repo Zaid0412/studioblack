@@ -38,6 +38,7 @@ import {
 import type { BoqItemPhase, ElementUnit } from "@/lib/validations";
 import { UnitSelect } from "@/components/ui/UnitSelect";
 import { isExternalViewer } from "@/lib/roles";
+import { formatBoqLineRef } from "@/lib/boq/lineRef";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
 import { BoqEditableCell } from "./BoqEditableCell";
 import { BoqChangeRequestBanner } from "./BoqChangeRequestBanner";
@@ -615,7 +616,7 @@ export function BoqItemDrawer({
         <SheetContent>
           <SheetHeader>
             <div className="flex items-center gap-2 text-xs font-mono text-text-muted">
-              Line {item.line_number}
+              {formatBoqLineRef(item.division_code, item.line_number)}
               {item.item_code && <span>· {item.item_code}</span>}
               {item.division_name && <span>· {item.division_name}</span>}
               {section && <span>· {section.title}</span>}

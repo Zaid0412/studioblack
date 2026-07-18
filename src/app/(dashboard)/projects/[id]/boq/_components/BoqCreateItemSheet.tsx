@@ -44,6 +44,7 @@ import {
 } from "../_lib/formatters";
 import { BoqDimensionUnitToggle } from "./BoqDimensionUnitToggle";
 import { BoqSectionSelect } from "./BoqSectionSelect";
+import { BoqDivisionSelect } from "./BoqDivisionSelect";
 
 interface Attribute {
   attribute_key: string;
@@ -55,6 +56,8 @@ interface FormState {
   imageUrl: string | null;
   name: string;
   sectionId: string;
+  /** The line's Division (mandatory). Drives its per-division line number. */
+  divisionId: string | null;
   description: string;
   unit: ElementUnit;
   currency: string;
@@ -93,6 +96,7 @@ const INITIAL: FormState = {
   imageUrl: null,
   name: "",
   sectionId: BOQ_NO_SECTION_ID,
+  divisionId: null,
   description: "",
   unit: DEFAULT_ELEMENT_UNIT,
   currency: DEFAULT_CURRENCY,
@@ -186,20 +190,74 @@ export function BoqCreateItemSheet({
     default_service_charge_pct: string | null;
   }>(API.project(projectId));
 
+  // Division a pre-selected section sits under (opened from a section's menu),
+  // so the mandatory Division defaults to match. A primitive, so the reset
+  // effect below doesn't re-fire on every `sections` identity change.
+  const defaultDivisionId = useMemo(
+    () =>
+      defaultSectionId
+        ? (sections.find((s) => s.id === defaultSectionId)?.division_id ?? null)
+        : null,
+    [defaultSectionId, sections]
+  );
+
   useEffect(() => {
     if (!open) return;
     setV({
       ...INITIAL,
       sectionId: defaultSectionId ?? BOQ_NO_SECTION_ID,
+      divisionId: defaultDivisionId,
       unit: (project?.default_unit ?? INITIAL.unit) as ElementUnit,
       serviceChargePct:
         project?.default_service_charge_pct ?? INITIAL.serviceChargePct,
     });
     setManualQty(false);
-  }, [open, defaultSectionId, project]);
+  }, [open, defaultSectionId, defaultDivisionId, project]);
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setV((prev) => ({ ...prev, [key]: value }));
+
+  // Sections offered for the chosen division: those under it, plus Unassigned
+  // (division-less) sections. Before a division is picked, all are shown.
+  const sectionsForDivision = useMemo(
+    () =>
+      v.divisionId
+        ? sections.filter(
+            (s) => s.division_id === v.divisionId || s.division_id === null
+          )
+        : sections,
+    [sections, v.divisionId]
+  );
+
+  // Changing the division clears a section that belonged to a different one.
+  const changeDivision = (divisionId: string) =>
+    setV((prev) => {
+      const sec =
+        prev.sectionId === BOQ_NO_SECTION_ID
+          ? null
+          : sections.find((s) => s.id === prev.sectionId);
+      const keep =
+        !sec || sec.division_id === null || sec.division_id === divisionId;
+      return {
+        ...prev,
+        divisionId,
+        sectionId: keep ? prev.sectionId : BOQ_NO_SECTION_ID,
+      };
+    });
+
+  // Picking a section that has a division locks the line's division to it.
+  const changeSection = (sectionId: string) =>
+    setV((prev) => {
+      const sec =
+        sectionId === BOQ_NO_SECTION_ID
+          ? null
+          : sections.find((s) => s.id === sectionId);
+      return {
+        ...prev,
+        sectionId,
+        divisionId: sec?.division_id ?? prev.divisionId,
+      };
+    });
 
   const addAttribute = () =>
     setV((prev) => ({
@@ -365,6 +423,19 @@ export function BoqCreateItemSheet({
       return;
     }
 
+    // Division is mandatory on a plain add — it drives the line's per-division
+    // number. An insert-between inherits the anchor's division server-side, so
+    // its picker is hidden and this guard doesn't apply.
+    const divisionId = v.divisionId;
+    if (!isInsert && !divisionId) {
+      toast({
+        title: "Division required",
+        description: "Pick the Division this line belongs to.",
+        variant: "error",
+      });
+      return;
+    }
+
     // Every line, not just the ones saved to the library. The guard narrows
     // `categoryId` to a non-null id for the two payloads below.
     const categoryId = v.categoryId;
@@ -428,6 +499,8 @@ export function BoqCreateItemSheet({
       const payload: CreateItemPayload = {
         boqId,
         sectionId: v.sectionId === BOQ_NO_SECTION_ID ? null : v.sectionId,
+        // Omitted on insert-between (server inherits the anchor's division).
+        divisionId: divisionId ?? undefined,
         elementId,
         categoryId,
         itemCode,
@@ -570,15 +643,37 @@ export function BoqCreateItemSheet({
               </div>
             </div>
 
-            {/* Section */}
-            <BoqSectionSelect
-              value={v.sectionId}
-              onChange={(next) => set("sectionId", next)}
-              sections={sections}
-              projectId={projectId}
-              boqId={boqId}
-              nextSortOrder={sections.length}
-            />
+            {/* Division (required) | Section. Line numbers restart per division
+                (DIV-10, 20, …); the section is an optional grouping under it. An
+                insert-between inherits the anchor's division, so its picker is
+                hidden — only the section (also anchor-derived) shows. */}
+            {isInsert ? (
+              <BoqSectionSelect
+                value={v.sectionId}
+                onChange={changeSection}
+                sections={sectionsForDivision}
+                projectId={projectId}
+                boqId={boqId}
+                nextSortOrder={sections.length}
+              />
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <BoqDivisionSelect
+                  label="Division"
+                  value={v.divisionId}
+                  onChange={(id) => id && changeDivision(id)}
+                  required
+                />
+                <BoqSectionSelect
+                  value={v.sectionId}
+                  onChange={changeSection}
+                  sections={sectionsForDivision}
+                  projectId={projectId}
+                  boqId={boqId}
+                  nextSortOrder={sections.length}
+                />
+              </div>
+            )}
 
             {/* Required on every line, not just the ones going to the library:
                 the Service Area is what makes a line match rate contracts and

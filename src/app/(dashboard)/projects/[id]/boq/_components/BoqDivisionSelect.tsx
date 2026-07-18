@@ -7,17 +7,31 @@ import { useDivisions } from "@/hooks/useDivisions";
 import type { Division } from "@/types";
 
 /**
- * Searchable division picker for the section create/edit dialogs. Offers the
- * enabled divisions from the org library (filter by code or name) plus a
- * "No division" option. A section already filed under a now-disabled division
- * still shows it, so editing an unrelated field doesn't silently drop it.
+ * Searchable division picker. Offers the enabled divisions from the org library
+ * (filter by code or name). A section/item already filed under a now-disabled
+ * division still shows it, so editing an unrelated field doesn't silently drop
+ * it.
+ *
+ * Two modes:
+ * - Section dialogs (default) — division is optional, so a "No division" option
+ *   is offered and `onChange(null)` can fire.
+ * - `required` (BOQ item) — division is mandatory, so there's no "No division"
+ *   option and `onChange` only ever fires with a real id.
+ *
+ * Pass `label` to render an own label + `flex-col` wrapper (matching the sibling
+ * field controls). Without it the bare dropdown is returned, so callers that
+ * already wrap it in their own `<label>` (the section dialog) aren't double-labelled.
  */
 export function BoqDivisionSelect({
   value,
   onChange,
+  required = false,
+  label,
 }: {
   value: string | null;
   onChange: (divisionId: string | null) => void;
+  required?: boolean;
+  label?: string;
 }) {
   const { enabledDivisions, byId } = useDivisions();
 
@@ -31,9 +45,11 @@ export function BoqDivisionSelect({
   const selected = value ? byId.get(value) : null;
   const selectedLabel = selected
     ? `${selected.code} — ${selected.name}`
-    : "No division";
+    : required
+      ? "Select a division…"
+      : "No division";
 
-  return (
+  const dropdown = (
     <SearchableDropdown
       minContentWidth={280}
       maxListHeight={240}
@@ -59,7 +75,7 @@ export function BoqDivisionSelect({
                 d.name.toLowerCase().includes(query)
             )
           : options;
-        const showNone = !query || "no division".includes(query);
+        const showNone = !required && (!query || "no division".includes(query));
         return (
           <>
             {showNone && (
@@ -120,5 +136,21 @@ export function BoqDivisionSelect({
         );
       }}
     </SearchableDropdown>
+  );
+
+  if (!label) return dropdown;
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-xs font-medium text-text-secondary">
+        {label}
+        {required && (
+          <span className="text-danger" aria-hidden>
+            {" "}
+            *
+          </span>
+        )}
+      </span>
+      {dropdown}
+    </div>
   );
 }

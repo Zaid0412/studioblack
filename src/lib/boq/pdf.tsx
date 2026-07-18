@@ -16,6 +16,7 @@ import {
   toNum,
 } from "@/app/(dashboard)/projects/[id]/boq/_lib/formatters";
 import type { BoqItemWithComputed } from "@/types";
+import { formatBoqLineRef } from "@/lib/boq/lineRef";
 
 /**
  * Client-only BOQ PDF attached to the "sent to client" email. Omits
@@ -296,7 +297,9 @@ function BoqPdfDocument({
               </View>
               {group.items.map((it) => (
                 <View key={it.id} style={styles.row} wrap={false}>
-                  <Text style={styles.colCode}>{it.line_number}</Text>
+                  <Text style={styles.colCode}>
+                    {formatBoqLineRef(it.division_code, it.line_number)}
+                  </Text>
                   <Text style={styles.colName}>
                     {it.name ?? it.element_name ?? ""}
                   </Text>

@@ -200,9 +200,32 @@ describe("createBoqItemSchema", () => {
     });
   });
 
+  // Division is mandatory on a line (it drives the per-division line number and
+  // the `<code>-<number>` reference). Ownership is checked server-side.
+  it("rejects a missing divisionId", () => {
+    expectFail(createBoqItemSchema, {
+      categoryId: VALID_UUID,
+      description: "Tile laying",
+      unit: "m2",
+    });
+  });
+
+  // Insert-between inherits the anchor's division server-side, so the client
+  // doesn't send one — the refine allows it when anchorItemId is present.
+  it("allows a missing divisionId for an insert-between", () => {
+    expectPass(createBoqItemSchema, {
+      categoryId: VALID_UUID,
+      description: "Inserted",
+      unit: "m2",
+      anchorItemId: VALID_UUID,
+      insertPosition: "below",
+    });
+  });
+
   it("accepts minimal valid input", () => {
     const data = expectPass(createBoqItemSchema, {
       categoryId: VALID_UUID,
+      divisionId: VALID_UUID,
       description: "Tile laying",
       unit: "m2",
     });
@@ -212,6 +235,7 @@ describe("createBoqItemSchema", () => {
   it("accepts insert-between fields", () => {
     const data = expectPass(createBoqItemSchema, {
       categoryId: VALID_UUID,
+      divisionId: VALID_UUID,
       description: "Inserted",
       unit: "m2",
       anchorItemId: VALID_UUID,
@@ -224,6 +248,7 @@ describe("createBoqItemSchema", () => {
   it("rejects an invalid insert position", () => {
     expectFail(createBoqItemSchema, {
       categoryId: VALID_UUID,
+      divisionId: VALID_UUID,
       description: "Inserted",
       unit: "m2",
       insertPosition: "sideways",
@@ -236,6 +261,7 @@ describe("createBoqItemSchema", () => {
   it("rejects a unit outside ALLOWED_UNITS", () => {
     expectFail(createBoqItemSchema, {
       categoryId: VALID_UUID,
+      divisionId: VALID_UUID,
       description: "Cabinet hardware fixtures",
       unit: "nos",
     });
@@ -251,6 +277,7 @@ describe("createBoqItemSchema", () => {
   it("accepts all optional cost fields", () => {
     const data = expectPass(createBoqItemSchema, {
       categoryId: VALID_UUID,
+      divisionId: VALID_UUID,
       description: "X",
       unit: "m2",
       quantity: 100,
@@ -268,6 +295,7 @@ describe("createBoqItemSchema", () => {
   it("coerces numeric strings for money and quantity", () => {
     const data = expectPass(createBoqItemSchema, {
       categoryId: VALID_UUID,
+      divisionId: VALID_UUID,
       description: "X",
       unit: "m2",
       quantity: "10.5",
@@ -280,6 +308,7 @@ describe("createBoqItemSchema", () => {
   it("accepts null cost fields", () => {
     expectPass(createBoqItemSchema, {
       categoryId: VALID_UUID,
+      divisionId: VALID_UUID,
       description: "X",
       unit: "m2",
       materialCost: null,
@@ -290,6 +319,7 @@ describe("createBoqItemSchema", () => {
   it("accepts an optional name and trims whitespace", () => {
     const data = expectPass(createBoqItemSchema, {
       categoryId: VALID_UUID,
+      divisionId: VALID_UUID,
       description: "X",
       unit: "m2",
       name: "  Lobby Marble Counter  ",
@@ -300,6 +330,7 @@ describe("createBoqItemSchema", () => {
   it("accepts an explicit null name (clears the field)", () => {
     const data = expectPass(createBoqItemSchema, {
       categoryId: VALID_UUID,
+      divisionId: VALID_UUID,
       description: "X",
       unit: "m2",
       name: null,
@@ -373,6 +404,7 @@ describe("createBoqItemSchema", () => {
   it("accepts decimal length / breadth / height values", () => {
     const data = expectPass(createBoqItemSchema, {
       categoryId: VALID_UUID,
+      divisionId: VALID_UUID,
       description: "Concrete footing M25",
       unit: "m3",
       length: 2.5,
@@ -387,6 +419,7 @@ describe("createBoqItemSchema", () => {
   it("accepts null dimension values (omitted dimensions)", () => {
     expectPass(createBoqItemSchema, {
       categoryId: VALID_UUID,
+      divisionId: VALID_UUID,
       description: "Pipework run",
       unit: "lm",
       length: 12,

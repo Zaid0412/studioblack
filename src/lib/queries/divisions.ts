@@ -100,22 +100,28 @@ export async function updateDivision(
 }
 
 /**
- * Delete a division. Blocked while any BOQ section still references it — the UI
- * disables such a division instead. Single conditional DELETE (no TOCTOU race),
- * mirroring `deleteCategory`.
+ * Delete a division. Blocked while any BOQ section OR line still references it
+ * (a line's `division_id` is mandatory, so a referenced division can't be
+ * hard-deleted) — the UI disables such a division instead. Single conditional
+ * DELETE (no TOCTOU race), mirroring `deleteCategory`.
  */
 export async function deleteDivision(id: string, orgId: string) {
   const pool = getPool();
   const { rowCount } = await pool.query(
     `DELETE FROM division
       WHERE id = $1 AND org_id = $2
-        AND NOT EXISTS (SELECT 1 FROM boq_section WHERE division_id = $1)`,
+        AND NOT EXISTS (SELECT 1 FROM boq_section WHERE division_id = $1)
+        AND NOT EXISTS (SELECT 1 FROM boq_item WHERE division_id = $1)`,
     [id, orgId]
   );
   if ((rowCount ?? 0) > 0) return { deleted: true as const };
 
   const { rows } = await pool.query(
-    `SELECT EXISTS (SELECT 1 FROM boq_section WHERE division_id = $1) AS in_use`,
+    `SELECT EXISTS (
+       SELECT 1 FROM boq_section WHERE division_id = $1
+       UNION ALL
+       SELECT 1 FROM boq_item WHERE division_id = $1
+     ) AS in_use`,
     [id]
   );
   if (rows[0]?.in_use)

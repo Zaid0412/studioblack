@@ -51,6 +51,7 @@ import type {
 import { type BoqItemPhase, type ElementUnit } from "@/lib/validations";
 import { UnitSelect } from "@/components/ui/UnitSelect";
 import { isExternalViewer } from "@/lib/roles";
+import { formatBoqLineRef } from "@/lib/boq/lineRef";
 import {
   BOQ_NO_SECTION_ID,
   formatCurrency,
@@ -929,7 +930,8 @@ const BoqItemRow = memo(function BoqItemRow({
 
   // A stable label for a11y — the line is now the item's identity, and
   // `item_code` may be blank on a custom line.
-  const lineRef = `line ${item.line_number}`;
+  const lineDisplay = formatBoqLineRef(item.division_code, item.line_number);
+  const lineRef = `line ${lineDisplay}`;
 
   return (
     <div
@@ -952,11 +954,11 @@ const BoqItemRow = memo(function BoqItemRow({
           className="text-xs text-text-muted font-mono truncate text-left hover:text-accent cursor-pointer focus:outline-none focus-visible:text-accent"
           aria-label={`Open details for ${lineRef}`}
         >
-          {item.line_number}
+          {lineDisplay}
         </button>
       ) : (
         <span className="text-xs text-text-muted font-mono truncate">
-          {item.line_number}
+          {lineDisplay}
         </span>
       )}
       <span className="flex flex-col gap-0.5 min-w-0">

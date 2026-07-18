@@ -56,6 +56,8 @@ RFQs nested under Order), not the 8-tab bar this plan describes.
 
 > **Source PRD** (Google Docs — 6 tabs):
 >
+> _These docs are public — no Drive login/connector needed. Read a tab's text with `https://docs.google.com/document/d/<DOC_ID>/export?format=txt&tab=t.<TAB_ID>` and follow the 307 redirect; plain `?format=txt` returns only the default (first) tab._
+>
 > - [Tab 1 — Overview & Architecture](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.0)
 > - [Tab 2 — Database Schema & Permissions](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.kxk5xif02yog)
 > - [Tab 3 — UI Specs & Workflows](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.l1rfcv6wiy3h)
@@ -63,6 +65,7 @@ RFQs nested under Order), not the 8-tab bar this plan describes.
 > - [Tab 5 — Client BOQ Sub-Nav (informal)](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.a3ma4anbiwbv)
 > - [Tab 6 — Operational Logic & State Machines](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.ts167vyji3xt)
 >   - [BOQ Div/Section](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.hgvsecaean3w)
+>   - [BOQ Structure & Division Design Specification](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.fmt70ay2utac)
 >
 > **Addendum tabs** (added after the plan — see "Revisions from PRD Tabs 7–10"):
 >

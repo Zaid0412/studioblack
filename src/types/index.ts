@@ -739,9 +739,10 @@ export interface BoqItem {
    */
   category_id: string | null;
   /**
-   * The item's gapped line number, continuous across the whole BOQ (`10, 20,
-   * 30…` spanning every division/section). Combined with the BOQ's `boq_number`
-   * this is the line's business reference (`P2026-001-BOQ-001 / Line 20`).
+   * The item's gapped line number, RESTARTING at the increment for each division
+   * (`10, 20, 30…` within a division). With the division's `code` this is the
+   * line's business reference — `<division_code>-<line_number>` (e.g. `PLB-20`),
+   * see `formatBoqLineRef`.
    */
   line_number: number;
   /**
@@ -777,8 +778,9 @@ export interface BoqItem {
   element_name: string | null;
   /** Service-area name for `category_id` (joined). Null when unclassified. */
   category_name: string | null;
-  /** Division of the item's section (joined via boq_section). Null when unassigned. */
+  /** The line's own (mandatory) division. `code`/`name` are joined on read. */
   division_id: string | null;
+  division_code: string | null;
   division_name: string | null;
   installed_qty: string;
   has_snag: boolean;

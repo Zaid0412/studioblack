@@ -41,6 +41,7 @@ import type {
 import { buildCategoryMap } from "@/lib/elementCategories";
 import { BOQ_NO_SECTION_ID, formatCurrency } from "../_lib/formatters";
 import { BoqSectionSelect } from "./BoqSectionSelect";
+import { BoqDivisionSelect } from "./BoqDivisionSelect";
 import { BoqRateContractPicker } from "./BoqRateContractPicker";
 import { flattenCategories } from "@/app/(dashboard)/elements/_lib/categoryUtils";
 
@@ -94,8 +95,20 @@ export function BoqElementPickerDialog({
   const [sectionId, setSectionId] = useState<string>(
     defaultSectionId ?? BOQ_NO_SECTION_ID
   );
+  const [divisionId, setDivisionId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const rateContractsEnabled = useFlag("rateContracts");
+
+  // Division a pre-selected section sits under, so the mandatory Division
+  // defaults to match. A primitive, so the reset effect doesn't re-fire on
+  // every `sections` identity change.
+  const defaultDivisionId = useMemo(
+    () =>
+      defaultSectionId
+        ? (sections.find((s) => s.id === defaultSectionId)?.division_id ?? null)
+        : null,
+    [defaultSectionId, sections]
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -107,7 +120,38 @@ export function BoqElementPickerDialog({
     setSelectedRate(null);
     setRateQuantity("1");
     setSectionId(defaultSectionId ?? BOQ_NO_SECTION_ID);
-  }, [open, defaultSectionId]);
+    setDivisionId(defaultDivisionId);
+  }, [open, defaultSectionId, defaultDivisionId]);
+
+  // Sections offered for the chosen division: those under it, plus Unassigned.
+  const sectionsForDivision = useMemo(
+    () =>
+      divisionId
+        ? sections.filter(
+            (s) => s.division_id === divisionId || s.division_id === null
+          )
+        : sections,
+    [sections, divisionId]
+  );
+
+  // Changing the division clears a section that belonged to a different one;
+  // picking a section that has a division locks the division to it.
+  const changeDivision = (next: string) => {
+    setDivisionId(next);
+    const sec =
+      sectionId === BOQ_NO_SECTION_ID
+        ? null
+        : sections.find((s) => s.id === sectionId);
+    if (sec && sec.division_id !== null && sec.division_id !== next) {
+      setSectionId(BOQ_NO_SECTION_ID);
+    }
+  };
+  const changeSection = (next: string) => {
+    setSectionId(next);
+    const sec =
+      next === BOQ_NO_SECTION_ID ? null : sections.find((s) => s.id === next);
+    if (sec?.division_id) setDivisionId(sec.division_id);
+  };
 
   // Switching tabs clears the active selection so the submit button reflects
   // the visible picker.
@@ -205,6 +249,14 @@ export function BoqElementPickerDialog({
 
   const handleSubmitLibrary = async () => {
     if (selectedCount === 0) return;
+    if (!divisionId) {
+      toast({
+        title: "Division required",
+        description: "Pick the Division these lines belong to.",
+        variant: "error",
+      });
+      return;
+    }
     const items: Array<{ elementId: string; quantity: number }> = [];
     for (const entry of selectedEntries) {
       const qty = parseFloat(entry.quantity);
@@ -223,6 +275,7 @@ export function BoqElementPickerDialog({
       await boqApi.addElements(projectId, {
         boqId,
         sectionId: sectionId === BOQ_NO_SECTION_ID ? null : sectionId,
+        divisionId,
         items,
       });
       await globalMutate(API.boq(projectId));
@@ -250,6 +303,14 @@ export function BoqElementPickerDialog({
     // The browse picker only surfaces element-bearing rates; the element id is
     // required to add an element row to the BOQ.
     if (!selectedRate?.element_id) return;
+    if (!divisionId) {
+      toast({
+        title: "Division required",
+        description: "Pick the Division this line belongs to.",
+        variant: "error",
+      });
+      return;
+    }
     const elementId = selectedRate.element_id;
     const qty = parseFloat(rateQuantity);
     if (!Number.isFinite(qty) || qty <= 0) {
@@ -265,6 +326,7 @@ export function BoqElementPickerDialog({
       await boqApi.addElement(projectId, {
         boqId,
         sectionId: sectionId === BOQ_NO_SECTION_ID ? null : sectionId,
+        divisionId,
         elementId,
         quantity: qty,
         rateContractItemId: selectedRate.rate_contract_item_id,
@@ -553,15 +615,17 @@ export function BoqElementPickerDialog({
           )}
         </Tabs>
 
-        <div
-          className={`grid gap-3 mt-2 ${
-            tab === "rate-contract" ? "grid-cols-2" : "grid-cols-1"
-          }`}
-        >
+        <div className="grid gap-3 mt-2 grid-cols-2">
+          <BoqDivisionSelect
+            label="Division"
+            value={divisionId}
+            onChange={(id) => id && changeDivision(id)}
+            required
+          />
           <BoqSectionSelect
             value={sectionId}
-            onChange={setSectionId}
-            sections={sections}
+            onChange={changeSection}
+            sections={sectionsForDivision}
             projectId={projectId}
             boqId={boqId}
             nextSortOrder={sections.length}

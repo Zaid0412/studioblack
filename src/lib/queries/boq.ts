@@ -71,22 +71,23 @@ async function getProjectIncrement(
 }
 
 /**
- * The global display order of a BOQ's items: division rank, then section rank,
- * then the item's position within its section. Line numbers are kept strictly
- * increasing in this order, so it's the single ordering that the continuous
- * renumber and the insert-bounds lookup agree on. NULL division/section sort
- * last (the "Unassigned" buckets render at the end). Assumes the `boq_item bi`
- * alias is in scope.
+ * The order of a BOQ's items within a division: the item's own division rank
+ * (constant inside a division partition), then section rank, then the item's
+ * position within its section. Line numbers restart per division and stay
+ * strictly increasing in this order — the single ordering that the per-division
+ * renumber and the insert-bounds lookup agree on. NULL section sorts last (the
+ * "Unassigned" bucket renders at the end of its division). `division_id` is
+ * NOT NULL, so `div` is always present via the item. Assumes `boq_item bi`.
  */
-const BOQ_GLOBAL_ORDER_JOIN = `LEFT JOIN boq_section bsec ON bsec.id = bi.section_id LEFT JOIN division div ON div.id = bsec.division_id`;
+const BOQ_GLOBAL_ORDER_JOIN = `LEFT JOIN boq_section bsec ON bsec.id = bi.section_id LEFT JOIN division div ON div.id = bi.division_id`;
 const BOQ_GLOBAL_ORDER_BY = `COALESCE(div.sort_order, 2147483647), COALESCE(bsec.sort_order, 2147483647), bi.sort_order, bi.created_at`;
 
 /**
- * Renumber every line of a BOQ to a continuous gapped sequence
- * (`increment, 2·increment, …`) in global order — the BOQ-wide analogue of the
- * per-section respace. Used as the no-gap insert fallback and after any mutation
- * that changes item / section / division order. The caller must already hold the
- * BOQ's `boq-lines:` advisory lock inside a transaction.
+ * Renumber a BOQ's lines to a gapped sequence (`increment, 2·increment, …`)
+ * that RESTARTS per division — each division's first line is `increment`. Used
+ * as the no-gap insert fallback and after any mutation that changes item /
+ * section / division order. The caller must already hold the BOQ's `boq-lines:`
+ * advisory lock inside a transaction.
  *
  * Only rows whose number actually changes are written, and `updated_at` is left
  * alone: `line_number` is display-only, so bumping every row's optimistic token
@@ -105,7 +106,7 @@ async function renumberBoqContinuous(
     `UPDATE boq_item t
         SET line_number = o.rn * incr.v
        FROM (
-         SELECT bi.id, ROW_NUMBER() OVER (ORDER BY ${BOQ_GLOBAL_ORDER_BY}) AS rn
+         SELECT bi.id, ROW_NUMBER() OVER (PARTITION BY bi.division_id ORDER BY ${BOQ_GLOBAL_ORDER_BY}) AS rn
            FROM boq_item bi ${BOQ_GLOBAL_ORDER_JOIN}
           WHERE bi.boq_id = $1
        ) o
@@ -205,7 +206,7 @@ const ITEM_COMPUTED_COLS = `
  * and vice-versa. Used by `ITEM_SELECT` and the four mutation queries that
  * return a fresh item row (create / update / move / lifecycle).
  */
-const ITEM_LIBRARY_COLS = `e.name AS element_name, NOT e.is_active AS element_archived, cat.name AS category_name, bsec.division_id, div.name AS division_name`;
+const ITEM_LIBRARY_COLS = `e.name AS element_name, NOT e.is_active AS element_archived, cat.name AS category_name, div.code AS division_code, div.name AS division_name`;
 const ITEM_LIBRARY_JOIN = `LEFT JOIN element e ON e.id = bi.element_id LEFT JOIN element_category cat ON cat.id = bi.category_id ${BOQ_GLOBAL_ORDER_JOIN}`;
 
 const ITEM_SELECT = `SELECT bi.*, ${ITEM_LIBRARY_COLS}, ${ITEM_COMPUTED_COLS} FROM boq_item bi JOIN boq b ON b.id = bi.boq_id ${ITEM_LIBRARY_JOIN}`;
@@ -1030,6 +1031,12 @@ export async function reorderBoqSections(
 
 export interface CreateBoqItemInput {
   sectionId?: string | null;
+  /**
+   * The Division the line belongs to (mandatory in the data model). Omitted by
+   * internal callers (library/batch/import) — `createBoqItem` then resolves it
+   * from the section's division, falling back to the org's General (GEN).
+   */
+  divisionId?: string | null;
   elementId?: string | null;
   /**
    * The Service Area the line sits under. Required on the user-facing create
@@ -1070,6 +1077,28 @@ export interface CreateBoqItemInput {
 }
 
 /**
+ * Resolve the mandatory division for a line whose caller didn't pick one: the
+ * section's division, else the org's General (GEN). Returns null only if the org
+ * has no GEN division (shouldn't happen post-migration). Shared by the create
+ * path and the batch add so `boq_item.division_id`'s NOT NULL always holds
+ * without threading a division through every internal caller.
+ */
+async function resolveLineDivisionId(
+  executor: Pool | PoolClient,
+  orgId: string,
+  sectionId: string | null
+): Promise<string | null> {
+  const { rows } = await executor.query<{ id: string | null }>(
+    `SELECT COALESCE(
+       (SELECT bs.division_id FROM boq_section bs WHERE bs.id = $1::uuid),
+       (SELECT d.id FROM division d WHERE d.org_id = $2 AND lower(d.code) = 'gen' LIMIT 1)
+     ) AS id`,
+    [sectionId, orgId]
+  );
+  return rows[0]?.id ?? null;
+}
+
+/**
  * Insert a BOQ item. `item_code` is not the item's business number — that's its
  * BOQ's number plus the `line_number` assigned here (`P2026-001-BOQ-001 /
  * Line 20`). `item_code` is the element code: a linked element's code, an
@@ -1077,13 +1106,17 @@ export interface CreateBoqItemInput {
  * from the line's Service Area in the same Library format
  * (`generateElementCodeFor`, drawn from the shared per-prefix sequence).
  *
- * The `line_number` append is the BOQ-wide `MAX + increment` (line numbers are
- * continuous across the whole BOQ, not per section), so a plain append lands at
- * the numeric end; callers that add to a mid-BOQ section reconcile ordering with
+ * The `line_number` append is `MAX + increment` WITHIN the line's division (line
+ * numbers restart per division), so a plain append lands at that division's
+ * numeric end; callers that add to a mid-division section reconcile ordering with
  * a trailing `renumberBoqContinuous` (see `addBoqItem`). Pass `executor` (a
  * transaction client) to run inside a caller-owned transaction — the batch flows
  * (`addElementsToBoq`) and `insertBoqItemBetween` do this, then renumber once.
  * Pass an explicit `lineNumber` (insert-between) to bypass the append entirely.
+ *
+ * `division_id` is mandatory: `input.divisionId` when supplied, else resolved
+ * from the section's division, else the org's General (GEN) — so internal
+ * callers that don't pick a division still satisfy the NOT NULL.
  */
 export async function createBoqItem(
   boqId: string,
@@ -1092,6 +1125,24 @@ export async function createBoqItem(
   executor: Pool | PoolClient = getPool()
 ): Promise<BoqItemWithComputed> {
   let itemCode = input.itemCode?.trim() || null;
+
+  // Resolve the mandatory division for callers that didn't supply one (library /
+  // batch / import): the section's division, falling back to the org's GEN. One
+  // extra round-trip, only on the internal paths — the user create path always
+  // passes `divisionId`, so it skips this.
+  let divisionId = input.divisionId ?? null;
+  if (!divisionId) {
+    divisionId = await resolveLineDivisionId(
+      executor,
+      orgId,
+      input.sectionId ?? null
+    );
+    if (!divisionId) {
+      throw new Error(
+        "createBoqItem: could not resolve a division (org has no GEN division?)"
+      );
+    }
+  }
   // A custom line (no linked element) with no code gets one auto-generated from
   // its Service Area — the same Library-format code (`KIT-CAB-BASE-0001`), drawn
   // from the shared per-prefix sequence. The two user create paths (`addBoqItem`,
@@ -1123,7 +1174,7 @@ export async function createBoqItem(
          client_rate, budget_rate,
          length, breadth, height, dimension_unit,
          notes, client_notes,
-         sort_order, line_number, is_provisional, is_excluded, category_id
+         sort_order, line_number, is_provisional, is_excluded, category_id, division_id
        ) VALUES (
          $1, $2::uuid, $3, COALESCE($4, 'custom'), $5::uuid,
          $6, $7, $8, $9,
@@ -1133,8 +1184,8 @@ export async function createBoqItem(
          $19::numeric, $20::numeric, $21::numeric, COALESCE($22, 'm'),
          $23, $24,
          COALESCE($25::int, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM boq_item WHERE boq_id = $1 AND section_id IS NOT DISTINCT FROM $2::uuid)),
-         COALESCE($29::int, (SELECT COALESCE(MAX(line_number), 0) FROM boq_item WHERE boq_id = $1) + ${projectIncrementSql("$1")}),
-         COALESCE($26, false), COALESCE($27, false), $28::uuid
+         COALESCE($29::int, (SELECT COALESCE(MAX(line_number), 0) FROM boq_item WHERE boq_id = $1 AND division_id = $30::uuid) + ${projectIncrementSql("$1")}),
+         COALESCE($26, false), COALESCE($27, false), $28::uuid, $30::uuid
        )
        RETURNING *
      )
@@ -1172,6 +1223,7 @@ export async function createBoqItem(
       input.isExcluded ?? null,
       input.categoryId ?? null,
       input.lineNumber ?? null,
+      divisionId,
     ]
   );
   return rows[0];
@@ -1212,12 +1264,13 @@ export class NeedsRenumberError extends Error {
 }
 
 /**
- * The insert slot: which section, the sort_order to take, and the bounding line
- * numbers. Line numbers are BOQ-wide continuous, so the bounds are the anchor's
- * global neighbours (min line above / next line below), not its section-local
- * ones — the new line's midpoint then sits correctly in the whole-BOQ sequence
- * even when the anchor is its section's first/last row. `insertSort` stays
- * section-local: the row still joins the anchor's section at the right position.
+ * The insert slot: the anchor's division (the new line joins it so numbering
+ * stays contiguous), which section, the sort_order to take, and the bounding
+ * line numbers. Line numbers restart per division, so the bounds are the
+ * anchor's neighbours WITHIN its division (min line above / next line below) —
+ * the midpoint then sits correctly in that division's sequence even when the
+ * anchor is its section's first/last row. `insertSort` stays section-local: the
+ * row still joins the anchor's section at the right position.
  */
 async function insertBounds(
   executor: Pool | PoolClient,
@@ -1225,29 +1278,37 @@ async function insertBounds(
   anchorItemId: string,
   position: "above" | "below"
 ): Promise<{
+  divisionId: string;
   sectionId: string | null;
   insertSort: number;
   lo: number;
   hi: number | null;
 }> {
   const { rows } = await executor.query<{
+    division_id: string;
     section_id: string | null;
     sort_order: number;
     line_number: number;
   }>(
-    `SELECT section_id, sort_order, line_number FROM boq_item WHERE id = $1 AND boq_id = $2`,
+    `SELECT division_id, section_id, sort_order, line_number FROM boq_item WHERE id = $1 AND boq_id = $2`,
     [anchorItemId, boqId]
   );
   if (!rows[0]) throw new Error("Anchor item not found");
-  const { section_id, sort_order: aSort, line_number: aLine } = rows[0];
+  const {
+    division_id: divisionId,
+    section_id,
+    sort_order: aSort,
+    line_number: aLine,
+  } = rows[0];
 
   if (position === "below") {
     const { rows: next } = await executor.query<{ line_number: number }>(
       `SELECT MIN(line_number) AS line_number FROM boq_item
-        WHERE boq_id = $1 AND line_number > $2`,
-      [boqId, aLine]
+        WHERE boq_id = $1 AND division_id = $2 AND line_number > $3`,
+      [boqId, divisionId, aLine]
     );
     return {
+      divisionId,
       sectionId: section_id,
       insertSort: aSort + 1,
       lo: aLine,
@@ -1256,10 +1317,11 @@ async function insertBounds(
   }
   const { rows: prev } = await executor.query<{ line_number: number | null }>(
     `SELECT MAX(line_number) AS line_number FROM boq_item
-      WHERE boq_id = $1 AND line_number < $2`,
-    [boqId, aLine]
+      WHERE boq_id = $1 AND division_id = $2 AND line_number < $3`,
+    [boqId, divisionId, aLine]
   );
   return {
+    divisionId,
     sectionId: section_id,
     insertSort: aSort,
     lo: prev[0]?.line_number ?? 0,
@@ -1306,8 +1368,8 @@ export async function insertBoqItemBetween(
       newLine = mid(b.lo, b.hi);
     } else {
       // No integer between the neighbours — re-space the whole BOQ back to
-      // clean multiples of the increment (numbers are BOQ-wide continuous, so
-      // one section's respace wouldn't reopen a gap that spans sections).
+      // clean per-division multiples of the increment (a single division's
+      // respace is what reopens the gap around this anchor).
       if (!opts.allowRenumber) throw new NeedsRenumberError();
       await renumberBoqContinuous(client, boqId);
       b = await insertBounds(client, boqId, anchor.itemId, anchor.position);
@@ -1326,6 +1388,10 @@ export async function insertBoqItemBetween(
       orgId,
       {
         ...input,
+        // The new line joins the anchor's division + section so its midpoint
+        // line number is valid within that division's sequence, regardless of
+        // what division the form sent.
+        divisionId: b.divisionId,
         sectionId: b.sectionId,
         sortOrder: b.insertSort,
         lineNumber: newLine,
@@ -1345,6 +1411,11 @@ export async function insertBoqItemBetween(
 
 export interface UpdateBoqItemInput {
   sectionId?: string | null;
+  /**
+   * Move the line to another Division. Non-nullable (division is mandatory).
+   * Changing it re-flows the BOQ's per-division line numbers.
+   */
+  divisionId?: string;
   /**
    * Move the line to another Service Area. Non-nullable: an edit may reclassify
    * it, not strip it back to unclassified.
@@ -1384,6 +1455,7 @@ const ITEM_COLS: Record<
   string
 > = {
   sectionId: "section_id",
+  divisionId: "division_id",
   categoryId: "category_id",
   itemCode: "item_code",
   name: "name",
@@ -1560,8 +1632,7 @@ export async function updateBoqItem(
   // `pg` deserializes TIMESTAMPTZ into JS Date (ms precision), so the
   // round-tripped token loses the row's microseconds. Truncate both sides.
   const pool = getPool();
-  const { rows } = await pool.query<BoqItemWithComputed>(
-    `WITH prev AS (
+  const editSql = `WITH prev AS (
        SELECT * FROM boq_item bi
        WHERE bi.id = $${pId}
          AND date_trunc('milliseconds', bi.updated_at)
@@ -1592,10 +1663,55 @@ export async function updateBoqItem(
      SELECT bi.*, ${ITEM_LIBRARY_COLS}, ${ITEM_COMPUTED_COLS}
      FROM updated bi
      JOIN boq b ON b.id = bi.boq_id
-     ${ITEM_LIBRARY_JOIN}`,
-    values
-  );
+     ${ITEM_LIBRARY_JOIN}`;
 
+  // A division change re-flows the per-division line numbers, so it must run in
+  // the SAME transaction as the edit (under the BOQ line lock) — otherwise the
+  // row would briefly carry a stale number from its old division, and (the index
+  // isn't unique) could transiently collide within the new one. The common edit
+  // stays a single pooled statement.
+  if (input.divisionId !== undefined) {
+    const { rows: br } = await pool.query<{ boq_id: string }>(
+      `SELECT boq_id FROM boq_item WHERE id = $1`,
+      [itemId]
+    );
+    if (!br[0]) return { ok: false, reason: "not_found" };
+    const boqId = br[0].boq_id;
+
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [
+        `boq-lines:${boqId}`,
+      ]);
+      const { rows } = await client.query<BoqItemWithComputed>(editSql, values);
+      if (rows.length === 0) {
+        await client.query("ROLLBACK");
+        const exists = await pool.query(
+          `SELECT 1 FROM boq_item WHERE id = $1`,
+          [itemId]
+        );
+        return {
+          ok: false,
+          reason: exists.rows.length > 0 ? "conflict" : "not_found",
+        };
+      }
+      await renumberBoqContinuous(client, boqId);
+      const { rows: reread } = await client.query<BoqItemWithComputed>(
+        `${ITEM_SELECT} WHERE bi.id = $1`,
+        [itemId]
+      );
+      await client.query("COMMIT");
+      return { ok: true, item: reread[0] ?? rows[0] };
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  const { rows } = await pool.query<BoqItemWithComputed>(editSql, values);
   if (rows.length > 0) return { ok: true, item: rows[0] };
 
   // 0 rows updated — either the row doesn't exist, or updated_at drifted.
@@ -2027,6 +2143,8 @@ function elementRowToBoqItemInput(
   e: ElementCostRow,
   opts: {
     sectionId: string | null;
+    /** Explicit division for the line; omitted → createBoqItem resolves it. */
+    divisionId?: string | null;
     elementId: string;
     quantity?: number;
     rateContractItemId?: string | null;
@@ -2036,6 +2154,7 @@ function elementRowToBoqItemInput(
   const { rc } = opts;
   return {
     sectionId: opts.sectionId,
+    divisionId: opts.divisionId ?? null,
     elementId: opts.elementId,
     // The line inherits the element's Service Area — which is why adding from
     // the library needs no manual pick. `?? undefined` because a grandfathered
@@ -2075,6 +2194,7 @@ export async function addElementToBoq(
   orgId: string,
   params: {
     sectionId: string | null;
+    divisionId?: string | null;
     elementId: string;
     quantity?: number;
     rateContractItemId?: string;
@@ -2121,6 +2241,7 @@ export async function addElementToBoq(
     orgId,
     elementRowToBoqItemInput(e, {
       sectionId: params.sectionId,
+      divisionId: params.divisionId ?? null,
       elementId: params.elementId,
       quantity: params.quantity,
       rateContractItemId: params.rateContractItemId ?? null,
@@ -2144,6 +2265,7 @@ export async function addElementsToBoq(
   orgId: string,
   params: {
     sectionId: string | null;
+    divisionId?: string | null;
     items: Array<{
       elementId: string;
       quantity?: number;
@@ -2243,7 +2365,13 @@ export async function addElementsToBoq(
     }
 
     // 3. Insert each row on the transaction client (createBoqItem's in-tx
-    // MAX(sort_order) sees the prior inserts, so ordering stays correct).
+    // MAX(sort_order) sees the prior inserts, so ordering stays correct). The
+    // whole batch shares one section, so resolve its mandatory division ONCE
+    // (section's division, else GEN) rather than letting createBoqItem re-resolve
+    // per row.
+    const batchDivisionId =
+      params.divisionId ??
+      (await resolveLineDivisionId(client, orgId, params.sectionId));
     const insertedIds: string[] = [];
     for (const item of params.items) {
       const e = elemById.get(item.elementId)!;
@@ -2255,6 +2383,7 @@ export async function addElementsToBoq(
         orgId,
         elementRowToBoqItemInput(e, {
           sectionId: params.sectionId,
+          divisionId: batchDivisionId,
           elementId: item.elementId,
           quantity: item.quantity,
           rateContractItemId: item.rateContractItemId ?? null,
@@ -2880,13 +3009,21 @@ export async function bulkInsertBoqItems(
       result.replaced = rowCount ?? 0;
     }
 
-    // Pre-fetch existing sections for case-insensitive title matching.
+    // Pre-fetch existing sections for case-insensitive title matching. Their
+    // division seeds a row's mandatory division_id (see below).
     const { rows: existingSections } = await client.query<{
       id: string;
       title: string;
-    }>(`SELECT id, title FROM boq_section WHERE boq_id = $1`, [boqId]);
+      division_id: string | null;
+    }>(`SELECT id, title, division_id FROM boq_section WHERE boq_id = $1`, [
+      boqId,
+    ]);
     const sectionIdByLowerTitle = new Map(
       existingSections.map((s) => [s.title.toLowerCase(), s.id])
+    );
+    // Section id -> its division (drives each line's mandatory division_id).
+    const divisionBySectionId = new Map<string, string | null>(
+      existingSections.map((s) => [s.id, s.division_id])
     );
 
     // Resolve division names to the org's library (by code or name,
@@ -2903,6 +3040,9 @@ export async function bulkInsertBoqItems(
       divisionIdByKey.set(d.code.toLowerCase(), d.id);
       divisionIdByKey.set(d.name.toLowerCase(), d.id);
     }
+    // Fallback division for a row whose section has none (or that has no
+    // section) — division_id is mandatory on every line.
+    const genDivisionId = divisionIdByKey.get("gen") ?? null;
 
     // Assign a section id (create if missing) for every distinct title in the
     // import. Done up-front so we don't create the same section twice. The
@@ -2944,6 +3084,10 @@ export async function bulkInsertBoqItems(
           ]
         );
         sectionIdByLowerTitle.set(title.toLowerCase(), created[0].id);
+        divisionBySectionId.set(
+          created[0].id,
+          divisionByTitle.get(title.toLowerCase()) ?? null
+        );
         result.createdSections.push({ id: created[0].id, title });
       }
     }
@@ -3004,6 +3148,12 @@ export async function bulkInsertBoqItems(
       nextSortBySection.set(sectionId, sortOrder + 1);
       const lineNumber = nextLineBySection.get(sectionId) ?? increment;
       nextLineBySection.set(sectionId, lineNumber + increment);
+      // Mandatory division: the section's division, else the org's GEN. The
+      // trailing per-division renumber then reconciles line numbers regardless
+      // of the per-section starting points computed above.
+      const divisionId =
+        (sectionId ? divisionBySectionId.get(sectionId) : null) ??
+        genDivisionId;
 
       try {
         await client.query(
@@ -3018,7 +3168,7 @@ export async function bulkInsertBoqItems(
              length, breadth, height, dimension_unit,
              notes, client_notes,
              sort_order, is_provisional,
-             category_id, line_number
+             category_id, line_number, division_id
            ) VALUES (
              $1, $2::uuid, $3::uuid,
              CASE WHEN $3::uuid IS NULL THEN 'custom' ELSE 'library' END,
@@ -3029,7 +3179,7 @@ export async function bulkInsertBoqItems(
              $16::numeric, $17::numeric, $18::numeric, COALESCE($19, 'm'),
              $20, $21,
              $22::int, COALESCE($23, false),
-             $24::uuid, $25::int
+             $24::uuid, $25::int, $26::uuid
            )`,
           [
             boqId,
@@ -3057,6 +3207,7 @@ export async function bulkInsertBoqItems(
             row.isProvisional ?? null,
             row.categoryId,
             lineNumber,
+            divisionId,
           ]
         );
         result.inserted += 1;
