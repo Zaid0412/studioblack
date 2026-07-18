@@ -991,9 +991,15 @@ export const createBoqItemSchema = z
     // Snapshotted onto the auto-created `custom` element (PRD 2.2) for a manual
     // line with no `elementId`. Ignored when the line reuses an existing element.
     currency: z.string().trim().length(3).optional(),
-    tags: z.array(z.string().trim().min(1).max(50)).max(30).optional(),
+    tags: z.array(z.string().trim().min(1)).optional(),
     specReference: z.string().trim().max(255).nullable().optional(),
     drawingRef: z.string().trim().max(255).nullable().optional(),
+    attributes: z.array(elementAttributeInput).optional(),
+    imageUrl: supabaseStorageUrl.optional().nullable(),
+    drawingFileUrl: supabaseStorageUrl.optional().nullable(),
+    drawingFileName: z.string().trim().max(255).optional().nullable(),
+    specFileUrl: supabaseStorageUrl.optional().nullable(),
+    specFileName: z.string().trim().max(255).optional().nullable(),
     unit: z.enum(ALLOWED_UNITS),
     quantity: quantity.optional(),
     unitCost: money.optional(),

@@ -1085,6 +1085,16 @@ export interface CreateBoqItemInput {
   tags?: string[];
   specReference?: string | null;
   drawingRef?: string | null;
+  imageUrl?: string | null;
+  drawingFileUrl?: string | null;
+  drawingFileName?: string | null;
+  specFileUrl?: string | null;
+  specFileName?: string | null;
+  attributes?: Array<{
+    attribute_key: string;
+    attribute_value: string;
+    unit?: string;
+  }>;
 }
 
 /**
@@ -1178,11 +1188,13 @@ export async function createBoqItem(
          (org_id, code, name, description, category_id, unit, unit_cost,
           currency, material_cost, labour_cost, overhead_pct, service_charge_pct, margin_pct,
           client_rate, budget_rate, spec_reference, drawing_ref, tags, created_by,
+          image_url, drawing_file_url, drawing_file_name, spec_file_url, spec_file_name,
           element_type, origin_boq_id)
        VALUES ($1, $2, $3, $4, $5::uuid, $6, COALESCE($7::numeric, 0),
                $8, $9::numeric, $10::numeric, COALESCE($11::numeric, 0), COALESCE($12::numeric, 0), COALESCE($13::numeric, 0),
                $14::numeric, $15::numeric, $16, $17, $18, $19,
-               'custom', $20)
+               $20, $21, $22, $23, $24,
+               'custom', $25)
        RETURNING id, code`,
       [
         orgId,
@@ -1204,11 +1216,35 @@ export async function createBoqItem(
         input.drawingRef ?? null,
         input.tags ?? null,
         input.createdBy ?? null,
+        input.imageUrl ?? null,
+        input.drawingFileUrl ?? null,
+        input.drawingFileName ?? null,
+        input.specFileUrl ?? null,
+        input.specFileName ?? null,
         boqId,
       ]
     );
     elementId = elRows[0].id;
     itemCode = elRows[0].code;
+
+    // Snapshot the line's attributes onto the new element too (same tx).
+    const attrs = (input.attributes ?? []).filter(
+      (a) => a.attribute_key && a.attribute_value
+    );
+    if (attrs.length > 0) {
+      await executor.query(
+        `INSERT INTO element_attribute
+           (element_id, attribute_key, attribute_value, unit, sort_order)
+         SELECT $1::uuid, k, v, u, ord - 1
+           FROM unnest($2::text[], $3::text[], $4::text[]) WITH ORDINALITY AS a(k, v, u, ord)`,
+        [
+          elementId,
+          attrs.map((a) => a.attribute_key),
+          attrs.map((a) => a.attribute_value),
+          attrs.map((a) => a.unit ?? null),
+        ]
+      );
+    }
   }
 
   // Explicit ::numeric / ::int casts on numeric placeholders. Without them

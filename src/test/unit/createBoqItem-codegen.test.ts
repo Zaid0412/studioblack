@@ -99,7 +99,7 @@ describe("createBoqItem — element auto-create (PRD 2.2)", () => {
     expect(params[3]).toBe("Custom base cabinet run"); // $4 description
     expect(params[4]).toBe(CATEGORY_ID); // $5 category_id
     expect(params[18]).toBe("user-pm"); // $19 created_by
-    expect(params[19]).toBe(BOQ_ID); // $20 origin_boq_id
+    expect(params[24]).toBe(BOQ_ID); // $25 origin_boq_id (after image + file cols)
 
     // The line links the new element and mirrors its code as item_code.
     const line = lineInsert()![1] as unknown[];

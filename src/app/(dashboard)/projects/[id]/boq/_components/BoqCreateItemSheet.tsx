@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
-import { Plus, X, Save } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import {
   Sheet,
   SheetBody,
@@ -14,7 +14,6 @@ import {
 import { DEFAULT_CURRENCY, DEFAULT_ELEMENT_UNIT } from "@/lib/constants";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { TagInput } from "@/components/ui/TagInput";
 import { FileUploadSlot } from "@/components/ui/FileUploadSlot";
 import { UnitSelect } from "@/components/ui/UnitSelect";
@@ -25,7 +24,9 @@ import { useBoqMutations } from "@/hooks/useBoqMutations";
 import { elements as elementsApi, ApiError } from "@/lib/api";
 import { API } from "@/lib/api/routes";
 import { isNeedsRenumberError, type CreateItemPayload } from "@/lib/api/boq";
-import type { BoqSection } from "@/types";
+import type { SimilarElementsResponse } from "@/lib/api/elements";
+import { useDebouncedValue } from "@/hooks/useDebounce";
+import type { BoqSection, Element } from "@/types";
 import type { ElementUnit } from "@/lib/validations";
 import {
   ServiceAreaField,
@@ -83,7 +84,6 @@ interface FormState {
   tags: string[];
   attributes: Attribute[];
   notes: string;
-  saveAsElement: boolean;
   /**
    * The line's Service Area (level 3 — required). Classifies the BOQ item so it
    * matches rate contracts / drives vendor suggestion even when it's free-text
@@ -122,7 +122,6 @@ const INITIAL: FormState = {
   tags: [],
   attributes: [],
   notes: "",
-  saveAsElement: false,
   categoryId: null,
 };
 
@@ -143,15 +142,11 @@ interface Props {
 }
 
 /**
- * Add a manual BoQ line. All element fields are exposed so the user can
- * optionally promote the line to the element library via the sticky
- * "Save to element library" toggle at the bottom.
- *
- * - Toggle OFF: only `boq_item`-mapped fields persist; element-only
- *   fields (image, name, category, currency, refs, files, tags,
- *   attributes) are silently ignored.
- * - Toggle ON: a new `element` row is created first, then the
- *   `boq_item` is inserted with `element_id` linking back to it.
+ * Add a manual BoQ line. Every line links a library element (PRD 2.2): as the
+ * user types a Service Area + description, similar elements are suggested for
+ * reuse (Scenario 1); otherwise the server auto-creates a `custom` element on
+ * save and links it (Scenario 2). All element-detail fields (image, currency,
+ * refs, files, tags, attributes) are snapshotted onto that auto-created element.
  */
 export function BoqCreateItemSheet({
   open,
@@ -176,6 +171,13 @@ export function BoqCreateItemSheet({
   // override sticks for the rest of the session. Resets every time
   // the sheet opens.
   const [manualQty, setManualQty] = useState(false);
+  // Set when the user reuses a suggested library element (Scenario 1) — the line
+  // links it instead of the server auto-creating one.
+  const [linkedElement, setLinkedElement] = useState<{
+    id: string;
+    code: string;
+    name: string;
+  } | null>(null);
 
   const {
     isServiceAreaId,
@@ -212,6 +214,7 @@ export function BoqCreateItemSheet({
         project?.default_service_charge_pct ?? INITIAL.serviceChargePct,
     });
     setManualQty(false);
+    setLinkedElement(null);
   }, [open, defaultSectionId, defaultDivisionId, project]);
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
@@ -258,6 +261,44 @@ export function BoqCreateItemSheet({
         divisionId: sec?.division_id ?? prev.divisionId,
       };
     });
+
+  // Inline dedup suggestions (PRD 2.2): once a Service Area + a description are
+  // present and the line isn't already linked, look for similar library elements
+  // so the user can reuse one instead of the server auto-creating a duplicate.
+  // Debounced so it doesn't fire on every keystroke.
+  const debouncedDesc = useDebouncedValue(v.description.trim(), 350);
+  const similarKey =
+    !linkedElement && isServiceAreaId(v.categoryId) && debouncedDesc.length >= 3
+      ? elementsApi.similarKey({
+          categoryId: v.categoryId,
+          q: debouncedDesc,
+          tags: v.tags,
+        })
+      : null;
+  const { data: similar } = useSWR<SimilarElementsResponse>(similarKey);
+  const suggestions = similar?.rows ?? [];
+
+  // Reuse a suggested element: link it + prefill the line's cost fields from it
+  // (the user can still tweak). Keeps the user's own description.
+  const useElement = (el: Element) => {
+    setLinkedElement({ id: el.id, code: el.code, name: el.name });
+    setV((prev) => ({
+      ...prev,
+      name: el.name,
+      unit: (el.unit as ElementUnit) ?? prev.unit,
+      currency: el.currency ?? prev.currency,
+      unitCost: String(el.unit_cost ?? prev.unitCost),
+      materialCost: el.material_cost != null ? String(el.material_cost) : "",
+      labourCost: el.labour_cost != null ? String(el.labour_cost) : "",
+      overheadPct: el.overhead_pct != null ? String(el.overhead_pct) : "0",
+      serviceChargePct:
+        el.service_charge_pct != null ? String(el.service_charge_pct) : "0",
+      marginPct: el.margin_pct != null ? String(el.margin_pct) : prev.marginPct,
+      clientRate: el.client_rate != null ? String(el.client_rate) : "",
+      budgetRate: el.budget_rate != null ? String(el.budget_rate) : "",
+      tags: el.tags ?? prev.tags,
+    }));
+  };
 
   const addAttribute = () =>
     setV((prev) => ({
@@ -449,66 +490,24 @@ export function BoqCreateItemSheet({
       return;
     }
 
-    if (v.saveAsElement && !trimmedName) {
-      toast({
-        title: "Name required",
-        description: "A name is required to save as an element.",
-        variant: "error",
-      });
-      return;
-    }
-
     setSubmitting(true);
     try {
-      let elementId: string | null = null;
-      // Custom lines leave this undefined so the server auto-generates the code;
-      // a saved-to-library line carries its element's server-assigned code.
-      let itemCode: string | undefined;
-
-      if (v.saveAsElement) {
-        const element = await elementsApi.create({
-          name: trimmedName,
-          description: trimmedDesc,
-          categoryId,
-          unit: v.unit,
-          unitCost: num(v.unitCost, 0),
-          currency: v.currency,
-          materialCost: parseOptionalNumber(v.materialCost.trim()) ?? undefined,
-          labourCost: parseOptionalNumber(v.labourCost.trim()) ?? undefined,
-          overheadPct: num(v.overheadPct, 0),
-          serviceChargePct: num(v.serviceChargePct, 0),
-          marginPct: num(v.marginPct, 15),
-          clientRate: parseOptionalNumber(v.clientRate.trim()),
-          budgetRate: parseOptionalNumber(v.budgetRate.trim()),
-          specReference: v.specReference.trim() || undefined,
-          drawingRef: v.drawingRef.trim() || undefined,
-          tags: v.tags,
-          attributes: v.attributes.filter(
-            (a) => a.attribute_key && a.attribute_value
-          ),
-          imageUrl: v.imageUrl,
-          drawingFileUrl: v.drawingFileUrl,
-          drawingFileName: v.drawingFileName,
-          specFileUrl: v.specFileUrl,
-          specFileName: v.specFileName,
-        });
-        elementId = element.id;
-        itemCode = element.code;
-      }
-
+      // Reuse a suggested element (Scenario 1) or let the server auto-create one
+      // (Scenario 2 — PRD 2.2). The element-detail fields ride the payload either
+      // way: the server snapshots them onto the auto-created element, and ignores
+      // them when a line reuses an existing `elementId`.
       const payload: CreateItemPayload = {
         boqId,
         sectionId: v.sectionId === BOQ_NO_SECTION_ID ? null : v.sectionId,
         // Omitted on insert-between (server inherits the anchor's division).
         divisionId: divisionId ?? undefined,
-        elementId,
+        elementId: linkedElement?.id,
+        itemCode: linkedElement?.code,
         categoryId,
-        itemCode,
-        // Persist even when `saveAsElement` is off — the BOQ item's own
-        // `name` is what the drawer shows when there's no linked element.
         name: trimmedName || null,
         description: trimmedDesc,
         unit: v.unit,
+        currency: v.currency,
         quantity: parseDimensionValue(v.quantity, v.dimensionUnit) ?? 1,
         unitCost: num(v.unitCost, 0),
         materialCost: parseOptionalNumber(v.materialCost.trim()),
@@ -523,6 +522,18 @@ export function BoqCreateItemSheet({
         height: parseDimensionValue(v.height, v.dimensionUnit),
         dimensionUnit: v.dimensionUnit,
         notes: v.notes.trim() || null,
+        // Element-detail snapshot for the auto-create (ignored on reuse).
+        tags: v.tags,
+        specReference: v.specReference.trim() || null,
+        drawingRef: v.drawingRef.trim() || null,
+        imageUrl: v.imageUrl,
+        drawingFileUrl: v.drawingFileUrl,
+        drawingFileName: v.drawingFileName,
+        specFileUrl: v.specFileUrl,
+        specFileName: v.specFileName,
+        attributes: v.attributes.filter(
+          (a) => a.attribute_key && a.attribute_value
+        ),
         ...(anchorItemId
           ? { anchorItemId, insertPosition: insertPosition ?? "below" }
           : {}),
@@ -540,7 +551,7 @@ export function BoqCreateItemSheet({
       }
 
       toast({
-        title: v.saveAsElement ? "Item added & saved to library" : "Item added",
+        title: linkedElement ? "Item added from library" : "Item added",
         variant: "success",
       });
       onOpenChange(false);
@@ -630,9 +641,7 @@ export function BoqCreateItemSheet({
                   />
                 </label>
                 <label className="flex flex-col gap-1.5">
-                  <span className={labelCls}>
-                    Name{v.saveAsElement && requiredAsterisk}
-                  </span>
+                  <span className={labelCls}>Name</span>
                   <Input
                     value={v.name}
                     onChange={(e) => set("name", e.target.value)}
@@ -700,6 +709,54 @@ export function BoqCreateItemSheet({
                 placeholder="e.g. Concrete footing M25"
               />
             </label>
+
+            {/* Master-data (PRD 2.2): reuse a matching library element instead of
+                auto-creating a duplicate. Chip when linked; suggestions otherwise. */}
+            {linkedElement ? (
+              <div className="flex items-center justify-between gap-2 rounded-lg border border-accent/30 bg-accent/5 px-3 py-2">
+                <span className="text-xs text-text-secondary min-w-0 truncate">
+                  Linked to{" "}
+                  <span className="font-mono text-text-primary">
+                    {linkedElement.code}
+                  </span>{" "}
+                  · {linkedElement.name}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setLinkedElement(null)}
+                  className="flex-shrink-0 inline-flex items-center gap-1 text-xs text-text-muted hover:text-danger"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  Unlink
+                </button>
+              </div>
+            ) : (
+              suggestions.length > 0 && (
+                <div className="flex flex-col gap-1 rounded-lg border border-border-default bg-bg-elevated/50 p-2">
+                  <span className="px-1 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                    Similar elements in the library
+                  </span>
+                  {suggestions.map((el) => (
+                    <button
+                      key={el.id}
+                      type="button"
+                      onClick={() => useElement(el)}
+                      className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-bg-elevated"
+                    >
+                      <span className="font-mono text-xs text-text-muted w-28 shrink-0 truncate">
+                        {el.code}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-text-primary">
+                        {el.description || el.name}
+                      </span>
+                      <span className="flex-shrink-0 text-xs text-accent">
+                        Use this
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )
+            )}
 
             {/* Unit | Currency */}
             <div className="grid grid-cols-2 gap-3">
@@ -1001,49 +1058,26 @@ export function BoqCreateItemSheet({
             </label>
           </SheetBody>
 
-          {/* Sticky bottom band: save-as-element panel + footer share bg-elevated */}
+          {/* Sticky footer. Every line links a library element: a reused
+              suggestion, or one the server auto-creates on save (PRD 2.2). */}
           <div className="bg-bg-elevated border-t border-border-default">
-            <div className="flex flex-col px-6 py-4">
-              <div className="flex items-start gap-3">
-                <Checkbox
-                  id="boq-save-as-element"
-                  checked={v.saveAsElement}
-                  onCheckedChange={(checked) => set("saveAsElement", checked)}
-                />
-                <label
-                  htmlFor="boq-save-as-element"
-                  className="flex flex-col gap-1 cursor-pointer select-none"
-                >
-                  <span className="text-[15px] font-semibold text-text-primary">
-                    Save to element library
-                  </span>
-                  <span className="text-[13px] font-medium text-text-muted leading-relaxed">
-                    Creates a reusable element so you can add this line to other
-                    BoQs.
-                  </span>
-                </label>
-              </div>
-              {/* Saving to the library reuses the Service area chosen above. */}
-            </div>
-            <div className="flex flex-row justify-end gap-2 px-6 py-3">
-              <SheetClose asChild>
-                <Button type="button" variant="secondary">
-                  Cancel
+            <div className="flex flex-row items-center justify-between gap-3 px-6 py-3">
+              <span className="text-[13px] font-medium text-text-muted leading-relaxed">
+                {linkedElement
+                  ? `Reusing ${linkedElement.code} from the library.`
+                  : "Saved to the Element Library on add."}
+              </span>
+              <div className="flex flex-row gap-2">
+                <SheetClose asChild>
+                  <Button type="button" variant="secondary">
+                    Cancel
+                  </Button>
+                </SheetClose>
+                <Button type="submit" disabled={submitting}>
+                  <Plus className="w-4 h-4" />
+                  {submitting ? "Adding…" : "Add item"}
                 </Button>
-              </SheetClose>
-              <Button type="submit" disabled={submitting}>
-                {v.saveAsElement ? (
-                  <>
-                    <Save className="w-4 h-4" />
-                    {submitting ? "Saving…" : "Add item & save element"}
-                  </>
-                ) : (
-                  <>
-                    <Plus className="w-4 h-4" />
-                    {submitting ? "Adding…" : "Add item"}
-                  </>
-                )}
-              </Button>
+              </div>
             </div>
           </div>
         </form>
