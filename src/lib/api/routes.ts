@@ -118,6 +118,7 @@ export const API = {
   elementsImportConfirm:    ()                            => "/api/elements/import/confirm",
   elementsImportTemplate:   ()                            => "/api/elements/import/template",
   elementsExport:           (qs: string)                  => `/api/elements/export${qs}`,
+  elementsSimilar:          (qs: string)                  => `/api/elements/similar${qs}`,
 
   // ── Client Portal ──────────────────────────────
   clientProjects:        ()                            => "/api/client/projects",

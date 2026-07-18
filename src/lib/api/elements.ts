@@ -47,6 +47,29 @@ function buildQuery(params: ListParams): string {
   return qs ? `?${qs}` : "";
 }
 
+export interface SimilarElementsResponse {
+  rows: Array<Element & { similarity: number }>;
+}
+
+type SimilarParams = { categoryId: string; q: string; tags?: string[] };
+
+function buildSimilarQuery(params: SimilarParams): string {
+  const search = new URLSearchParams();
+  search.set("categoryId", params.categoryId);
+  search.set("q", params.q);
+  if (params.tags) for (const t of params.tags) search.append("tags", t);
+  return `?${search.toString()}`;
+}
+
+/**
+ * SWR key for the create sheet's dedup suggestions — null (skip the fetch) until
+ * both a Service Area and a non-blank description are present.
+ */
+export function similarKey(params: SimilarParams | null): string | null {
+  if (!params?.categoryId || !params.q.trim()) return null;
+  return API.elementsSimilar(buildSimilarQuery(params));
+}
+
 /** List elements with filters + pagination. */
 export function list(params: ListParams = {}) {
   return apiGet<ListElementsResponse>(`${API.elements()}${buildQuery(params)}`);

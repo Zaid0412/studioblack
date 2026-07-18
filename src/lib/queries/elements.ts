@@ -116,6 +116,51 @@ const ELEMENT_COLS: Record<string, string> = {
   specFileName: "spec_file_name",
 };
 
+export interface SimilarElementInput {
+  /** Service Area (level-3 category) the line sits under — matched exactly. */
+  categoryId: string;
+  description: string;
+  tags?: string[];
+}
+
+/**
+ * Likely-duplicate elements for a manual BOQ line, per the master-data dedup
+ * rule: **same Service Area**, then description trigram-similarity (pg_trgm's `%`
+ * gated by the session similarity threshold) OR a shared keyword (`tags`
+ * overlap). Ranked by score, active only, top 5. Backs the create sheet's inline
+ * "Similar elements" suggestions so the user can reuse instead of auto-creating.
+ */
+export async function findSimilarElements(
+  orgId: string,
+  input: SimilarElementInput
+): Promise<Array<Element & { similarity: number }>> {
+  const description = input.description.trim();
+  if (!description) return [];
+  const tags = input.tags?.length ? input.tags : null;
+
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT e.*,
+            GREATEST(
+              similarity(lower(e.description), lower($3)),
+              CASE WHEN $4::text[] IS NOT NULL AND e.tags && $4::text[]
+                   THEN 0.5 ELSE 0 END
+            ) AS similarity
+       FROM element e
+      WHERE e.org_id = $1
+        AND e.is_active = true
+        AND e.category_id = $2::uuid
+        AND (
+          lower(e.description) % lower($3)
+          OR ($4::text[] IS NOT NULL AND e.tags && $4::text[])
+        )
+      ORDER BY similarity DESC, e.updated_at DESC
+      LIMIT 5`,
+    [orgId, input.categoryId, description, tags]
+  );
+  return rows as Array<Element & { similarity: number }>;
+}
+
 /**
  * List elements for an org with filters + pagination.
  * Uses `COUNT(*) OVER()` for the total so it's one round-trip.

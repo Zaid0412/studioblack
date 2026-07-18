@@ -1,5 +1,6 @@
 import type {
   ElementUnit,
+  ElementType,
   TaskStatus,
   TaskPriority,
   TaskCategory,
@@ -626,6 +627,13 @@ export interface Element {
   spec_file_name: string | null;
   version_group: string;
   version_number: number;
+  /**
+   * Provenance/approval class: `standard` (library-created), `custom`
+   * (auto-created from a BOQ line), or `company_standard` (a promoted Custom).
+   */
+  element_type: ElementType;
+  /** The BOQ a custom element was first created from. Null for library-created. */
+  origin_boq_id: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
