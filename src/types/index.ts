@@ -1594,3 +1594,52 @@ export interface QuoteComparison {
   vendors: QuoteComparisonVendorColumn[];
   invited_no_response: { vendor_id: string; vendor_name: string }[];
 }
+
+// --- Project Overview (the project home dashboard) ---
+
+/** Top-line metric cards. Role-scoped: `openOrders` is null for clients. */
+export interface OverviewKpis {
+  designFiles: number;
+  pendingReviews: number;
+  /** Sell-side total (studio) or client-scrubbed total (client); null if no BOQ. */
+  boqValue: string | null;
+  boqLineCount: number;
+  openOrders: number | null;
+}
+
+/** One slice of the design-status donut — a `review_status` bucket. */
+export interface OverviewStatusSlice {
+  status: string;
+  count: number;
+}
+
+/** One bar in the overview bar chart (cost per division, or % progress per phase). */
+export interface OverviewBar {
+  label: string;
+  value: number;
+}
+
+/** One row of the recent-activity feed. */
+export interface OverviewActivityItem {
+  id: string;
+  kind: "upload" | "review";
+  actor: string | null;
+  fileName: string | null;
+  /** Review decision (`approved`/`rejected`) for `kind: "review"`; null for uploads. */
+  status: string | null;
+  at: string;
+}
+
+/**
+ * Aggregated project Overview payload. Project details + team come from the
+ * layout's `/api/projects/[id]` fetch, so this stays lean.
+ */
+export interface ProjectOverview {
+  kpis: OverviewKpis;
+  designStatus: OverviewStatusSlice[];
+  chart: {
+    kind: "cost_by_division" | "design_progress_by_phase";
+    bars: OverviewBar[];
+  };
+  activity: OverviewActivityItem[];
+}

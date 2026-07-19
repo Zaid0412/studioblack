@@ -199,6 +199,7 @@ vi.mock("@/lib/queries", () => ({
   getProjectsByArchitectId: vi.fn().mockResolvedValue([]),
   getProjectsByPmId: vi.fn().mockResolvedValue([]),
   getProjectById: vi.fn().mockResolvedValue(null),
+  getProjectOverview: vi.fn(),
   createProjectWithPhases: vi.fn(),
   updateProject: vi.fn(),
   deleteProject: vi.fn(),

@@ -35,3 +35,4 @@ export * from "./rfqs";
 export * from "./quotes";
 export * from "./audit";
 export * from "./projectDocuments";
+export * from "./projectOverview";
