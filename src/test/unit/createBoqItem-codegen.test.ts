@@ -73,6 +73,11 @@ const elementInsert = () =>
 /** The boq_item INSERT call. */
 const lineInsert = () =>
   mockQuery.mock.calls.find((c) => /INSERT INTO boq_item/.test(String(c[0])));
+/** The element_attribute INSERT call, if any. */
+const attrInsert = () =>
+  mockQuery.mock.calls.find((c) =>
+    /INSERT INTO element_attribute/.test(String(c[0]))
+  );
 
 const base: CreateBoqItemInput = {
   divisionId: DIVISION_ID,
@@ -131,5 +136,39 @@ describe("createBoqItem — element auto-create (PRD 2.2)", () => {
     });
     expect(elementInsert()).toBeUndefined();
     expect((lineInsert()![1] as unknown[])[2]).toBeNull(); // element_id
+  });
+
+  it("snapshots image + attributes onto the auto-created element", async () => {
+    wire();
+    await realCreateBoqItem({
+      ...base,
+      imageUrl: "https://x/img.png",
+      attributes: [
+        { attribute_key: "Finish", attribute_value: "Matte" },
+        { attribute_key: "", attribute_value: "" }, // blank → dropped
+      ],
+    });
+
+    // image_url is $20 on the element insert (index 19).
+    expect((elementInsert()![1] as unknown[])[19]).toBe("https://x/img.png");
+
+    // The element_attribute insert gets the non-blank attribute only.
+    const attr = attrInsert();
+    expect(attr).toBeDefined();
+    const ap = attr![1] as unknown[];
+    expect(ap[0]).toBe(NEW_ELEMENT_ID); // element_id
+    expect(ap[1]).toEqual(["Finish"]); // keys (blank dropped)
+    expect(ap[2]).toEqual(["Matte"]); // values
+  });
+
+  it("records line source — 'custom' when auto-created, 'library' when reused", async () => {
+    wire();
+    await realCreateBoqItem(base); // auto-create
+    expect((lineInsert()![1] as unknown[])[3]).toBe("custom"); // $4 source
+
+    mockQuery.mockClear();
+    wire();
+    await realCreateBoqItem({ ...base, elementId: "el-existing" }); // reuse
+    expect((lineInsert()![1] as unknown[])[3]).toBe("library");
   });
 });

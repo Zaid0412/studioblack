@@ -1169,9 +1169,11 @@ export async function createBoqItem(
   // line's spec snapshotted, provenance recorded (origin BOQ + creator) — then
   // links it. So every line carries an ElementID; no orphan "code-only" lines.
   // The two user create paths (`addBoqItem`, `insertBoqItemBetween`) reach this;
-  // library/batch/import callers pass an `elementId` and skip it.
+  // library/batch/import callers pass an `elementId` and skip it. A caller that
+  // supplies a bare `itemCode` (no element) keeps it — that legacy contract still
+  // holds; no live create path does this, but don't silently override it.
   let elementId = input.elementId ?? null;
-  if (!elementId && input.categoryId) {
+  if (!itemCode && !elementId && input.categoryId) {
     // Code generation + the element insert take an advisory xact-lock and bump
     // the counter, which must commit / roll back with this line — so a
     // transaction client is required (`release` is on PoolClient, not Pool).
@@ -1287,7 +1289,9 @@ export async function createBoqItem(
       boqId,
       input.sectionId ?? null,
       elementId,
-      input.source ?? null,
+      // Provenance: an explicit source wins; else a caller-supplied `elementId`
+      // (reuse from the library) is 'library', and an auto-created line 'custom'.
+      input.source ?? (input.elementId ? "library" : "custom"),
       input.rateContractItemId ?? null,
       itemCode,
       input.name || null,

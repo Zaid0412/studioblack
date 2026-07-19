@@ -17,7 +17,7 @@ This supersedes #209 (which put a generated `item_code` on custom lines but left
 
 1. **R1 = full enforcement.** Backfill every existing orphan line into the library
    as a Custom element, link it, then `boq_item.element_id` → `NOT NULL`.
-   (Dev: 17 orphan lines; prod: TBD — check before backfill.)
+   (Dev studioblack-studio: 13 orphan lines; prod: check before backfill.)
 2. **Dedup UX = inline suggestions** (non-blocking; matches R3 "no confirmation").
 3. **Status model = full taxonomy** — `standard` / `custom` / `company_standard`
    (+ Archived via `is_active`; Draft flagged below), with a promote flow.
@@ -26,9 +26,11 @@ This supersedes #209 (which put a generated `item_code` on custom lines but left
 
 `element` gains:
 
-- `element_type` — new enum `element_type` (`'standard' | 'custom' | 'company_standard'`),
-  `NOT NULL DEFAULT 'standard'`. Existing rows → `standard`; BOQ-auto-created →
-  `custom`; promoted → `company_standard`. This is R4's Status/Source axis.
+- `element_type` — `VARCHAR(20) NOT NULL DEFAULT 'standard'` validated in app code
+  (`ELEMENT_TYPES`), matching the codebase's status-column convention (no DB
+  enums / CHECKs). Values `standard | custom | company_standard`; existing rows →
+  `standard`; BOQ-auto-created → `custom`; promoted → `company_standard`. R4's
+  Status/Source axis.
 - `origin_boq_id UUID REFERENCES boq(id) ON DELETE SET NULL` — the originating
   BOQ (R4). Null for library-created. `created_by` + `created_at` already cover
   Creator + Date.

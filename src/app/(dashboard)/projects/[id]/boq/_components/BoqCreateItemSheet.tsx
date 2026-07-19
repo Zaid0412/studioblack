@@ -287,15 +287,24 @@ export function BoqCreateItemSheet({
       name: el.name,
       unit: (el.unit as ElementUnit) ?? prev.unit,
       currency: el.currency ?? prev.currency,
+      // Adopt the element's costs, but keep what the user already typed where the
+      // element has none (don't wipe a filled field with a blank).
       unitCost: String(el.unit_cost ?? prev.unitCost),
-      materialCost: el.material_cost != null ? String(el.material_cost) : "",
-      labourCost: el.labour_cost != null ? String(el.labour_cost) : "",
-      overheadPct: el.overhead_pct != null ? String(el.overhead_pct) : "0",
+      materialCost:
+        el.material_cost != null ? String(el.material_cost) : prev.materialCost,
+      labourCost:
+        el.labour_cost != null ? String(el.labour_cost) : prev.labourCost,
+      overheadPct:
+        el.overhead_pct != null ? String(el.overhead_pct) : prev.overheadPct,
       serviceChargePct:
-        el.service_charge_pct != null ? String(el.service_charge_pct) : "0",
+        el.service_charge_pct != null
+          ? String(el.service_charge_pct)
+          : prev.serviceChargePct,
       marginPct: el.margin_pct != null ? String(el.margin_pct) : prev.marginPct,
-      clientRate: el.client_rate != null ? String(el.client_rate) : "",
-      budgetRate: el.budget_rate != null ? String(el.budget_rate) : "",
+      clientRate:
+        el.client_rate != null ? String(el.client_rate) : prev.clientRate,
+      budgetRate:
+        el.budget_rate != null ? String(el.budget_rate) : prev.budgetRate,
       tags: el.tags ?? prev.tags,
     }));
   };
