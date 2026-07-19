@@ -15,7 +15,7 @@ versions, an audit trail, and package progress metrics.
 Layout, 3D Layout, Production Plan, Section View, Plumbing, Floor Plans) as the primary grouping for
 design drawings.
 
-**Central insight:** most of the *expensive* PRD capability already exists in the codebase — the
+**Central insight:** most of the _expensive_ PRD capability already exists in the codebase — the
 in-browser viewer + markup (pins/shapes/freehand, threads, resolve), version control
 (`version_group`), review → approve/reject history, design freeze, send-to-client, and review
 notifications. Reusable infrastructure also exists: `audit_event` + `logAudit`, `sequence_counter`
@@ -65,14 +65,14 @@ transitions on `pmOnly`-style gates; defer data-driven RBAC tiers.
 
 ## PR roadmap (4–6 independently-shippable PRs)
 
-| PR | Goal | Tables / key files | Reuses | Risk |
-|----|------|--------------------|--------|------|
-| **PR-1 Package backbone** | Design Packages + Disciplines exist & render (alongside phases, additive) | `design_package`, `design_discipline` (+seeds); `queries/designPackages.ts`; `PACKAGE_TRANSITIONS` declared; seed hook in `projects.ts` | project/phase seeding, `element_category` lookup | Low |
-| **PR-2 Drawing register + numbering** | Files group into drawings w/ discipline, type, document_number | `drawing`, `attachment.drawing_id`; `nextDrawingNumber` + prefix widen; `queries/drawings.ts`; backfill drawings from `version_group`s | attachment engine, `DocumentViewer`, markup, review — all unchanged | Medium |
-| **PR-3 Revisions & issue** | Official Rev-00/01/02 issues, issue-purpose, prev revisions read-only; markup Open/Resolved/Closed | `drawing_revision`, `drawing.current_revision_id`; `pin_comment.status` (backfill from `resolved`) | `frozen_at` freeze, `attachment_review` append-only convention | Medium |
-| **PR-4 Lifecycle + rollup + audit/notify** | Enforce 12-state drawing + 10-state package transitions; package approves only when all mandatory approved; progress % | `transitionDrawing`/`transitionPackage` (clone `transitionRateContract`); map `review_status`→`status`; `logAuditSafe` + notify per transition; new `notification.drawing_id`/`package_id` col + destination case | rate-contract executor, `audit_event`, notification fan-out | Med-High |
-| **PR-5 Cutover** | Retire the 6 design phases; every design attachment lives under a package/drawing | `scripts/migrate-design-cutover.sql` — backfill remaining attachments → default package, `drawing_id`/`package_id`/`status` NOT NULL, stop seeding design phases | BOQ `migrate-boq-drop-legacy.sql` precedent | High (NOT NULL flip + data migration; runs last) |
-| **PR-6 (optional)** | Configurable RBAC tiers (Junior/Senior), non-drawing document categories, audit-timeline UI | permission tables; category discriminator; `audit_event`-backed UI (the `/audit` page currently reads `notification`) | — | Scoped separately |
+| PR                                         | Goal                                                                                                                   | Tables / key files                                                                                                                                                                                                | Reuses                                                              | Risk                                             |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------ |
+| **PR-1 Package backbone**                  | Design Packages + Disciplines exist & render (alongside phases, additive)                                              | `design_package`, `design_discipline` (+seeds); `queries/designPackages.ts`; `PACKAGE_TRANSITIONS` declared; seed hook in `projects.ts`                                                                           | project/phase seeding, `element_category` lookup                    | Low                                              |
+| **PR-2 Drawing register + numbering**      | Files group into drawings w/ discipline, type, document_number                                                         | `drawing`, `attachment.drawing_id`; `nextDrawingNumber` + prefix widen; `queries/drawings.ts`; backfill drawings from `version_group`s                                                                            | attachment engine, `DocumentViewer`, markup, review — all unchanged | Medium                                           |
+| **PR-3 Revisions & issue**                 | Official Rev-00/01/02 issues, issue-purpose, prev revisions read-only; markup Open/Resolved/Closed                     | `drawing_revision`, `drawing.current_revision_id`; `pin_comment.status` (backfill from `resolved`)                                                                                                                | `frozen_at` freeze, `attachment_review` append-only convention      | Medium                                           |
+| **PR-4 Lifecycle + rollup + audit/notify** | Enforce 12-state drawing + 10-state package transitions; package approves only when all mandatory approved; progress % | `transitionDrawing`/`transitionPackage` (clone `transitionRateContract`); map `review_status`→`status`; `logAuditSafe` + notify per transition; new `notification.drawing_id`/`package_id` col + destination case | rate-contract executor, `audit_event`, notification fan-out         | Med-High                                         |
+| **PR-5 Cutover**                           | Retire the 6 design phases; every design attachment lives under a package/drawing                                      | `scripts/migrate-design-cutover.sql` — backfill remaining attachments → default package, `drawing_id`/`package_id`/`status` NOT NULL, stop seeding design phases                                                  | BOQ `migrate-boq-drop-legacy.sql` precedent                         | High (NOT NULL flip + data migration; runs last) |
+| **PR-6 (optional)**                        | Configurable RBAC tiers (Junior/Senior), non-drawing document categories, audit-timeline UI                            | permission tables; category discriminator; `audit_event`-backed UI (the `/audit` page currently reads `notification`)                                                                                             | —                                                                   | Scoped separately                                |
 
 Sequencing mirrors the BOQ arc: additive schema + backfill first, enforcement (NOT NULL, legacy
 retire) last, so each PR ships value and de-risks the next.
@@ -90,7 +90,7 @@ retire) last, so each PR ships value and de-risks the next.
    drawings." Recommend leaving it out of the core arc; revisit in PR-6.
 4. **Markup 3-state:** existing `pin_comment.resolved BOOLEAN` vs PRD Open/Resolved/Closed. Additive
    `pin_comment.status` backfilled from `resolved`; decide later whether to drop `resolved`.
-5. **Audit immutability:** `audit_event` is append-only *by convention* only (`logAudit` is
+5. **Audit immutability:** `audit_event` is append-only _by convention_ only (`logAudit` is
    INSERT-only, no DB trigger/grant). If the PRD's "immutable audit log" is a compliance requirement,
    add a revoke-UPDATE/DELETE or trigger — a decision, not a default.
 
