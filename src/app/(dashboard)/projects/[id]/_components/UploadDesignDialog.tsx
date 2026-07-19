@@ -146,6 +146,8 @@ export function UploadDesignDialog({
                   onChange={(v) => onChange({ disciplineId: v })}
                   options={disciplineOptions}
                   triggerPlaceholder="Select discipline"
+                  hideCode
+                  hideTriggerCode
                 />
                 <LabeledSearchableSelect<string>
                   label="Drawing type"
@@ -154,6 +156,8 @@ export function UploadDesignDialog({
                   onChange={(v) => onChange({ drawingType: v })}
                   options={typeOptions}
                   triggerPlaceholder="Select type"
+                  hideCode
+                  hideTriggerCode
                 />
               </div>
             )}
