@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
+import { OverviewTab } from "./_components/OverviewTab";
 
 /**
- * Project detail entry — server-side redirects to the active tab so
- * old `?tab=` bookmarks keep working without a client-side flash.
+ * Project detail entry — renders the Overview (the project home). Old
+ * `?tab=boq` bookmarks still redirect to the BOQ tab so they keep working.
  */
 export default async function ProjectDetailPage({
   params,
@@ -16,5 +17,7 @@ export default async function ProjectDetailPage({
   const tab = typeof sp.tab === "string" ? sp.tab : null;
 
   if (tab === "boq") redirect(`/projects/${id}/boq`);
-  redirect(`/projects/${id}/designs`);
+  if (tab === "order") redirect(`/projects/${id}/order`);
+
+  return <OverviewTab projectId={id} />;
 }

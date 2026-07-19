@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, LayoutDashboard } from "lucide-react";
 import { useBoq } from "@/hooks/useBoq";
 import { useRfqList } from "@/hooks/useRfqs";
 import { DEFAULT_BOQ_SEGMENT } from "../boq/_lib/tabs";
@@ -18,6 +18,8 @@ interface StepDef {
   name: string;
   status: StepStatus;
   href: string;
+  /** Landing tab (Overview) — renders a dashboard icon instead of a status dot. */
+  icon?: boolean;
 }
 
 interface ProjectWorkflowStepsProps {
@@ -103,6 +105,13 @@ export function ProjectWorkflowSteps({
 
   const steps: StepDef[] = [
     {
+      id: "overview",
+      name: "Overview",
+      status: "completed", // unused — Overview renders an icon, not a status dot
+      href: `/projects/${projectId}`,
+      icon: true,
+    },
+    {
       id: "designs",
       name: "Design",
       status: designStatus,
@@ -153,9 +162,15 @@ export function ProjectWorkflowSteps({
                       : "hover:bg-bg-elevated hover:text-text-primary"
                   }`}
                 >
-                  <span
-                    className={`w-3 h-3 rounded-full ${STATUS_DOT[step.status]}`}
-                  />
+                  {step.icon ? (
+                    <LayoutDashboard
+                      className={`w-4 h-4 ${isActive ? "text-accent" : "text-text-muted"}`}
+                    />
+                  ) : (
+                    <span
+                      className={`w-3 h-3 rounded-full ${STATUS_DOT[step.status]}`}
+                    />
+                  )}
                   <span
                     className={`text-base transition-colors ${
                       isActive
@@ -166,7 +181,9 @@ export function ProjectWorkflowSteps({
                     {step.name}
                   </span>
                 </Link>
-                {i < steps.length - 1 && (
+                {/* Chevrons separate the workflow stages only — Overview is a
+                    landing tab, not a stage, so no chevron follows it. */}
+                {step.id !== "overview" && i < steps.length - 1 && (
                   <ChevronRight
                     aria-hidden="true"
                     className="h-5 w-5 text-text-muted/60"
