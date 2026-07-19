@@ -700,7 +700,11 @@ export type ElementUnit = (typeof ALLOWED_UNITS)[number];
  * `standard` = library-created & approved; `custom` = auto-created from a BOQ
  * line; `company_standard` = a promoted Custom. Archived is the `is_active` flag.
  */
-export const ELEMENT_TYPES = ["standard", "custom", "company_standard"] as const;
+export const ELEMENT_TYPES = [
+  "standard",
+  "custom",
+  "company_standard",
+] as const;
 export type ElementType = (typeof ELEMENT_TYPES)[number];
 
 const elementAttributeInput = z.object({

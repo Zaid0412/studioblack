@@ -46,6 +46,7 @@ elements are soft-deleted via `is_active`, matching the immutability principle).
 ## Stages
 
 ### Stage 2 — Duplicate search
+
 - `findSimilarElements(orgId, { categoryId, description, tags })` in
   `queries/elements.ts`: same org + `is_active`, **same Service Area**
   (`category_id`), ranked by `similarity(lower(description), $q)` plus tag overlap
@@ -54,6 +55,7 @@ elements are soft-deleted via `is_active`, matching the immutability principle).
   `elements.findSimilar(...)`.
 
 ### Stage 3 — Server create path (auto-create the element)
+
 - The manual-create path (`createBoqItem` via `addBoqItem` / `insertBoqItemBetween`)
   when there's no `elementId`: **create a `custom` Element** in the same
   transaction (name ← provided name else description; `element_type='custom'`,
@@ -62,6 +64,7 @@ elements are soft-deleted via `is_active`, matching the immutability principle).
 - Batch/library/rate paths already link an element — unchanged.
 
 ### Stage 4 — Create-flow UI (`BoqCreateItemSheet`)
+
 - **Remove** the "Save to element library" toggle + `saveAsElement` state.
 - **Inline "Similar elements" panel**: once a Service Area is picked and the
   description is long enough, debounced call to `/similar`; render matches with a
@@ -71,6 +74,7 @@ elements are soft-deleted via `is_active`, matching the immutability principle).
   auto-creates (Scenario 2). Name defaults to description when blank.
 
 ### Stage 5 — Backfill + enforce (SEPARATE PR — riskiest)
+
 - **Node script** (`scripts/backfill-boq-element-ids.mjs`) — code generation is JS
   (`generateElementCodeFor`, advisory-locked), so this can't be pure SQL. Per org,
   for each orphan line, **dedup by `(category_id, lower(description))`** → create
@@ -80,12 +84,14 @@ elements are soft-deleted via `is_active`, matching the immutability principle).
 - Run dev → verify → prod (with a fresh orphan-count check first).
 
 ### Stage 6 — Taxonomy UI + promote
+
 - Element Library list: **type badges** (Standard / Custom / Company Standard),
   filter by type, keep the Archived (`is_active`) filter.
 - **Promote**: action on a Custom element → `PATCH /api/elements/[id]` sets
   `element_type='company_standard'` (preserves code + history — no re-code).
 
 ### Stage 7 — Tests
+
 - `findSimilarElements` (same-SA gate, ranking, threshold).
 - Auto-create path: manual line with no element → a `custom` element is created +
   linked, code generated, `origin_boq_id` set; reuse path links without creating.
@@ -95,7 +101,7 @@ elements are soft-deleted via `is_active`, matching the immutability principle).
 ## Suggested PR split
 
 - **PR-A** — Stages 1–4 + 7 (schema, dedup search, auto-create, UI). `element_id`
-  still nullable; new lines always link. Ships the whole *behavior*.
+  still nullable; new lines always link. Ships the whole _behavior_.
 - **PR-B** — Stage 5 (backfill + `NOT NULL` + FK). Isolated, reversible-in-review,
   run against dev/prod deliberately.
 - **PR-C** — Stage 6 (taxonomy badges + promote flow).
@@ -103,7 +109,7 @@ elements are soft-deleted via `is_active`, matching the immutability principle).
 ## Risks / notes
 
 - **`element_id` blast radius**: ~60 references across boq / elements / rfqs /
-  rateContracts. Making it `NOT NULL` is safe only *after* a complete backfill;
+  rateContracts. Making it `NOT NULL` is safe only _after_ a complete backfill;
   the FK change to `RESTRICT` must land with it or a hard element delete breaks it.
 - **Supersedes #209's model**: `item_code`-only custom lines become real elements.
   Keep `item_code` mirroring `element.code` so nothing reading it breaks.

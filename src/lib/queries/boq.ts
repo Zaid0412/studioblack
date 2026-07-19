@@ -1180,7 +1180,11 @@ export async function createBoqItem(
         "createBoqItem: auto-creating an element requires a transaction client"
       );
     }
-    const code = await generateElementCodeFor(executor, orgId, input.categoryId);
+    const code = await generateElementCodeFor(
+      executor,
+      orgId,
+      input.categoryId
+    );
     // element.name is NOT NULL — fall back to the description (truncated).
     const elName = (input.name?.trim() || input.description).slice(0, 255);
     const { rows: elRows } = await executor.query<{ id: string; code: string }>(

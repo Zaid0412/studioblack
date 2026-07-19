@@ -12,7 +12,9 @@ beforeEach(() => mockQuery.mockReset());
 
 describe("findSimilarElements", () => {
   it("matches on Service Area + trigram description / tag overlap, ranked & capped", async () => {
-    mockQuery.mockResolvedValueOnce({ rows: [{ id: "el-1", similarity: 0.6 }] });
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ id: "el-1", similarity: 0.6 }],
+    });
 
     const rows = await findSimilarElements("org-1", {
       categoryId: "cat-1",
@@ -40,7 +42,12 @@ describe("findSimilarElements", () => {
       categoryId: "cat-1",
       description: "tile",
     });
-    expect(mockQuery.mock.calls[0][1]).toEqual(["org-1", "cat-1", "tile", null]);
+    expect(mockQuery.mock.calls[0][1]).toEqual([
+      "org-1",
+      "cat-1",
+      "tile",
+      null,
+    ]);
   });
 
   it("skips the query for a blank description", async () => {
