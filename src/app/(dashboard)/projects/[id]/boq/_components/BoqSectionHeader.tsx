@@ -61,7 +61,8 @@ export function BoqSectionHeader({
   onToggleSelection,
 }: BoqSectionHeaderProps) {
   const canAddItem = !!onAddCustomItem || !!onAddFromLibrary;
-  const hasMenu = onRename || onToggleVisibility || onDelete || canAddItem;
+  const hasEditItems = !!onRename || !!onToggleVisibility;
+  const hasMenu = hasEditItems || onDelete || canAddItem;
   const selectionMode = !!onToggleSelection;
 
   return (
@@ -147,9 +148,7 @@ export function BoqSectionHeader({
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
               )}
-              {canAddItem && (onRename || onToggleVisibility || onDelete) && (
-                <DropdownMenuSeparator />
-              )}
+              {canAddItem && hasEditItems && <DropdownMenuSeparator />}
               {onRename && (
                 <DropdownMenuItem onSelect={onRename}>
                   Edit section…
@@ -163,12 +162,12 @@ export function BoqSectionHeader({
                 </DropdownMenuItem>
               )}
               {onDelete && (
-                <DropdownMenuItem
-                  onSelect={onDelete}
-                  className="text-error focus:text-error"
-                >
-                  Delete section
-                </DropdownMenuItem>
+                <>
+                  {(canAddItem || hasEditItems) && <DropdownMenuSeparator />}
+                  <DropdownMenuItem onSelect={onDelete} destructive>
+                    Delete section
+                  </DropdownMenuItem>
+                </>
               )}
             </DropdownMenuContent>
           </DropdownMenu>

@@ -15,6 +15,7 @@ import type {
   ElementWithDetails,
 } from "@/types";
 import { escapeSqlLike, descendantCategoryIdsSql } from "./helpers";
+import type { ElementType } from "@/lib/validations";
 import { SERVICE_AREA_LEVEL, UNCATEGORIZED_PREFIX } from "@/lib/categoryCode";
 import {
   elementCodePrefix,
@@ -29,6 +30,7 @@ export interface ElementFilters {
   categoryId?: string;
   unit?: string;
   tags?: string[];
+  type?: ElementType;
   isActive?: boolean;
   sortBy?: "code" | "name" | "unit_cost" | "updated_at";
   sortOrder?: "asc" | "desc";
@@ -162,6 +164,27 @@ export async function findSimilarElements(
 }
 
 /**
+ * Promote a Custom element to Company Standard (PRD 2.2) — a frequently-reused
+ * BOQ-created element becomes a first-class reusable one. Only `custom` elements
+ * promote; the code + version history are preserved (no re-code). Returns the
+ * updated row, or null when the element isn't in this org or isn't Custom.
+ */
+export async function promoteElement(
+  orgId: string,
+  id: string
+): Promise<Element | null> {
+  const pool = getPool();
+  const { rows } = await pool.query<Element>(
+    `UPDATE element
+        SET element_type = 'company_standard', updated_at = now()
+      WHERE id = $1 AND org_id = $2 AND element_type = 'custom'
+      RETURNING *`,
+    [id, orgId]
+  );
+  return rows[0] ?? null;
+}
+
+/**
  * List elements for an org with filters + pagination.
  * Uses `COUNT(*) OVER()` for the total so it's one round-trip.
  * Category filter is descendant-inclusive via a recursive CTE.
@@ -194,6 +217,11 @@ function buildElementWhere(
   if (filters.tags && filters.tags.length > 0) {
     params.push(filters.tags);
     conditions.push(`e.tags && $${params.length}::text[]`);
+  }
+
+  if (filters.type) {
+    params.push(filters.type);
+    conditions.push(`e.element_type = $${params.length}`);
   }
 
   if (filters.isActive !== undefined) {

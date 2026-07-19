@@ -3,6 +3,7 @@ import {
   getElements,
   getElementById,
   findSimilarElements,
+  promoteElement,
   createElement,
   updateElement,
   softDeleteElement,
@@ -21,6 +22,7 @@ import { POST as POST_DUPLICATE } from "@/app/api/elements/[id]/duplicate/route"
 import { POST as POST_RESTORE } from "@/app/api/elements/[id]/restore/route";
 import { GET as GET_VERSIONS } from "@/app/api/elements/[id]/versions/route";
 import { GET as GET_SIMILAR } from "@/app/api/elements/similar/route";
+import { POST as POST_PROMOTE } from "@/app/api/elements/[id]/promote/route";
 import {
   buildRequest,
   buildParams,
@@ -137,6 +139,20 @@ describe("GET /api/elements", () => {
     );
   });
 
+  it("forwards the element_type filter to getElements", async () => {
+    vi.mocked(getElements).mockResolvedValue({ rows: [], total: 0 });
+    await GET(buildRequest("/api/elements?type=custom"));
+    expect(getElements).toHaveBeenCalledWith(
+      "org-test-001",
+      expect.objectContaining({ type: "custom" })
+    );
+  });
+
+  it("rejects an invalid element_type", async () => {
+    const res = await GET(buildRequest("/api/elements?type=bogus"));
+    expect((await parseResponse(res)).status).toBe(400);
+  });
+
   it("returns 400 on invalid unit", async () => {
     const req = buildRequest("/api/elements?unit=not-a-unit");
     const res = await GET(req);
@@ -211,6 +227,33 @@ describe("GET /api/elements/similar", () => {
         tags: ["matte"],
       })
     );
+  });
+});
+
+describe("POST /api/elements/[id]/promote", () => {
+  it("promotes a Custom element and returns it", async () => {
+    vi.mocked(promoteElement).mockResolvedValueOnce({
+      ...fakeElement,
+      element_type: "company_standard",
+    });
+    const res = await POST_PROMOTE(
+      buildRequest(`/api/elements/${ELEM_ID}/promote`, { method: "POST" }),
+      buildParams({ id: ELEM_ID })
+    );
+    const { status, body } = await parseResponse<Element>(res);
+
+    expect(status).toBe(200);
+    expect(body.element_type).toBe("company_standard");
+    expect(promoteElement).toHaveBeenCalledWith("org-test-001", ELEM_ID);
+  });
+
+  it("404s when the element isn't Custom (or not found)", async () => {
+    vi.mocked(promoteElement).mockResolvedValueOnce(null);
+    const res = await POST_PROMOTE(
+      buildRequest(`/api/elements/${ELEM_ID}/promote`, { method: "POST" }),
+      buildParams({ id: ELEM_ID })
+    );
+    expect((await parseResponse(res)).status).toBe(404);
   });
 });
 

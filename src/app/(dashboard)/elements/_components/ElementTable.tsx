@@ -12,6 +12,7 @@ import {
   ArchiveRestore,
   Layers,
   Paperclip,
+  Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +26,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
 import { LabelValueList } from "@/components/ui/LabelValueList";
@@ -47,17 +49,19 @@ type SortKey = ElementSortField;
  * header and every row so the columns line up. The `Name` column is a
  * `minmax` so it grows on wide screens but never collapses below 200px.
  */
-const GRID_COLS = "grid-cols-[40px_140px_minmax(200px,1fr)_160px_140px_60px]";
+const GRID_COLS =
+  "grid-cols-[40px_140px_minmax(200px,1fr)_160px_150px_140px_60px]";
 
 /**
- * Sum of fixed widths (40 + 140 + 200 + 160 + 140 + 60 = 740) + 5
- * inter-column gaps (5 × 16 = 80) + 2 × 16 horizontal padding = 852px.
- * Round to 860 for breathing room. Applied as `min-w` on the
- * scrollable wrapper so the columns never squish below the declared
- * sizes; below the threshold the wrapper scrolls horizontally instead,
- * keeping header and rows aligned.
+ * Sum of fixed widths (40 + 140 + 200 + 160 + 150 + 140 + 60 = 890) + 6
+ * inter-column gaps (6 × 16 = 96) + 2 × 16 horizontal padding = 1018px.
+ * Round to 1020 for breathing room. Applied as `min-w` on the scrollable
+ * wrapper so the columns never squish below the declared sizes; below the
+ * threshold the wrapper scrolls horizontally instead, keeping header and
+ * rows aligned. The `Type` column collects every badge so they line up in a
+ * single vertical strip instead of trailing the variable-length name.
  */
-const TABLE_MIN_WIDTH = "lg:min-w-[860px]";
+const TABLE_MIN_WIDTH = "lg:min-w-[1020px]";
 
 interface Props {
   rows: Element[];
@@ -71,9 +75,10 @@ interface Props {
   onDuplicate: (el: Element) => void;
   onArchive: (el: Element) => void;
   onRestore: (el: Element) => void;
+  onPromote: (el: Element) => void;
 }
 
-/** Tabular list of elements with per-row action menu (edit, duplicate, archive/restore). */
+/** Tabular list of elements with per-row action menu (edit, duplicate, archive/restore, promote). */
 export function ElementTable({
   rows,
   isLoading,
@@ -86,6 +91,7 @@ export function ElementTable({
   onDuplicate,
   onArchive,
   onRestore,
+  onPromote,
 }: Props) {
   const t = useTranslations("elements");
   const listRef = useStaggerReveal<HTMLDivElement>(
@@ -125,6 +131,7 @@ export function ElementTable({
                 {t("colName")}
               </SortableHeaderButton>
               <div>{t("colCategory")}</div>
+              <div>{t("colType")}</div>
               <SortableHeaderButton
                 sortKey="unit_cost"
                 config={sortConfig}
@@ -139,7 +146,7 @@ export function ElementTable({
 
             {isLoading ? (
               Array.from({ length: 8 }).map((_, i) => (
-                <SkeletonRow key={i} columns={6} />
+                <SkeletonRow key={i} columns={7} />
               ))
             ) : rows.length === 0 ? (
               <EmptyState
@@ -162,6 +169,7 @@ export function ElementTable({
                   onDuplicate={() => onDuplicate(el)}
                   onArchive={() => onArchive(el)}
                   onRestore={() => onRestore(el)}
+                  onPromote={() => onPromote(el)}
                 />
               ))
             )}
@@ -180,6 +188,7 @@ interface RowProps {
   onDuplicate: () => void;
   onArchive: () => void;
   onRestore: () => void;
+  onPromote: () => void;
 }
 
 function ElementRow({
@@ -190,6 +199,7 @@ function ElementRow({
   onDuplicate,
   onArchive,
   onRestore,
+  onPromote,
 }: RowProps) {
   const t = useTranslations("elements");
   const tCommon = useTranslations("common");
@@ -250,6 +260,18 @@ function ElementRow({
     </Badge>
   );
 
+  // Standard (library-created) is the norm — only badge the non-default types.
+  const typeBadge = element.element_type !== "standard" && (
+    <Badge
+      variant={
+        element.element_type === "company_standard" ? "success" : "warning"
+      }
+      className="shrink-0"
+    >
+      {t(`elementType.${element.element_type}`)}
+    </Badge>
+  );
+
   const actionsMenu = (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -264,6 +286,7 @@ function ElementRow({
             {t("detailView")}
           </Link>
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <DropdownMenuItem onClick={onEdit}>
           <Edit3 className="w-4 h-4" />
           {tCommon("edit")}
@@ -272,13 +295,23 @@ function ElementRow({
           <Copy className="w-4 h-4" />
           {t("duplicate")}
         </DropdownMenuItem>
+        {element.element_type === "custom" && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem accent onClick={onPromote}>
+              <Star className="w-4 h-4" />
+              {t("promote")}
+            </DropdownMenuItem>
+          </>
+        )}
+        <DropdownMenuSeparator />
         {element.is_active ? (
-          <DropdownMenuItem onClick={onArchive}>
+          <DropdownMenuItem destructive onClick={onArchive}>
             <Archive className="w-4 h-4" />
             {t("archive")}
           </DropdownMenuItem>
         ) : (
-          <DropdownMenuItem onClick={onRestore}>
+          <DropdownMenuItem accent onClick={onRestore}>
             <ArchiveRestore className="w-4 h-4" />
             {t("restore")}
           </DropdownMenuItem>
@@ -307,6 +340,7 @@ function ElementRow({
               <span className="text-sm text-text-primary truncate">
                 {element.name}
               </span>
+              {typeBadge}
               {archivedBadge}
               {attachmentIcon}
             </div>
@@ -332,21 +366,24 @@ function ElementRow({
 
       <div className={`hidden lg:grid ${GRID_COLS} gap-4 px-4 py-3`}>
         <div className="flex items-center justify-center">{thumbnail}</div>
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center min-w-0">
           <span className="font-mono text-sm text-text-primary truncate">
             {element.code}
           </span>
-          {versionBadge}
         </div>
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center min-w-0">
           <span className="text-sm text-text-primary truncate">
             {element.name}
           </span>
-          {archivedBadge}
-          {attachmentIcon}
         </div>
         <div className="text-sm text-text-secondary truncate">
           {categoryName}
+        </div>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {typeBadge}
+          {archivedBadge}
+          {versionBadge}
+          {attachmentIcon}
         </div>
         <div className="text-sm text-text-primary text-right font-mono">
           {formatMoney(element.unit_cost, element.currency)}

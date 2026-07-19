@@ -133,7 +133,7 @@ export default async function DashboardLayout({
               {/* Mobile top bar + bottom nav */}
               <MobileShell user={user} />
 
-              <main className="relative flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 pb-[var(--mobile-nav-h,5rem)] lg:p-8 lg:pr-20 lg:pb-8">
+              <main className="relative flex-1 min-h-0 overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable] p-4 pb-[var(--mobile-nav-h,5rem)] lg:p-8 lg:pr-20 lg:pb-8">
                 <div className="fixed top-4 right-4 lg:right-8 z-50 hidden lg:block">
                   <NotificationPanel />
                 </div>

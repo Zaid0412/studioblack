@@ -4,18 +4,25 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo } from "react";
 import type {
   ElementUnit,
+  ElementType,
   ElementSortField,
   SortOrder,
 } from "@/lib/validations";
-import { ELEMENT_SORT_FIELDS, SORT_ORDERS } from "@/lib/validations";
+import {
+  ELEMENT_SORT_FIELDS,
+  ELEMENT_TYPES,
+  SORT_ORDERS,
+} from "@/lib/validations";
 
 const SORT_FIELDS = new Set<string>(ELEMENT_SORT_FIELDS);
 const ORDERS = new Set<string>(SORT_ORDERS);
+const TYPES = new Set<string>(ELEMENT_TYPES);
 
 export interface ElementFilterState {
   search: string;
   categoryId: string | null;
   unit: ElementUnit | null;
+  type: ElementType | null;
   isActive: boolean;
   sortBy: ElementSortField | null;
   sortOrder: SortOrder | null;
@@ -34,6 +41,10 @@ export function useElementFilters() {
       search: searchParams.get("search") ?? "",
       categoryId: searchParams.get("categoryId"),
       unit: (searchParams.get("unit") as ElementUnit | null) ?? null,
+      type: (() => {
+        const type = searchParams.get("type");
+        return type && TYPES.has(type) ? (type as ElementType) : null;
+      })(),
       isActive: searchParams.get("archived") !== "1",
       sortBy:
         sortBy && SORT_FIELDS.has(sortBy) ? (sortBy as ElementSortField) : null,
@@ -83,6 +94,7 @@ export function useElementFilters() {
     setSearch: (v: string) => setParam("search", v || null),
     setCategoryId: (v: string | null) => setParam("categoryId", v),
     setUnit: (v: ElementUnit | null) => setParam("unit", v),
+    setType: (v: ElementType | null) => setParam("type", v),
     setShowArchived: (archived: boolean) =>
       setParam("archived", archived ? "1" : null),
     setSort,

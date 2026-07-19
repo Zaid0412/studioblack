@@ -1168,7 +1168,7 @@ const BoqItemRow = memo(function BoqItemRow({
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           onSelect={() => onCreateAndMoveItem(item)}
-                          className="text-accent focus:text-accent"
+                          accent
                         >
                           + Create new section…
                         </DropdownMenuItem>
@@ -1213,7 +1213,7 @@ const BoqItemRow = memo(function BoqItemRow({
               {onDeleteItem && editable && (
                 <DropdownMenuItem
                   onSelect={() => void onDeleteItem(item)}
-                  className="text-error focus:text-error"
+                  destructive
                 >
                   Delete item
                 </DropdownMenuItem>

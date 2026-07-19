@@ -99,19 +99,19 @@ export function FileContextMenu({
         )}
         {hasReviewActions && <DropdownMenuSeparator />}
         {onApprove && (
-          <DropdownMenuItem onSelect={onApprove}>
+          <DropdownMenuItem accent onSelect={onApprove}>
             <Check />
             Approve
           </DropdownMenuItem>
         )}
         {onReject && (
-          <DropdownMenuItem onSelect={onReject}>
+          <DropdownMenuItem destructive onSelect={onReject}>
             <X />
             Reject
           </DropdownMenuItem>
         )}
         {onMarkReviewed && (
-          <DropdownMenuItem onSelect={onMarkReviewed}>
+          <DropdownMenuItem accent onSelect={onMarkReviewed}>
             <ClipboardCheck />
             Mark Reviewed
           </DropdownMenuItem>
@@ -119,7 +119,7 @@ export function FileContextMenu({
         {onSendToClient && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={onSendToClient}>
+            <DropdownMenuItem accent onSelect={onSendToClient}>
               <Send />
               Send to Client
             </DropdownMenuItem>

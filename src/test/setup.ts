@@ -342,6 +342,7 @@ vi.mock("@/lib/queries", () => ({
   getElements: vi.fn().mockResolvedValue({ rows: [], total: 0 }),
   getElementById: vi.fn().mockResolvedValue(null),
   findSimilarElements: vi.fn().mockResolvedValue([]),
+  promoteElement: vi.fn().mockResolvedValue(null),
   createElement: vi.fn(),
   updateElement: vi.fn(),
   softDeleteElement: vi.fn().mockResolvedValue({ deleted: true }),

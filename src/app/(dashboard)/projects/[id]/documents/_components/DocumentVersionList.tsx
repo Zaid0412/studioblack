@@ -369,15 +369,6 @@ export function DocumentVersionList({
                             <Download className="w-3.5 h-3.5" />
                             Download
                           </DropdownMenuItem>
-                          {canEdit && !isLatest && (
-                            <DropdownMenuItem
-                              className="md:hidden"
-                              onSelect={() => setPendingRevert(v)}
-                            >
-                              <Undo2 className="w-3.5 h-3.5 text-info" />
-                              Revert to this version
-                            </DropdownMenuItem>
-                          )}
                           <DropdownMenuItem onSelect={() => openInNewTab(v)}>
                             <ExternalLink className="w-3.5 h-3.5" />
                             Open in new tab
@@ -386,6 +377,19 @@ export function DocumentVersionList({
                             <Link2 className="w-3.5 h-3.5" />
                             Share (copy link)
                           </DropdownMenuItem>
+                          {canEdit && !isLatest && (
+                            <>
+                              <DropdownMenuSeparator className="md:hidden" />
+                              <DropdownMenuItem
+                                className="md:hidden"
+                                accent
+                                onSelect={() => setPendingRevert(v)}
+                              >
+                                <Undo2 className="w-3.5 h-3.5" />
+                                Revert to this version
+                              </DropdownMenuItem>
+                            </>
+                          )}
                           {canDeleteVersion && (
                             <>
                               <DropdownMenuSeparator />
