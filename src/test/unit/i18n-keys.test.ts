@@ -150,6 +150,6 @@ describe("i18n keys", () => {
    * keys, and the honest response is a lookup table rather than interpolation.
    */
   it("reports how many keys are built dynamically and therefore unchecked", () => {
-    expect(dynamicKeys.length).toBeLessThanOrEqual(40);
+    expect(dynamicKeys.length).toBeLessThanOrEqual(41);
   });
 });

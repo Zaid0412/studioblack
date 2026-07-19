@@ -12,6 +12,7 @@ import {
   ArchiveRestore,
   Layers,
   Paperclip,
+  Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -71,9 +72,10 @@ interface Props {
   onDuplicate: (el: Element) => void;
   onArchive: (el: Element) => void;
   onRestore: (el: Element) => void;
+  onPromote: (el: Element) => void;
 }
 
-/** Tabular list of elements with per-row action menu (edit, duplicate, archive/restore). */
+/** Tabular list of elements with per-row action menu (edit, duplicate, archive/restore, promote). */
 export function ElementTable({
   rows,
   isLoading,
@@ -86,6 +88,7 @@ export function ElementTable({
   onDuplicate,
   onArchive,
   onRestore,
+  onPromote,
 }: Props) {
   const t = useTranslations("elements");
   const listRef = useStaggerReveal<HTMLDivElement>(
@@ -162,6 +165,7 @@ export function ElementTable({
                   onDuplicate={() => onDuplicate(el)}
                   onArchive={() => onArchive(el)}
                   onRestore={() => onRestore(el)}
+                  onPromote={() => onPromote(el)}
                 />
               ))
             )}
@@ -180,6 +184,7 @@ interface RowProps {
   onDuplicate: () => void;
   onArchive: () => void;
   onRestore: () => void;
+  onPromote: () => void;
 }
 
 function ElementRow({
@@ -190,6 +195,7 @@ function ElementRow({
   onDuplicate,
   onArchive,
   onRestore,
+  onPromote,
 }: RowProps) {
   const t = useTranslations("elements");
   const tCommon = useTranslations("common");
@@ -250,6 +256,18 @@ function ElementRow({
     </Badge>
   );
 
+  // Standard (library-created) is the norm — only badge the non-default types.
+  const typeBadge = element.element_type !== "standard" && (
+    <Badge
+      variant={
+        element.element_type === "company_standard" ? "success" : "warning"
+      }
+      className="shrink-0"
+    >
+      {t(`elementType.${element.element_type}`)}
+    </Badge>
+  );
+
   const actionsMenu = (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -272,6 +290,12 @@ function ElementRow({
           <Copy className="w-4 h-4" />
           {t("duplicate")}
         </DropdownMenuItem>
+        {element.element_type === "custom" && (
+          <DropdownMenuItem onClick={onPromote}>
+            <Star className="w-4 h-4" />
+            {t("promote")}
+          </DropdownMenuItem>
+        )}
         {element.is_active ? (
           <DropdownMenuItem onClick={onArchive}>
             <Archive className="w-4 h-4" />
@@ -307,6 +331,7 @@ function ElementRow({
               <span className="text-sm text-text-primary truncate">
                 {element.name}
               </span>
+              {typeBadge}
               {archivedBadge}
               {attachmentIcon}
             </div>

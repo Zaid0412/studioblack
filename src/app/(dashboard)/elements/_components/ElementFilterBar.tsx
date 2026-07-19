@@ -6,9 +6,10 @@ import { SearchInput } from "@/components/ui/SearchInput";
 import { UnitFilterSelect } from "@/components/ui/UnitFilterSelect";
 import { ToggleSwitch } from "@/components/ui/ToggleSwitch";
 import { Button } from "@/components/ui/button";
-import { type ElementUnit } from "@/lib/validations";
+import { type ElementUnit, type ElementType } from "@/lib/validations";
 import type { ElementCategoryNode } from "@/types";
 import { CategoryFilterSelect } from "./CategoryFilterSelect";
+import { ElementTypeFilter } from "./ElementTypeFilter";
 import type { ElementFilterState } from "../_hooks/useElementFilters";
 
 interface Props {
@@ -17,6 +18,7 @@ interface Props {
   onSearchChange: (value: string) => void;
   onCategoryChange: (id: string | null) => void;
   onUnitChange: (unit: ElementUnit | null) => void;
+  onTypeChange: (type: ElementType | null) => void;
   onShowArchivedChange: (archived: boolean) => void;
   onClear: () => void;
 }
@@ -28,12 +30,17 @@ export function ElementFilterBar({
   onSearchChange,
   onCategoryChange,
   onUnitChange,
+  onTypeChange,
   onShowArchivedChange,
   onClear,
 }: Props) {
   const t = useTranslations("elements");
   const hasActive =
-    state.search || state.unit || state.categoryId || !state.isActive;
+    state.search ||
+    state.unit ||
+    state.categoryId ||
+    state.type ||
+    !state.isActive;
 
   return (
     <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
@@ -56,6 +63,10 @@ export function ElementFilterBar({
 
       <div className="w-full lg:w-40">
         <UnitFilterSelect value={state.unit} onChange={onUnitChange} />
+      </div>
+
+      <div className="w-full lg:w-44">
+        <ElementTypeFilter value={state.type} onChange={onTypeChange} />
       </div>
 
       <div className="flex items-center gap-2 text-sm text-text-secondary whitespace-nowrap">

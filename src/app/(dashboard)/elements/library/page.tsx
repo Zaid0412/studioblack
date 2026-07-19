@@ -52,6 +52,7 @@ export default function ElementsPage() {
     setSearch,
     setCategoryId,
     setUnit,
+    setType,
     setShowArchived,
     setSort,
     setPage,
@@ -72,6 +73,7 @@ export default function ElementsPage() {
     archive,
     duplicate,
     restore,
+    promote,
   } = useElements(state);
 
   const { data: catData } = useSWR<{ tree: ElementCategoryNode[] }>(
@@ -236,6 +238,7 @@ export default function ElementsPage() {
           onSearchChange={setSearch}
           onCategoryChange={setCategoryId}
           onUnitChange={setUnit}
+          onTypeChange={setType}
           onShowArchivedChange={(archived) => setShowArchived(archived)}
           onClear={clear}
         />
@@ -260,6 +263,9 @@ export default function ElementsPage() {
             onArchive={setArchiveTarget}
             onRestore={(el) => {
               void restore(el.id);
+            }}
+            onPromote={(el) => {
+              void promote(el.id);
             }}
           />
 

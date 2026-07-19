@@ -34,6 +34,7 @@ function buildQuery(params: ListParams): string {
   if (params.search) search.set("search", params.search);
   if (params.categoryId) search.set("categoryId", params.categoryId);
   if (params.unit) search.set("unit", params.unit);
+  if (params.type) search.set("type", params.type);
   if (params.isActive !== undefined)
     search.set("isActive", String(params.isActive));
   if (params.sortBy) search.set("sortBy", params.sortBy);
@@ -108,6 +109,11 @@ export function duplicate(id: string) {
 /** Restore a previously archived element. */
 export function restore(id: string) {
   return apiPost<{ success: true }>(API.elementRestore(id), {});
+}
+
+/** Promote a Custom element to Company Standard. Returns the updated element. */
+export function promote(id: string) {
+  return apiPost<Element>(API.elementPromote(id), {});
 }
 
 /** Fetch every version of an element's version_group, newest first. */

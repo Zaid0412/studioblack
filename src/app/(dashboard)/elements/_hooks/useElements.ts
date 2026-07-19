@@ -16,6 +16,7 @@ export function useElements(filters: ElementFilterState) {
     search: filters.search || undefined,
     categoryId: filters.categoryId ?? undefined,
     unit: filters.unit ?? undefined,
+    type: filters.type ?? undefined,
     isActive: filters.isActive,
     sortBy: filters.sortBy ?? undefined,
     sortOrder: filters.sortOrder ?? undefined,
@@ -115,6 +116,20 @@ export function useElements(filters: ElementFilterState) {
     [mutate]
   );
 
+  const promote = useCallback(
+    async (id: string) => {
+      try {
+        await elementsApi.promote(id);
+        toast({ title: "Promoted to Company Standard" });
+        mutate();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Failed to promote";
+        toast({ title: msg, variant: "error" });
+      }
+    },
+    [mutate]
+  );
+
   return {
     rows,
     total,
@@ -129,5 +144,6 @@ export function useElements(filters: ElementFilterState) {
     archive,
     duplicate,
     restore,
+    promote,
   };
 }

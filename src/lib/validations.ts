@@ -772,6 +772,7 @@ export const listElementsQuerySchema = z.object({
   categoryId: z.string().uuid().optional(),
   unit: z.enum(ALLOWED_UNITS).optional(),
   tags: z.array(z.string()).optional(),
+  type: z.enum(ELEMENT_TYPES).optional(),
   isActive: z
     .union([z.boolean(), z.enum(["true", "false"])])
     .transform((v) => (typeof v === "boolean" ? v : v === "true"))
