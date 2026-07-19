@@ -180,28 +180,45 @@ export function MetaBar({
           </button>
         </div>
 
-        {/* Detail grid \u2014 revealed on expand */}
-        {expanded && (
-          <div className="mt-3 pt-3 border-t border-border-default grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 animate-in fade-in slide-in-from-top-1 duration-200 motion-reduce:animate-none">
-            {location && (
-              <MetaField label={t("location") || "Location"} value={location} />
-            )}
-            {scope && <MetaField label={t("scope") || "Scope"} value={scope} />}
-            {estimationInr != null && (
+        {/* Detail grid \u2014 smoothly expands/collapses via a grid-rows height
+            transition (library-free; animates both directions). Always in the
+            DOM so it can animate closed; clipped by the overflow-hidden track. */}
+        <div
+          aria-hidden={!expanded}
+          className={`grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none ${
+            expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+          }`}
+        >
+          <div className="overflow-hidden">
+            <div className="mt-3 pt-3 border-t border-border-default grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+              {location && (
+                <MetaField
+                  label={t("location") || "Location"}
+                  value={location}
+                />
+              )}
+              {scope && (
+                <MetaField label={t("scope") || "Scope"} value={scope} />
+              )}
+              {estimationInr != null && (
+                <MetaField
+                  label={t("estimationInr") || "Estimate (INR)"}
+                  value={estimationInr.toLocaleString("en-IN")}
+                />
+              )}
               <MetaField
-                label={t("estimationInr") || "Estimate (INR)"}
-                value={estimationInr.toLocaleString("en-IN")}
+                label={t("created") || "Created"}
+                value={createdDate}
               />
-            )}
-            <MetaField label={t("created") || "Created"} value={createdDate} />
-            {architectNames.length > 0 && (
-              <MetaField
-                label={t("architects") || "Architects"}
-                value={architects}
-              />
-            )}
+              {architectNames.length > 0 && (
+                <MetaField
+                  label={t("architects") || "Architects"}
+                  value={architects}
+                />
+              )}
+            </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
