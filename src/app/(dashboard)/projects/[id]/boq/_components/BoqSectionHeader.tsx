@@ -147,7 +147,7 @@ export function BoqSectionHeader({
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
               )}
-              {canAddItem && (onRename || onToggleVisibility || onDelete) && (
+              {canAddItem && (onRename || onToggleVisibility) && (
                 <DropdownMenuSeparator />
               )}
               {onRename && (
@@ -163,12 +163,14 @@ export function BoqSectionHeader({
                 </DropdownMenuItem>
               )}
               {onDelete && (
-                <DropdownMenuItem
-                  onSelect={onDelete}
-                  className="text-error focus:text-error"
-                >
-                  Delete section
-                </DropdownMenuItem>
+                <>
+                  {(canAddItem || onRename || onToggleVisibility) && (
+                    <DropdownMenuSeparator />
+                  )}
+                  <DropdownMenuItem onSelect={onDelete} destructive>
+                    Delete section
+                  </DropdownMenuItem>
+                </>
               )}
             </DropdownMenuContent>
           </DropdownMenu>

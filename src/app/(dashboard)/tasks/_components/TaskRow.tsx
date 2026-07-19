@@ -251,7 +251,9 @@ export function TaskRow({
                 <Edit className="w-4 h-4" />
                 {t("editTask")}
               </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem
+                accent={task.status !== "completed"}
                 onClick={() =>
                   onSetStatus(
                     task,

@@ -17,6 +17,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
@@ -287,6 +288,7 @@ function DocumentRowInner({
                 )}
               </DropdownMenuSubContent>
             </DropdownMenuSub>
+            <DropdownMenuSeparator />
             <DropdownMenuItem destructive onSelect={() => void onDelete()}>
               <Trash2 className="w-3.5 h-3.5" />
               Delete

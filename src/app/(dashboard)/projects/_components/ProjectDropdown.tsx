@@ -47,6 +47,7 @@ export function ProjectDropdown({
           <Eye className="w-4 h-4" />
           {t("viewProject")}
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
         {isPm && (
           <DropdownMenuItem
             onClick={(e) => {

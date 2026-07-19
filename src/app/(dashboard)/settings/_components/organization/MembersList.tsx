@@ -93,7 +93,7 @@ function MemberRow({
               <DropdownMenuSeparator />
             )}
             <DropdownMenuItem
-              className="text-red-500 focus:text-red-500"
+              destructive
               onClick={() => onRemoveMember(member.id)}
             >
               {t("removeMember")}

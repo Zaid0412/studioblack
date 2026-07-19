@@ -26,6 +26,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
 import { toast } from "@/components/ui/useToast";
@@ -456,6 +457,7 @@ export function CommentCard({
                   <Pencil className="w-4 h-4" />
                   Edit
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem
                   destructive
                   onClick={() => setConfirmDelete(true)}

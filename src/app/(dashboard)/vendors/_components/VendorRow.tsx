@@ -53,7 +53,7 @@ export function VendorRow({
           <>
             <DropdownMenuSeparator />
             {vendor.status !== "inactive" && (
-              <DropdownMenuItem onClick={onSoftDelete}>
+              <DropdownMenuItem destructive onClick={onSoftDelete}>
                 <Trash2 className="w-4 h-4" />
                 {t("markInactive")}
               </DropdownMenuItem>

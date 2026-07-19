@@ -26,6 +26,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
 import { LabelValueList } from "@/components/ui/LabelValueList";
@@ -285,6 +286,7 @@ function ElementRow({
             {t("detailView")}
           </Link>
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <DropdownMenuItem onClick={onEdit}>
           <Edit3 className="w-4 h-4" />
           {tCommon("edit")}
@@ -294,18 +296,22 @@ function ElementRow({
           {t("duplicate")}
         </DropdownMenuItem>
         {element.element_type === "custom" && (
-          <DropdownMenuItem onClick={onPromote}>
-            <Star className="w-4 h-4" />
-            {t("promote")}
-          </DropdownMenuItem>
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem accent onClick={onPromote}>
+              <Star className="w-4 h-4" />
+              {t("promote")}
+            </DropdownMenuItem>
+          </>
         )}
+        <DropdownMenuSeparator />
         {element.is_active ? (
-          <DropdownMenuItem onClick={onArchive}>
+          <DropdownMenuItem destructive onClick={onArchive}>
             <Archive className="w-4 h-4" />
             {t("archive")}
           </DropdownMenuItem>
         ) : (
-          <DropdownMenuItem onClick={onRestore}>
+          <DropdownMenuItem accent onClick={onRestore}>
             <ArchiveRestore className="w-4 h-4" />
             {t("restore")}
           </DropdownMenuItem>
