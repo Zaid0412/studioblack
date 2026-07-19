@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   getElements,
   getElementById,
+  findSimilarElements,
   createElement,
   updateElement,
   softDeleteElement,
@@ -19,6 +20,7 @@ import {
 import { POST as POST_DUPLICATE } from "@/app/api/elements/[id]/duplicate/route";
 import { POST as POST_RESTORE } from "@/app/api/elements/[id]/restore/route";
 import { GET as GET_VERSIONS } from "@/app/api/elements/[id]/versions/route";
+import { GET as GET_SIMILAR } from "@/app/api/elements/similar/route";
 import {
   buildRequest,
   buildParams,
@@ -180,6 +182,37 @@ describe("GET /api/elements", () => {
 });
 
 // ── POST /api/elements ──────────────────────────────────────────────────────
+
+describe("GET /api/elements/similar", () => {
+  it("400s when categoryId or q is missing", async () => {
+    const res = await GET_SIMILAR(buildRequest("/api/elements/similar?q=tile"));
+    expect((await parseResponse(res)).status).toBe(400);
+    expect(findSimilarElements).not.toHaveBeenCalled();
+  });
+
+  it("returns matches and forwards categoryId + description + tags", async () => {
+    vi.mocked(findSimilarElements).mockResolvedValueOnce([
+      { ...fakeElement, similarity: 0.6 },
+    ]);
+    const res = await GET_SIMILAR(
+      buildRequest(
+        `/api/elements/similar?categoryId=${CAT_ID}&q=tile&tags=matte`
+      )
+    );
+    const { status, body } = await parseResponse<{ rows: Element[] }>(res);
+
+    expect(status).toBe(200);
+    expect(body.rows).toHaveLength(1);
+    expect(findSimilarElements).toHaveBeenCalledWith(
+      "org-test-001",
+      expect.objectContaining({
+        categoryId: CAT_ID,
+        description: "tile",
+        tags: ["matte"],
+      })
+    );
+  });
+});
 
 describe("POST /api/elements", () => {
   it("creates an element", async () => {

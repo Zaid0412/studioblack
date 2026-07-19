@@ -81,6 +81,7 @@ RFQs nested under Order), not the 8-tab bar this plan describes.
 > - [Vendor-cat/sub/service (current taxonomy)](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.byxoydqtjbd3)
 >   - [Element code](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.yq8747iqetcm)
 >   - [Coding system](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.fabijrosnkmg)
+>   - [Element Library master data](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.cuoargn19kbt)
 > - [Rate contract](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.csq1hgbovm1)
 > - [PO/Invoice](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.gpgps6teep6q)
 > - [Awards & PO](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.xs6yeduybzkk)

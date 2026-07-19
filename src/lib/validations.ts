@@ -695,6 +695,18 @@ export const ALLOWED_UNITS = [
 ] as const;
 export type ElementUnit = (typeof ALLOWED_UNITS)[number];
 
+/**
+ * Element provenance/approval class (PRD "2.2 Element ID updates"):
+ * `standard` = library-created & approved; `custom` = auto-created from a BOQ
+ * line; `company_standard` = a promoted Custom. Archived is the `is_active` flag.
+ */
+export const ELEMENT_TYPES = [
+  "standard",
+  "custom",
+  "company_standard",
+] as const;
+export type ElementType = (typeof ELEMENT_TYPES)[number];
+
 const elementAttributeInput = z.object({
   attribute_key: z.string().trim().min(1).max(100),
   attribute_value: z.string().trim().min(1),
@@ -768,6 +780,13 @@ export const listElementsQuerySchema = z.object({
   sortOrder: z.enum(SORT_ORDERS).optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(200).default(25),
+});
+
+/** Query for GET /api/elements/similar — the create sheet's dedup suggestions. */
+export const similarElementsQuerySchema = z.object({
+  categoryId: z.string().uuid(),
+  q: z.string().trim().min(1).max(500),
+  tags: z.array(z.string()).optional(),
 });
 
 // ─── Element Excel Import / Export (F3) ────────────────────────────────────
@@ -973,6 +992,18 @@ export const createBoqItemSchema = z
     itemCode: z.string().trim().max(50).optional(),
     name: z.string().trim().max(255).nullable().optional(),
     description: trimmedString,
+    // Snapshotted onto the auto-created `custom` element (PRD 2.2) for a manual
+    // line with no `elementId`. Ignored when the line reuses an existing element.
+    currency: z.string().trim().length(3).optional(),
+    tags: z.array(z.string().trim().min(1)).optional(),
+    specReference: z.string().trim().max(255).nullable().optional(),
+    drawingRef: z.string().trim().max(255).nullable().optional(),
+    attributes: z.array(elementAttributeInput).optional(),
+    imageUrl: supabaseStorageUrl.optional().nullable(),
+    drawingFileUrl: supabaseStorageUrl.optional().nullable(),
+    drawingFileName: z.string().trim().max(255).optional().nullable(),
+    specFileUrl: supabaseStorageUrl.optional().nullable(),
+    specFileName: z.string().trim().max(255).optional().nullable(),
     unit: z.enum(ALLOWED_UNITS),
     quantity: quantity.optional(),
     unitCost: money.optional(),

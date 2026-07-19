@@ -13,7 +13,7 @@ import { parseBoqRequest } from "../_helpers";
 
 export const POST = withAuth(
   { blockedRoles: ["client"], projectAccess: true },
-  async (req, { orgId }, params) => {
+  async (req, { orgId, user }, params) => {
     if (!orgId) {
       return NextResponse.json(
         { error: "No active organization" },
@@ -45,8 +45,10 @@ export const POST = withAuth(
         );
       }
 
-      const { anchorItemId, insertPosition, allowRenumber, ...itemInput } =
+      const { anchorItemId, insertPosition, allowRenumber, ...rest } =
         result.data;
+      // Provenance for an auto-created element (PRD 2.2): the acting user.
+      const itemInput = { ...rest, createdBy: user.id };
       const item = anchorItemId
         ? await insertBoqItemBetween(
             result.boqId,

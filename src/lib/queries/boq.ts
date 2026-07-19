@@ -1074,6 +1074,27 @@ export interface CreateBoqItemInput {
   lineNumber?: number;
   isProvisional?: boolean;
   isExcluded?: boolean;
+  /**
+   * Fields the master-data auto-create (PRD 2.2) snapshots onto the new `custom`
+   * element when a manual line has no `elementId`. `createdBy` is server-set (the
+   * acting user); the rest ride the create payload. Ignored when a line reuses an
+   * existing element.
+   */
+  createdBy?: string | null;
+  currency?: string;
+  tags?: string[];
+  specReference?: string | null;
+  drawingRef?: string | null;
+  imageUrl?: string | null;
+  drawingFileUrl?: string | null;
+  drawingFileName?: string | null;
+  specFileUrl?: string | null;
+  specFileName?: string | null;
+  attributes?: Array<{
+    attribute_key: string;
+    attribute_value: string;
+    unit?: string;
+  }>;
 }
 
 /**
@@ -1101,10 +1122,10 @@ async function resolveLineDivisionId(
 /**
  * Insert a BOQ item. `item_code` is not the item's business number — that's its
  * BOQ's number plus the `line_number` assigned here (`P2026-001-BOQ-001 /
- * Line 20`). `item_code` is the element code: a linked element's code, an
- * import-supplied code, or — for a custom line with neither — one auto-generated
- * from the line's Service Area in the same Library format
- * (`generateElementCodeFor`, drawn from the shared per-prefix sequence).
+ * Line 20`). `item_code` is the linked element's code. A manual line with no
+ * `elementId` **auto-creates** a `custom` element in the library (PRD 2.2) and
+ * links it, so every line carries an ElementID; `item_code` is then that new
+ * element's code. Library/batch/import callers pass an `elementId` and skip it.
  *
  * The `line_number` append is `MAX + increment` WITHIN the line's division (line
  * numbers restart per division), so a plain append lands at that division's
@@ -1143,22 +1164,93 @@ export async function createBoqItem(
       );
     }
   }
-  // A custom line (no linked element) with no code gets one auto-generated from
-  // its Service Area — the same Library-format code (`KIT-CAB-BASE-0001`), drawn
-  // from the shared per-prefix sequence. The two user create paths (`addBoqItem`,
-  // `insertBoqItemBetween`) are the only callers that reach this branch
-  // (library/batch/import callers supply `itemCode` or an `elementId`).
-  if (!itemCode && !input.elementId && input.categoryId) {
-    // Generation takes an advisory xact-lock and bumps the counter, which must
-    // commit / roll back with this INSERT — so it needs a transaction client,
-    // not the pool. Fail loud rather than silently run the lock outside a txn
-    // (`release` is on PoolClient, not Pool — the narrowing also drops the cast).
+  // Master-data rule (PRD 2.2): a manual line with no linked element auto-creates
+  // a real `custom` Element in the library — code generated the Library way, the
+  // line's spec snapshotted, provenance recorded (origin BOQ + creator) — then
+  // links it. So every line carries an ElementID; no orphan "code-only" lines.
+  // The two user create paths (`addBoqItem`, `insertBoqItemBetween`) reach this;
+  // library/batch/import callers pass an `elementId` and skip it. A caller that
+  // supplies a bare `itemCode` (no element) keeps it — that legacy contract still
+  // holds; no live create path does this, but don't silently override it.
+  let elementId = input.elementId ?? null;
+  if (!itemCode && !elementId && input.categoryId) {
+    // Code generation + the element insert take an advisory xact-lock and bump
+    // the counter, which must commit / roll back with this line — so a
+    // transaction client is required (`release` is on PoolClient, not Pool).
     if (!("release" in executor)) {
       throw new Error(
-        "createBoqItem: auto-generating item_code requires a transaction client"
+        "createBoqItem: auto-creating an element requires a transaction client"
       );
     }
-    itemCode = await generateElementCodeFor(executor, orgId, input.categoryId);
+    const code = await generateElementCodeFor(
+      executor,
+      orgId,
+      input.categoryId
+    );
+    // element.name is NOT NULL — fall back to the description (truncated).
+    const elName = (input.name?.trim() || input.description).slice(0, 255);
+    const { rows: elRows } = await executor.query<{ id: string; code: string }>(
+      `INSERT INTO element
+         (org_id, code, name, description, category_id, unit, unit_cost,
+          currency, material_cost, labour_cost, overhead_pct, service_charge_pct, margin_pct,
+          client_rate, budget_rate, spec_reference, drawing_ref, tags, created_by,
+          image_url, drawing_file_url, drawing_file_name, spec_file_url, spec_file_name,
+          element_type, origin_boq_id)
+       VALUES ($1, $2, $3, $4, $5::uuid, $6, COALESCE($7::numeric, 0),
+               $8, $9::numeric, $10::numeric, COALESCE($11::numeric, 0), COALESCE($12::numeric, 0), COALESCE($13::numeric, 0),
+               $14::numeric, $15::numeric, $16, $17, $18, $19,
+               $20, $21, $22, $23, $24,
+               'custom', $25)
+       RETURNING id, code`,
+      [
+        orgId,
+        code,
+        elName,
+        input.description,
+        input.categoryId,
+        input.unit,
+        input.unitCost ?? null,
+        input.currency ?? DEFAULT_CURRENCY,
+        input.materialCost ?? null,
+        input.labourCost ?? null,
+        input.overheadPct ?? null,
+        input.serviceChargePct ?? null,
+        input.marginPct ?? null,
+        input.clientRate ?? null,
+        input.budgetRate ?? null,
+        input.specReference ?? null,
+        input.drawingRef ?? null,
+        input.tags ?? null,
+        input.createdBy ?? null,
+        input.imageUrl ?? null,
+        input.drawingFileUrl ?? null,
+        input.drawingFileName ?? null,
+        input.specFileUrl ?? null,
+        input.specFileName ?? null,
+        boqId,
+      ]
+    );
+    elementId = elRows[0].id;
+    itemCode = elRows[0].code;
+
+    // Snapshot the line's attributes onto the new element too (same tx).
+    const attrs = (input.attributes ?? []).filter(
+      (a) => a.attribute_key && a.attribute_value
+    );
+    if (attrs.length > 0) {
+      await executor.query(
+        `INSERT INTO element_attribute
+           (element_id, attribute_key, attribute_value, unit, sort_order)
+         SELECT $1::uuid, k, v, u, ord - 1
+           FROM unnest($2::text[], $3::text[], $4::text[]) WITH ORDINALITY AS a(k, v, u, ord)`,
+        [
+          elementId,
+          attrs.map((a) => a.attribute_key),
+          attrs.map((a) => a.attribute_value),
+          attrs.map((a) => a.unit ?? null),
+        ]
+      );
+    }
   }
 
   // Explicit ::numeric / ::int casts on numeric placeholders. Without them
@@ -1196,8 +1288,10 @@ export async function createBoqItem(
     [
       boqId,
       input.sectionId ?? null,
-      input.elementId ?? null,
-      input.source ?? null,
+      elementId,
+      // Provenance: an explicit source wins; else a caller-supplied `elementId`
+      // (reuse from the library) is 'library', and an auto-created line 'custom'.
+      input.source ?? (input.elementId ? "library" : "custom"),
       input.rateContractItemId ?? null,
       itemCode,
       input.name || null,

@@ -42,7 +42,9 @@ describe("per-division line numbers", () => {
     mockQuery.mockImplementation((sql: string) => {
       if (/INSERT INTO boq_item/.test(sql))
         return Promise.resolve({ rows: [{ id: "new" }] });
-      // Custom lines auto-generate item_code from the shared sequence.
+      // A custom line auto-creates a `custom` element + links it.
+      if (/INSERT INTO element\b/.test(sql))
+        return Promise.resolve({ rows: [{ id: "el-1", code: "X-0001" }] });
       if (/INSERT INTO sequence_counter/.test(sql))
         return Promise.resolve({ rows: [{ current_value: 1 }] });
       return Promise.resolve({ rows: [] });
@@ -84,6 +86,8 @@ describe("per-division line numbers", () => {
         return Promise.resolve({ rows: [{ id: "gen-div" }] });
       if (/INSERT INTO boq_item/.test(sql))
         return Promise.resolve({ rows: [{ id: "new" }] });
+      if (/INSERT INTO element\b/.test(sql))
+        return Promise.resolve({ rows: [{ id: "el-1", code: "X-0001" }] });
       if (/INSERT INTO sequence_counter/.test(sql))
         return Promise.resolve({ rows: [{ current_value: 1 }] });
       return Promise.resolve({ rows: [] });
