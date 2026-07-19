@@ -124,4 +124,16 @@ describe("createDrawing", () => {
       })
     ).rejects.toThrow("Discipline not found");
   });
+
+  it("rejects a half-classified drawing (discipline without type)", async () => {
+    const { client } = mockClient({ disciplineCode: "AR" });
+    await expect(
+      createDrawing(client, {
+        projectId: "proj-1",
+        orgId: "org-1",
+        projectNumber: "P2026-001",
+        disciplineId: "dis-1",
+      })
+    ).rejects.toThrow("required together");
+  });
 });

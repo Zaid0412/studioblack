@@ -25,13 +25,7 @@ import {
 } from "@/lib/fileUtils";
 import { useBatchUpload } from "@/hooks/useBatchUpload";
 import useSWR from "swr";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { LabeledSelect } from "@/components/ui/LabeledSelect";
 import { DRAWING_TYPES } from "@/lib/validations";
 import { DRAWING_TYPE_LABELS } from "@/lib/designTemplates";
 import type { DesignDiscipline } from "@/types";
@@ -321,40 +315,28 @@ export function UploadDialog({
                 gets a document number. Not shown for a new version. */}
             {!isVersion && (
               <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-medium text-text-secondary">
-                    Discipline
-                  </label>
-                  <Select value={disciplineId} onValueChange={setDisciplineId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select discipline" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {disciplines.map((d) => (
-                        <SelectItem key={d.id} value={d.id}>
-                          {d.code} · {d.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-medium text-text-secondary">
-                    Drawing type
-                  </label>
-                  <Select value={drawingType} onValueChange={setDrawingType}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {DRAWING_TYPES.map((t) => (
-                        <SelectItem key={t} value={t}>
-                          {t} · {DRAWING_TYPE_LABELS[t]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <LabeledSelect
+                  label="Discipline"
+                  required
+                  value={disciplineId}
+                  onChange={setDisciplineId}
+                  placeholder="Select discipline"
+                  options={disciplines.map((d) => ({
+                    value: d.id,
+                    label: `${d.code} · ${d.name}`,
+                  }))}
+                />
+                <LabeledSelect
+                  label="Drawing type"
+                  required
+                  value={drawingType}
+                  onChange={setDrawingType}
+                  placeholder="Select type"
+                  options={DRAWING_TYPES.map((t) => ({
+                    value: t,
+                    label: `${t} · ${DRAWING_TYPE_LABELS[t]}`,
+                  }))}
+                />
               </div>
             )}
 

@@ -22,9 +22,10 @@ CREATE TABLE IF NOT EXISTS drawing (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID NOT NULL REFERENCES project(id) ON DELETE CASCADE,
   org_id TEXT NOT NULL REFERENCES "organization"(id) ON DELETE CASCADE,
-  -- One drawing per file lineage. version_group is globally unique (uuid), so it
-  -- alone identifies the group `attachment` rows join back on.
-  version_group UUID NOT NULL UNIQUE,
+  -- One drawing per file lineage. version_group is globally unique (uuid) and
+  -- generated here — a new upload's attachment then adopts it — so it alone
+  -- identifies the group `attachment` rows join back on.
+  version_group UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
   -- Classification (null until set — required on new uploads, backfilled null on
   -- legacy). package_id waits for the PR-5 grouping cutover.
   package_id UUID REFERENCES design_package(id) ON DELETE SET NULL,
@@ -55,12 +56,14 @@ ALTER TABLE attachment ADD COLUMN IF NOT EXISTS drawing_id UUID
   REFERENCES drawing(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS idx_attachment_drawing ON attachment(drawing_id);
 
--- ─── Backfill: one unclassified drawing per existing version_group ───────────
+-- ─── Backfill: one unclassified drawing per existing DESIGN version_group ────
+-- Task attachments (task_id set) aren't drawings — they stay out of the register.
 INSERT INTO drawing (project_id, org_id, version_group)
 SELECT DISTINCT a.project_id, p.org_id, a.version_group
   FROM attachment a
   JOIN project p ON p.id = a.project_id
  WHERE a.version_group IS NOT NULL
+   AND a.task_id IS NULL
    AND NOT EXISTS (SELECT 1 FROM drawing d WHERE d.version_group = a.version_group);
 
 UPDATE attachment a

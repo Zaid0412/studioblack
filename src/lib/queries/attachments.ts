@@ -1,6 +1,13 @@
 import { getPool } from "@/lib/db";
 import { createDrawing } from "./drawings";
 
+// Drawing-register projection shared by the attachment read queries (`a` is the
+// attachment alias). One drawing per version_group, so both joins are 1:1.
+const DRAWING_COLS = `dr.document_number, dr.drawing_type, dr.discipline_id,
+       dsc.code AS discipline_code, dsc.name AS discipline_name`;
+const DRAWING_JOINS = `LEFT JOIN drawing dr ON dr.version_group = a.version_group
+     LEFT JOIN design_discipline dsc ON dsc.id = dr.discipline_id`;
+
 /** Get attachments for a project/phase/task. */
 export async function getAttachments(filters: {
   projectId: string;
@@ -35,12 +42,10 @@ export async function getAttachments(filters: {
   const query = `
     WITH latest AS (
       SELECT DISTINCT ON (a.version_group) a.*, u.name AS uploaded_by_name,
-             dr.document_number, dr.drawing_type, dr.discipline_id,
-             dsc.code AS discipline_code, dsc.name AS discipline_name
+             ${DRAWING_COLS}
       FROM attachment a
       JOIN "user" u ON u.id = a.uploaded_by
-      LEFT JOIN drawing dr ON dr.version_group = a.version_group
-      LEFT JOIN design_discipline dsc ON dsc.id = dr.discipline_id
+      ${DRAWING_JOINS}
       ${whereClauses}
       ORDER BY a.version_group, a.version DESC
     )
@@ -95,13 +100,11 @@ export async function getAttachmentsByPhaseId(
   const pool = getPool();
   const { rows } = await pool.query(
     `SELECT a.*, u.name AS uploaded_by_name, r.name AS reviewed_by_name,
-            dr.document_number, dr.drawing_type, dr.discipline_id,
-            dsc.code AS discipline_code, dsc.name AS discipline_name
+            ${DRAWING_COLS}
      FROM attachment a
      JOIN "user" u ON u.id = a.uploaded_by
      LEFT JOIN "user" r ON r.id = a.reviewed_by
-     LEFT JOIN drawing dr ON dr.version_group = a.version_group
-     LEFT JOIN design_discipline dsc ON dsc.id = dr.discipline_id
+     ${DRAWING_JOINS}
      WHERE a.phase_id = $1 AND a.project_id = $2
      ORDER BY a.created_at DESC`,
     [phaseId, projectId]
@@ -119,13 +122,11 @@ export async function getAttachmentById(
     rows: [row],
   } = await pool.query(
     `SELECT a.*, u.name AS uploaded_by_name, r.name AS reviewed_by_name,
-            dr.document_number, dr.drawing_type, dr.discipline_id,
-            dsc.code AS discipline_code, dsc.name AS discipline_name
+            ${DRAWING_COLS}
      FROM attachment a
      JOIN "user" u ON u.id = a.uploaded_by
      LEFT JOIN "user" r ON r.id = a.reviewed_by
-     LEFT JOIN drawing dr ON dr.version_group = a.version_group
-     LEFT JOIN design_discipline dsc ON dsc.id = dr.discipline_id
+     ${DRAWING_JOINS}
      WHERE a.id = $1 AND a.project_id = $2`,
     [attachmentId, projectId]
   );
@@ -300,10 +301,11 @@ export async function markAttachmentSentToClient(
 // ---------------------------------------------------------------------------
 
 /**
- * Create a project attachment — the FIRST version of a file. Every new upload
+ * Create a project attachment — the FIRST version of a file. A design upload
  * opens a `drawing` (register header) for its version_group (Document Control,
- * PR-2): classified + numbered when a discipline + drawing type are supplied,
- * unclassified otherwise. Transactional so the drawing, its document number, and
+ * PR-2), classified + numbered from the supplied discipline + drawing type. Task
+ * attachments (taskId set) aren't drawings, so they skip the register and get a
+ * plain version_group. Transactional so the drawing, its document number, and
  * the attachment commit atomically (a rollback un-burns the number).
  */
 export async function createProjectAttachment(params: {
@@ -330,20 +332,22 @@ export async function createProjectAttachment(params: {
     );
     if (!project) throw new Error("Project not found");
 
-    const drawing = await createDrawing(client, {
-      projectId: params.projectId,
-      orgId: project.org_id,
-      projectNumber: project.project_number,
-      disciplineId: params.disciplineId,
-      drawingType: params.drawingType,
-      title: params.fileName,
-    });
+    const drawing = params.taskId
+      ? null
+      : await createDrawing(client, {
+          projectId: params.projectId,
+          orgId: project.org_id,
+          projectNumber: project.project_number,
+          disciplineId: params.disciplineId,
+          drawingType: params.drawingType,
+          title: params.fileName,
+        });
 
     const {
       rows: [attachment],
     } = await client.query(
       `INSERT INTO attachment (project_id, phase_id, task_id, uploaded_by, file_url, file_name, description, version_group, drawing_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8, gen_random_uuid()), $9)
        RETURNING *`,
       [
         params.projectId,
@@ -353,17 +357,17 @@ export async function createProjectAttachment(params: {
         params.fileUrl,
         params.fileName,
         params.description,
-        drawing.versionGroup,
-        drawing.id,
+        drawing?.versionGroup ?? null,
+        drawing?.id ?? null,
       ]
     );
 
     await client.query("COMMIT");
     return {
       ...attachment,
-      document_number: drawing.documentNumber,
-      drawing_type: params.drawingType ?? null,
-      discipline_id: params.disciplineId ?? null,
+      document_number: drawing?.documentNumber ?? null,
+      drawing_type: drawing?.drawingType ?? null,
+      discipline_id: drawing?.disciplineId ?? null,
     };
   } catch (err) {
     await client.query("ROLLBACK");

@@ -33,13 +33,23 @@ export async function createDrawing(
   id: string;
   versionGroup: string;
   documentNumber: string | null;
+  disciplineId: string | null;
+  drawingType: string | null;
 }> {
-  let disciplineId = params.disciplineId ?? null;
-  let drawingType = params.drawingType ?? null;
-  let documentNumber: string | null = null;
+  const hasDiscipline = !!params.disciplineId;
+  const hasType = !!params.drawingType;
+  // Classification is both-or-neither. Enforced here — the owner of the data —
+  // so no caller can persist a half-classified drawing (the route's 400 is just
+  // a friendlier surface for the same rule).
+  if (hasDiscipline !== hasType) {
+    throw new Error("Discipline and drawing type are required together");
+  }
+  const classified = hasDiscipline && hasType;
+  const disciplineId = classified ? params.disciplineId! : null;
+  const drawingType = classified ? params.drawingType! : null;
 
-  // Partial classification isn't a valid state — a number needs both segments.
-  if (disciplineId && drawingType) {
+  let documentNumber: string | null = null;
+  if (classified) {
     const { rows } = await client.query<{ code: string }>(
       `SELECT code FROM design_discipline WHERE id = $1 AND org_id = $2`,
       [disciplineId, params.orgId]
@@ -54,24 +64,17 @@ export async function createDrawing(
       params.orgId,
       params.projectNumber,
       disciplineCode,
-      drawingType
+      drawingType!
     );
-  } else {
-    disciplineId = null;
-    drawingType = null;
   }
 
   const {
     rows: [drawing],
-  } = await client.query<{
-    id: string;
-    version_group: string;
-    document_number: string | null;
-  }>(
+  } = await client.query<{ id: string; version_group: string }>(
     `INSERT INTO drawing
        (project_id, org_id, discipline_id, drawing_type, document_number, title)
      VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING id, version_group, document_number`,
+     RETURNING id, version_group`,
     [
       params.projectId,
       params.orgId,
@@ -85,6 +88,8 @@ export async function createDrawing(
   return {
     id: drawing.id,
     versionGroup: drawing.version_group,
-    documentNumber: drawing.document_number,
+    documentNumber,
+    disciplineId,
+    drawingType,
   };
 }
