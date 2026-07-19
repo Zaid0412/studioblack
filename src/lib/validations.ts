@@ -2096,3 +2096,24 @@ export async function parseRequest<T extends z.ZodType>(
   }
   return parseBody(schema, raw);
 }
+
+// ─── Design → Document Control (PRD "01.Design doc") ────────────────────────
+
+/**
+ * Design-package lifecycle (10 states). Backed by a DB CHECK; the declarative
+ * transition table + executor land in PR-4. (The package-code union derives from
+ * DESIGN_PACKAGE_DEFAULTS when a consumer needs it — no second source here.)
+ */
+export const DESIGN_PACKAGE_STATUSES = [
+  "draft",
+  "in_progress",
+  "internal_review",
+  "internal_approved",
+  "sent_to_client",
+  "client_review",
+  "client_changes_requested",
+  "client_approved",
+  "frozen",
+  "completed",
+] as const;
+export type DesignPackageStatus = (typeof DESIGN_PACKAGE_STATUSES)[number];

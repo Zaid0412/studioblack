@@ -27,6 +27,7 @@ export * from "./elements";
 export * from "./elementCategories";
 export * from "./categoryCodeConfig";
 export * from "./divisions";
+export * from "./designPackages";
 export * from "./boq";
 export * from "./vendors";
 export * from "./rateContracts";
