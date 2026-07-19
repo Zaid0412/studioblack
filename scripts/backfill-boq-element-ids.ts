@@ -10,6 +10,15 @@
  * Idempotent: only orphan lines are read, and the link UPDATE re-checks
  * `element_id IS NULL`, so re-running processes only what's left.
  *
+ * `item_code`: a backfilled line's code is (re)set to its new element's freshly
+ * generated code. A bare #209-era code is intentionally replaced — it now names
+ * a real element — at the cost of one sequence number per group. That's the
+ * right normalization for a one-off; we don't try to preserve the old bare code.
+ *
+ * Run during a quiet window. Per-org atomicity handles crashes, but if the live
+ * app links every line of a group between the fetch and the UPDATE, the element
+ * is still created yet links 0 rows — leaving one stray (harmless) element.
+ *
  * Usage:
  *   npx tsx scripts/backfill-boq-element-ids.ts                    # all orgs
  *   BACKFILL_ORG_ID=<orgId> npx tsx scripts/backfill-boq-element-ids.ts  # one org
@@ -19,9 +28,23 @@
 
 import dotenv from "dotenv";
 import path from "path";
+import { fileURLToPath } from "url";
 
 // Load env BEFORE importing anything that reads DATABASE_URL.
 dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
+
+/**
+ * Dedup key for grouping orphan lines: exact Service Area + normalized
+ * (lower-cased, trimmed) description. The `∅` sentinel keeps a real NULL
+ * category distinct from any literal string (`category_id` is a UUID, so it can
+ * never collide with `∅`). Exported for testing.
+ */
+export function groupKey(
+  categoryId: string | null,
+  description: string | null
+): string {
+  return `${categoryId ?? "∅"}|${(description ?? "").toLowerCase().trim()}`;
+}
 
 interface OrphanLine {
   id: string;
@@ -89,7 +112,7 @@ async function main() {
       // Group by (category_id, lower(description)) — one element per group.
       const groups = new Map<string, OrphanLine[]>();
       for (const line of lines) {
-        const key = `${line.category_id ?? "∅"}|${(line.description ?? "").toLowerCase().trim()}`;
+        const key = groupKey(line.category_id, line.description);
         const g = groups.get(key);
         if (g) g.push(line);
         else groups.set(key, [line]);
@@ -169,7 +192,13 @@ async function main() {
   await pool.end();
 }
 
-main().catch((err) => {
-  console.error("Backfill failed:", err);
-  process.exit(1);
-});
+// Only run when invoked directly (`tsx scripts/…`), not when imported by a test.
+const isEntrypoint =
+  !!process.argv[1] &&
+  fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+if (isEntrypoint) {
+  main().catch((err) => {
+    console.error("Backfill failed:", err);
+    process.exit(1);
+  });
+}
