@@ -69,6 +69,7 @@ async function main() {
 
   for (const { org_id } of orgs) {
     const client = await pool.connect();
+    let orgLinked = 0;
     try {
       await client.query("BEGIN");
 
@@ -146,12 +147,13 @@ async function main() {
             WHERE id = ANY($3::uuid[]) AND element_id IS NULL`,
           [el.id, el.code, group.map((l) => l.id)]
         );
-        linesLinked += rowCount ?? 0;
+        orgLinked += rowCount ?? 0;
       }
 
       await client.query("COMMIT");
+      linesLinked += orgLinked;
       console.log(
-        `  org ${org_id}: ${groups.size} element(s), ${lines.length} line(s) linked.`
+        `  org ${org_id}: ${groups.size} element(s), ${orgLinked} line(s) linked.`
       );
     } catch (err) {
       await client.query("ROLLBACK");
