@@ -881,6 +881,7 @@
     "colCode": "Kod",
     "colName": "Ad",
     "colCategory": "Kategori",
+    "colType": "Tür",
     "colUnit": "Birim",
     "colUnitCost": "Birim Maliyet",
     "colActions": "İşlemler",

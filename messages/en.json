@@ -881,6 +881,7 @@
     "colCode": "Code",
     "colName": "Name",
     "colCategory": "Category",
+    "colType": "Type",
     "colUnit": "Unit",
     "colUnitCost": "Unit Cost",
     "colActions": "Actions",

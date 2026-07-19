@@ -48,17 +48,19 @@ type SortKey = ElementSortField;
  * header and every row so the columns line up. The `Name` column is a
  * `minmax` so it grows on wide screens but never collapses below 200px.
  */
-const GRID_COLS = "grid-cols-[40px_140px_minmax(200px,1fr)_160px_140px_60px]";
+const GRID_COLS =
+  "grid-cols-[40px_140px_minmax(200px,1fr)_160px_150px_140px_60px]";
 
 /**
- * Sum of fixed widths (40 + 140 + 200 + 160 + 140 + 60 = 740) + 5
- * inter-column gaps (5 × 16 = 80) + 2 × 16 horizontal padding = 852px.
- * Round to 860 for breathing room. Applied as `min-w` on the
- * scrollable wrapper so the columns never squish below the declared
- * sizes; below the threshold the wrapper scrolls horizontally instead,
- * keeping header and rows aligned.
+ * Sum of fixed widths (40 + 140 + 200 + 160 + 150 + 140 + 60 = 890) + 6
+ * inter-column gaps (6 × 16 = 96) + 2 × 16 horizontal padding = 1018px.
+ * Round to 1020 for breathing room. Applied as `min-w` on the scrollable
+ * wrapper so the columns never squish below the declared sizes; below the
+ * threshold the wrapper scrolls horizontally instead, keeping header and
+ * rows aligned. The `Type` column collects every badge so they line up in a
+ * single vertical strip instead of trailing the variable-length name.
  */
-const TABLE_MIN_WIDTH = "lg:min-w-[860px]";
+const TABLE_MIN_WIDTH = "lg:min-w-[1020px]";
 
 interface Props {
   rows: Element[];
@@ -128,6 +130,7 @@ export function ElementTable({
                 {t("colName")}
               </SortableHeaderButton>
               <div>{t("colCategory")}</div>
+              <div>{t("colType")}</div>
               <SortableHeaderButton
                 sortKey="unit_cost"
                 config={sortConfig}
@@ -142,7 +145,7 @@ export function ElementTable({
 
             {isLoading ? (
               Array.from({ length: 8 }).map((_, i) => (
-                <SkeletonRow key={i} columns={6} />
+                <SkeletonRow key={i} columns={7} />
               ))
             ) : rows.length === 0 ? (
               <EmptyState
@@ -357,22 +360,24 @@ function ElementRow({
 
       <div className={`hidden lg:grid ${GRID_COLS} gap-4 px-4 py-3`}>
         <div className="flex items-center justify-center">{thumbnail}</div>
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center min-w-0">
           <span className="font-mono text-sm text-text-primary truncate">
             {element.code}
           </span>
-          {versionBadge}
         </div>
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center min-w-0">
           <span className="text-sm text-text-primary truncate">
             {element.name}
           </span>
-          {typeBadge}
-          {archivedBadge}
-          {attachmentIcon}
         </div>
         <div className="text-sm text-text-secondary truncate">
           {categoryName}
+        </div>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {typeBadge}
+          {archivedBadge}
+          {versionBadge}
+          {attachmentIcon}
         </div>
         <div className="text-sm text-text-primary text-right font-mono">
           {formatMoney(element.unit_cost, element.currency)}
