@@ -1,6 +1,7 @@
 import { Lock } from "lucide-react";
 import type { FileContextMenuProps } from "@/components/ui/FileContextMenu";
 import type { DbAttachment } from "@/types";
+import { DRAWING_TYPE_LABELS } from "@/lib/designTemplates";
 
 /** Shared props for both FileRow (desktop) and FileCard (mobile). */
 export interface FileItemBaseProps {
@@ -29,11 +30,6 @@ export function FileStatusIndicators({
 }) {
   return (
     <>
-      {att.document_number && (
-        <span className="inline-flex items-center rounded bg-bg-elevated text-text-secondary text-[9px] font-mono px-1.5 py-0.5 shrink-0">
-          {att.document_number}
-        </span>
-      )}
       {att.frozen_at && <Lock className="w-3 h-3 text-accent shrink-0" />}
       {isNewForClient && (
         <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
@@ -44,5 +40,25 @@ export function FileStatusIndicators({
         </span>
       )}
     </>
+  );
+}
+
+/**
+ * Dim sub-line under the filename: `<document number> · <discipline> · <type>`.
+ * Renders nothing for unclassified/legacy files (no document number).
+ */
+export function DrawingMeta({ att }: { att: DbAttachment }) {
+  if (!att.document_number) return null;
+  const parts = [
+    att.discipline_name,
+    att.drawing_type
+      ? (DRAWING_TYPE_LABELS[att.drawing_type] ?? att.drawing_type)
+      : null,
+  ].filter(Boolean);
+  return (
+    <span className="block text-[10px] leading-tight text-text-muted truncate">
+      <span className="font-mono">{att.document_number}</span>
+      {parts.length > 0 && ` · ${parts.join(" · ")}`}
+    </span>
   );
 }

@@ -4,7 +4,11 @@ import { FileText, Check } from "lucide-react";
 import { FileContextMenu } from "@/components/ui/FileContextMenu";
 import { fileType, versionColor } from "@/lib/fileUtils";
 import { formatShortDate } from "@/lib/formatDate";
-import { FileItemBaseProps, FileStatusIndicators } from "./fileItemShared";
+import {
+  FileItemBaseProps,
+  FileStatusIndicators,
+  DrawingMeta,
+} from "./fileItemShared";
 
 interface FileCardProps extends FileItemBaseProps {
   onTouchStart: () => void;
@@ -94,6 +98,7 @@ export function FileCard({
           <FileContextMenu {...contextMenuProps} />
         </div>
       </div>
+      <DrawingMeta att={att} />
       <div className="flex items-center gap-3 text-xs text-text-muted">
         <span>{fileType(att.file_name)}</span>
         <span>{formatShortDate(att.created_at)}</span>
