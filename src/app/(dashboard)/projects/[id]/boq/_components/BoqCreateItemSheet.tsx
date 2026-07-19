@@ -280,7 +280,7 @@ export function BoqCreateItemSheet({
 
   // Reuse a suggested element: link it + prefill the line's cost fields from it
   // (the user can still tweak). Keeps the user's own description.
-  const useElement = (el: Element) => {
+  const reuseElement = (el: Element) => {
     setLinkedElement({ id: el.id, code: el.code, name: el.name });
     setV((prev) => ({
       ...prev,
@@ -740,7 +740,7 @@ export function BoqCreateItemSheet({
                     <button
                       key={el.id}
                       type="button"
-                      onClick={() => useElement(el)}
+                      onClick={() => reuseElement(el)}
                       className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-bg-elevated"
                     >
                       <span className="font-mono text-xs text-text-muted w-28 shrink-0 truncate">
