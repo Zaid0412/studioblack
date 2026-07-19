@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import useSWR from "swr";
 import { Input } from "@/components/ui/input";
 import { LabeledSearchableSelect } from "@/components/ui/LabeledSearchableSelect";
@@ -8,7 +9,11 @@ import {
   type UploadEntry,
 } from "@/components/ui/BatchUploadDialog";
 import { upload, attachments } from "@/lib/api";
-import { splitFileName, joinFileName } from "@/lib/fileUtils";
+import {
+  splitFileName,
+  joinFileName,
+  UPLOAD_ACCEPTED_TYPES,
+} from "@/lib/fileUtils";
 import { DRAWING_TYPES } from "@/lib/validations";
 import { DRAWING_TYPE_LABELS } from "@/lib/designTemplates";
 import type { DbAttachment, DesignDiscipline } from "@/types";
@@ -20,6 +25,12 @@ interface DesignFields {
   disciplineId: string;
   drawingType: string;
 }
+
+/** Static — the drawing-type list never changes. */
+const TYPE_OPTIONS = DRAWING_TYPES.map((t) => ({
+  code: t,
+  name: `${t} · ${DRAWING_TYPE_LABELS[t]}`,
+}));
 
 interface UploadDesignDialogProps {
   open: boolean;
@@ -51,16 +62,15 @@ export function UploadDesignDialog({
   const { data } = useSWR<{ disciplines: DesignDiscipline[] }>(
     open && !isVersion ? "/api/design-disciplines" : null
   );
-  const disciplines = data?.disciplines ?? [];
 
-  const disciplineOptions = disciplines.map((d) => ({
-    code: d.id,
-    name: `${d.code} · ${d.name}`,
-  }));
-  const typeOptions = DRAWING_TYPES.map((t) => ({
-    code: t,
-    name: `${t} · ${DRAWING_TYPE_LABELS[t]}`,
-  }));
+  const disciplineOptions = useMemo(
+    () =>
+      (data?.disciplines ?? []).map((d) => ({
+        code: d.id,
+        name: `${d.code} · ${d.name}`,
+      })),
+    [data]
+  );
 
   async function uploadEntry(entry: UploadEntry<DesignFields>) {
     const ext = splitFileName(entry.file.name).ext;
@@ -92,7 +102,8 @@ export function UploadDesignDialog({
           ? "One file replaces the latest version; classification is inherited."
           : "Each file gets its own discipline, type, and document number."
       }
-      uploadLabel={(uploading) => (uploading ? "Uploading…" : "Upload")}
+      uploadLabel="Upload"
+      accept={UPLOAD_ACCEPTED_TYPES}
       makeFields={(file) => ({
         baseName: splitFileName(file.name).base,
         description: "",
@@ -154,7 +165,7 @@ export function UploadDesignDialog({
                   required
                   value={entry.fields.drawingType}
                   onChange={(v) => onChange({ drawingType: v })}
-                  options={typeOptions}
+                  options={TYPE_OPTIONS}
                   triggerPlaceholder="Select type"
                   hideCode
                   hideTriggerCode

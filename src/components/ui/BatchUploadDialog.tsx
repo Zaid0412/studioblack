@@ -22,6 +22,7 @@ import { MAX_UPLOAD_SIZE, formatFileSize } from "@/lib/fileUtils";
 import { toast } from "@/components/ui/useToast";
 import { runSettledWithConcurrency } from "@/lib/concurrency";
 import { useStaggerReveal } from "@/hooks/useStaggerReveal";
+import { useFileDropzone } from "@/hooks/useFileDropzone";
 import { cn } from "@/lib/utils";
 
 const UPLOAD_CONCURRENCY = 5;
@@ -46,14 +47,14 @@ interface BatchUploadDialogProps<F, R> {
   singleFile?: boolean;
   title: string;
   subtitle: string;
-  /** CTA label; receives whether an upload is in flight. */
-  uploadLabel: (uploading: boolean) => string;
+  /** CTA label — the shell appends "…" while uploading. */
+  uploadLabel: string;
+  /** `accept` attribute for the file picker (e.g. UPLOAD_ACCEPTED_TYPES). */
+  accept?: string;
   /** Seed per-file fields from the File (e.g. baseName from the filename). */
   makeFields: (file: File) => F;
   /** Short label shown in the file tab list (usually a filename). */
   entryLabel: (entry: UploadEntry<F>) => string;
-  /** Shared control above the file list (e.g. a Section picker). */
-  header?: React.ReactNode;
   /** The per-file detail pane (filename, description, classification, …). */
   renderDetail: (
     entry: UploadEntry<F>,
@@ -62,8 +63,6 @@ interface BatchUploadDialogProps<F, R> {
   ) => React.ReactNode;
   /** Per-entry validity — the CTA is disabled until every entry passes. */
   isEntryValid: (entry: UploadEntry<F>) => boolean;
-  /** Extra gating beyond per-entry validity (e.g. a section is chosen). */
-  canSubmit?: boolean;
   /** Upload one file and return its created row (or throw). */
   uploadEntry: (entry: UploadEntry<F>, signal: AbortSignal) => Promise<R>;
   /** Called once with every successfully-created row in the batch. */
@@ -86,12 +85,11 @@ export function BatchUploadDialog<F, R>({
   title,
   subtitle,
   uploadLabel,
+  accept,
   makeFields,
   entryLabel,
-  header,
   renderDetail,
   isEntryValid,
-  canSubmit = true,
   uploadEntry,
   onSuccess,
 }: BatchUploadDialogProps<F, R>) {
@@ -113,7 +111,6 @@ export function BatchUploadDialog<F, R>({
   );
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
   const [uploading, setUploading] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -131,7 +128,6 @@ export function BatchUploadDialog<F, R>({
     setEntries([]);
     setSelectedId(undefined);
     setUploading(false);
-    setDragOver(false);
   }, []);
 
   const addFiles = useCallback(
@@ -167,6 +163,9 @@ export function BatchUploadDialog<F, R>({
     [singleFile, makeEntry]
   );
 
+  const { dragOver, handleDrop, handleDragOver, handleDragLeave } =
+    useFileDropzone(addFiles);
+
   const updateFields = useCallback((id: string, patch: Partial<F>) => {
     setEntries((prev) =>
       prev.map((e) =>
@@ -180,8 +179,7 @@ export function BatchUploadDialog<F, R>({
     setSelectedId((cur) => (cur === id ? undefined : cur));
   }, []);
 
-  const canUpload =
-    entries.length > 0 && canSubmit && entries.every(isEntryValid);
+  const canUpload = entries.length > 0 && entries.every(isEntryValid);
 
   const handleClose = (next: boolean) => {
     if (!next) reset();
@@ -253,16 +251,17 @@ export function BatchUploadDialog<F, R>({
         {entries.length === 0 ? (
           <DropZone
             dragOver={dragOver}
-            setDragOver={setDragOver}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
             onPick={() => inputRef.current?.click()}
             onFiles={addFiles}
             inputRef={inputRef}
             singleFile={singleFile}
+            accept={accept}
           />
         ) : (
           <div className="flex flex-col gap-4">
-            {!singleFile && header}
-
             {singleFile ? (
               selected &&
               renderDetail(
@@ -294,6 +293,7 @@ export function BatchUploadDialog<F, R>({
               ref={inputRef}
               type="file"
               multiple={!singleFile}
+              accept={accept}
               className="hidden"
               onChange={(e) => addFiles(e.target.files)}
             />
@@ -317,7 +317,7 @@ export function BatchUploadDialog<F, R>({
               Cancel
             </Button>
             <Button onClick={handleUpload} disabled={!canUpload || uploading}>
-              {uploadLabel(uploading)}
+              {uploading ? `${uploadLabel}…` : uploadLabel}
             </Button>
           </div>
         </div>
@@ -340,33 +340,32 @@ function extractErrorMessage(error: unknown): string {
 
 function DropZone({
   dragOver,
-  setDragOver,
+  onDragOver,
+  onDragLeave,
+  onDrop,
   onPick,
   onFiles,
   inputRef,
   singleFile,
+  accept,
 }: {
   dragOver: boolean;
-  setDragOver: (v: boolean) => void;
+  onDragOver: (e: React.DragEvent) => void;
+  onDragLeave: () => void;
+  onDrop: (e: React.DragEvent) => void;
   onPick: () => void;
   onFiles: (files: FileList | File[] | null) => void;
   inputRef: React.RefObject<HTMLInputElement | null>;
   singleFile?: boolean;
+  accept?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onPick}
-      onDragOver={(e) => {
-        e.preventDefault();
-        setDragOver(true);
-      }}
-      onDragLeave={() => setDragOver(false)}
-      onDrop={(e) => {
-        e.preventDefault();
-        setDragOver(false);
-        onFiles(e.dataTransfer.files);
-      }}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
       className={cn(
         "flex flex-col items-center justify-center gap-2 px-6 py-10 border-2 border-dashed rounded-lg transition-colors cursor-pointer",
         dragOver
@@ -377,18 +376,19 @@ function DropZone({
       <Upload className="w-6 h-6 text-text-muted" />
       <p className="text-sm font-medium text-text-primary">
         {singleFile
-          ? "Drop the new version here or click to browse"
+          ? "Drop a file here or click to browse"
           : "Drop files here or click to browse"}
       </p>
       <p className="text-xs text-text-muted">
         {singleFile
-          ? "One file replaces the latest version. Old versions remain in the history."
+          ? "Only one file can be uploaded here."
           : "Multiple files supported — review each before uploading."}
       </p>
       <input
         ref={inputRef}
         type="file"
         multiple={!singleFile}
+        accept={accept}
         className="hidden"
         onChange={(e) => onFiles(e.target.files)}
       />
