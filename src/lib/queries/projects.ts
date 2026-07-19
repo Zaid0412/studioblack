@@ -1,6 +1,7 @@
 import { getPool } from "@/lib/db";
 import { PROJECT_PHASES, PROJECT_STEPS } from "@/lib/constants";
 import { nextProjectNumber } from "./sequences";
+import { seedDesignPackages } from "./designPackages";
 
 // ---------------------------------------------------------------------------
 // Project CRUD
@@ -96,6 +97,10 @@ export async function createProjectWithPhases(input: CreateProjectInput) {
        SELECT $1, unnest($2::text[]), generate_series(1, $3), $4`,
       [project.id, phaseNames, phaseNames.length, designStepId]
     );
+
+    // Seed the 6 design packages (Document Control). Additive for now — packages
+    // sit alongside phases until the PR-5 cutover retires phases.
+    await seedDesignPackages(client, project.id, input.orgId);
 
     // Assign architects (single multi-row INSERT)
     if (input.architectIds?.length) {

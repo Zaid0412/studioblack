@@ -18,6 +18,7 @@ import type {
   VendorQuoteStatus,
   RfqResponseSource,
   RfqDistributionMethod,
+  DesignPackageStatus,
 } from "@/lib/validations";
 
 export type {
@@ -698,6 +699,31 @@ export interface Division {
   sort_order: number;
   enabled: boolean;
   is_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A per-org design discipline (Architecture, Structural, …). Document Control. */
+export interface DesignDiscipline {
+  id: string;
+  org_id: string;
+  code: string;
+  name: string;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A per-project design package (Concept, Schematic, …) — Document Control. */
+export interface DesignPackage {
+  id: string;
+  project_id: string;
+  org_id: string;
+  code: string;
+  name: string;
+  sort_order: number;
+  status: DesignPackageStatus;
   created_at: string;
   updated_at: string;
 }

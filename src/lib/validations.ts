@@ -2096,3 +2096,34 @@ export async function parseRequest<T extends z.ZodType>(
   }
   return parseBody(schema, raw);
 }
+
+// ─── Design → Document Control (PRD "01.Design doc") ────────────────────────
+
+/** Default design-package codes (PR-1). Custom packages are validated app-side. */
+export const DESIGN_PACKAGE_CODES = [
+  "CON",
+  "SCH",
+  "DD",
+  "TD",
+  "IFC",
+  "ASB",
+] as const;
+export type DesignPackageCode = (typeof DESIGN_PACKAGE_CODES)[number];
+
+/**
+ * Design-package lifecycle (10 states). Enforced app-side like other status
+ * columns; the declarative transition table + executor land in PR-4.
+ */
+export const DESIGN_PACKAGE_STATUSES = [
+  "draft",
+  "in_progress",
+  "internal_review",
+  "internal_approved",
+  "sent_to_client",
+  "client_review",
+  "client_changes_requested",
+  "client_approved",
+  "frozen",
+  "completed",
+] as const;
+export type DesignPackageStatus = (typeof DESIGN_PACKAGE_STATUSES)[number];

@@ -1,6 +1,7 @@
 import {
   bulkCreateCategoriesFromTemplates,
   seedDefaultDivisions,
+  seedDefaultDisciplines,
 } from "@/lib/queries";
 import { MASTER_TAXONOMY } from "@/lib/categoryTemplates";
 import type { BulkCategoryNode } from "@/lib/validations";
@@ -25,4 +26,5 @@ export async function provisionNewOrg(orgId: string): Promise<void> {
     MASTER_TAXONOMY as readonly BulkCategoryNode[]
   );
   await seedDefaultDivisions(orgId);
+  await seedDefaultDisciplines(orgId);
 }
