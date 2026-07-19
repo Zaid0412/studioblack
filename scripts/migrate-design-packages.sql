@@ -32,13 +32,19 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_design_discipline_org_code
 CREATE TABLE IF NOT EXISTS design_package (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID NOT NULL REFERENCES project(id) ON DELETE CASCADE,
+  -- Denormalized from project.org_id (immutable per project) so the PR-2 drawing
+  -- register + org-keyed document numbering can scope without a project join.
   org_id TEXT NOT NULL REFERENCES "organization"(id) ON DELETE CASCADE,
   code VARCHAR(10) NOT NULL,
   name VARCHAR(80) NOT NULL,
   sort_order INTEGER DEFAULT 0,
-  -- 10-state lifecycle, enforced app-side (like project_phase.status). The
-  -- declarative state machine lands in PR-4; PR-1 only seeds the initial state.
-  status VARCHAR(30) NOT NULL DEFAULT 'draft',
+  -- 10-state lifecycle. The CHECK is the data-integrity floor (every status
+  -- column since BOQ carries one); the declarative transition machine lands in
+  -- PR-4. PR-1 only seeds the initial state.
+  status VARCHAR(30) NOT NULL DEFAULT 'draft'
+    CHECK (status IN ('draft', 'in_progress', 'internal_review',
+      'internal_approved', 'sent_to_client', 'client_review',
+      'client_changes_requested', 'client_approved', 'frozen', 'completed')),
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
