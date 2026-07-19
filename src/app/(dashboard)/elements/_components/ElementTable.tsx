@@ -367,6 +367,7 @@ function ElementRow({
           <span className="text-sm text-text-primary truncate">
             {element.name}
           </span>
+          {typeBadge}
           {archivedBadge}
           {attachmentIcon}
         </div>
