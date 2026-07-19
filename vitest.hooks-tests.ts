@@ -12,7 +12,6 @@ export const HOOK_TEST_FILES = [
   "src/test/unit/hooks.test.tsx",
   "src/test/unit/hooks-complex.test.tsx",
   "src/test/unit/hooks-upload-toast.test.tsx",
-  "src/test/unit/hooks-batch-upload.test.tsx",
   "src/test/unit/hooks-tasks.test.tsx",
   "src/test/unit/hooks-project-review.test.tsx",
   "src/test/unit/hooks-settings-org.test.tsx",

@@ -1,242 +1,51 @@
 "use client";
 
-import { use, useState, useCallback, useRef, useEffect } from "react";
-import { useFileDropzone } from "@/hooks/useFileDropzone";
+import { use, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  ArrowLeft,
-  Upload,
-  FileText,
-  X,
-  Loader2,
-  CheckCircle2,
-} from "lucide-react";
-import { PageHeader } from "@/components/layout/PageHeader";
-import { Button } from "@/components/ui/button";
-import { formatFileSize, UPLOAD_ACCEPTED_TYPES } from "@/lib/fileUtils";
-import { useBatchUpload } from "@/hooks/useBatchUpload";
-import { useLoadStagger } from "@/hooks/useLoadStagger";
 import { trackEvent } from "@/lib/analytics";
+import { UploadDesignDialog } from "../_components/UploadDesignDialog";
 
-/** Design file upload page with drag & drop. */
+/**
+ * Dedicated design-upload route (e.g. the project menu's "Upload design"). Now a
+ * thin shell over the shared `UploadDesignDialog` — closing or finishing returns
+ * to the project. Per-file discipline/type + document numbering come from the
+ * dialog (Document Control, PR-2).
+ */
 export default function DesignUploadPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{
-    phaseId?: string;
-    phaseName?: string;
-    versionGroup?: string;
-  }>;
+  searchParams: Promise<{ phaseId?: string; versionGroup?: string }>;
 }) {
   const { id } = use(params);
-  const { phaseId, phaseName, versionGroup } = use(searchParams);
+  const { phaseId, versionGroup } = use(searchParams);
   const router = useRouter();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [open, setOpen] = useState(true);
 
-  const [files, setFiles] = useState<File[]>([]);
-  const [description, setDescription] = useState("");
-  const [success, setSuccess] = useState(false);
-  const [selectionError, setSelectionError] = useState("");
-  const { uploading, error: uploadError, uploadBatch } = useBatchUpload();
-  const error = selectionError || uploadError;
-  const revealRef = useLoadStagger<HTMLDivElement>("form", 60);
-  const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Cleanup redirect timer on unmount
-  useEffect(() => {
-    return () => {
-      if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
-    };
-  }, []);
-
-  const addFiles = useCallback((newFiles: FileList | File[]) => {
-    const arr = Array.from(newFiles);
-    setFiles((prev) => [...prev, ...arr]);
-    setSelectionError("");
-  }, []);
-
-  const { dragOver, handleDrop, handleDragOver, handleDragLeave } =
-    useFileDropzone(addFiles);
-
-  const removeFile = useCallback((index: number) => {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
-  }, []);
-
-  const handleUpload = async () => {
-    if (files.length === 0) {
-      setSelectionError("Please select at least one file.");
-      return;
-    }
-    setSelectionError("");
-
-    const result = await uploadBatch({
-      files,
-      projectId: id,
-      phaseId: phaseId || null,
-      versionGroup,
-      description,
-    });
-
-    if (!result.completed) return;
-
-    trackEvent("attachment_uploaded", {
-      project_id: id,
-      phase_id: phaseId || null,
-      file_count: files.length,
-      is_new_version: !!versionGroup,
-    });
-    setSuccess(true);
-    setFiles([]);
-    setDescription("");
-
-    // Go back after a short delay
-    redirectTimerRef.current = setTimeout(() => {
-      router.push(`/projects/${id}`);
-      router.refresh();
-    }, 1500);
+  const goToProject = () => {
+    router.push(`/projects/${id}`);
+    router.refresh();
   };
 
   return (
-    <div
-      ref={revealRef}
-      className="stagger-children flex flex-col gap-6 max-w-[900px]"
-    >
-      <button
-        onClick={() => router.back()}
-        className="flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary transition-colors cursor-pointer w-fit"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Back to project
-      </button>
-
-      <PageHeader
-        title="Upload Design"
-        subtitle={
-          phaseName
-            ? `Phase: ${decodeURIComponent(phaseName)}${versionGroup ? " (New Version)" : ""}`
-            : versionGroup
-              ? "(New Version)"
-              : undefined
-        }
-      />
-
-      {success ? (
-        <div className="flex flex-col items-center gap-3 rounded-xl border border-success/30 bg-success/10 p-12">
-          <CheckCircle2 className="w-12 h-12 text-success" />
-          <p className="text-sm font-medium text-success">
-            Files uploaded successfully! Redirecting...
-          </p>
-        </div>
-      ) : (
-        <>
-          {/* Dropzone */}
-          <div
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
-            className={`flex flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed p-12 transition-colors cursor-pointer ${
-              dragOver
-                ? "border-accent bg-accent/10"
-                : "border-border-light bg-bg-secondary hover:border-accent/50"
-            }`}
-          >
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept={UPLOAD_ACCEPTED_TYPES}
-              className="hidden"
-              onChange={(e) => {
-                if (e.target.files) addFiles(e.target.files);
-                e.target.value = "";
-              }}
-            />
-            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-bg-elevated">
-              <Upload className="w-6 h-6 text-text-secondary" />
-            </div>
-            <div className="text-center">
-              <p className="text-sm font-medium text-text-primary">
-                Drop files here or click to upload
-              </p>
-              <p className="text-xs text-text-muted mt-1">
-                Supports PDF, DWG, and image files up to 50MB
-              </p>
-            </div>
-          </div>
-
-          {/* Selected files list */}
-          {files.length > 0 && (
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-text-secondary">
-                Selected Files ({files.length})
-              </label>
-              <div className="flex flex-col gap-2">
-                {files.map((file, i) => (
-                  <div
-                    key={`${file.name}-${i}`}
-                    className="flex items-center justify-between rounded-lg border border-border-default bg-bg-elevated px-4 py-2"
-                  >
-                    <div className="flex items-center gap-3">
-                      <FileText className="w-4 h-4 text-text-muted" />
-                      <div className="flex flex-col">
-                        <span className="text-sm text-text-primary">
-                          {file.name}
-                        </span>
-                        <span className="text-xs text-text-muted">
-                          {formatFileSize(file.size)}
-                        </span>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => removeFile(i)}
-                      className="text-text-muted hover:text-error transition-colors"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Notes */}
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-text-secondary">
-              Design Notes
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Add any notes about this design revision..."
-              className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-3 text-sm text-text-primary placeholder:text-text-muted resize-none focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
-              rows={4}
-            />
-          </div>
-
-          {error && <p className="text-sm text-error">{error}</p>}
-
-          <Button
-            className="self-start"
-            onClick={handleUpload}
-            disabled={uploading || files.length === 0}
-          >
-            {uploading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Uploading...
-              </>
-            ) : (
-              <>
-                <Upload className="w-4 h-4" />
-                Upload Design
-              </>
-            )}
-          </Button>
-        </>
-      )}
-    </div>
+    <UploadDesignDialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) goToProject();
+      }}
+      projectId={id}
+      phaseId={phaseId ?? null}
+      versionGroup={versionGroup ?? null}
+      onSuccess={() => {
+        trackEvent("attachment_uploaded", {
+          project_id: id,
+          phase_id: phaseId ?? null,
+          is_new_version: !!versionGroup,
+        });
+        goToProject();
+      }}
+    />
   );
 }

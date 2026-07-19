@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Upload, FileText, Check } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { UploadDialog } from "@/components/ui/UploadDialog";
+import { UploadDesignDialog } from "./UploadDesignDialog";
 import {
   SortableHeaderButton,
   nextSortDirection,
@@ -746,7 +746,7 @@ export function FileTable({
       )}
 
       {!readOnly && (
-        <UploadDialog
+        <UploadDesignDialog
           open={uploadOpen}
           onOpenChange={setUploadOpen}
           projectId={projectId}
