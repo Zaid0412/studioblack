@@ -41,8 +41,16 @@ export const POST = withAuth(
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
-    const { fileUrl, fileName, description, phaseId, taskId, versionGroup } =
-      parsed.data;
+    const {
+      fileUrl,
+      fileName,
+      description,
+      phaseId,
+      taskId,
+      versionGroup,
+      disciplineId,
+      drawingType,
+    } = parsed.data;
 
     // Business logic: fileUrl must point to Supabase storage
     let fileHostname: string;
@@ -107,6 +115,16 @@ export const POST = withAuth(
       return NextResponse.json(attachment, { status: 201 });
     }
 
+    // A new design upload must be classified (PRD "01.Design doc" §22/§24) so it
+    // gets a document number. Task attachments (taskId set) aren't drawings and
+    // are exempt.
+    if (!taskId && (!disciplineId || !drawingType)) {
+      return NextResponse.json(
+        { error: "Discipline and drawing type are required" },
+        { status: 400 }
+      );
+    }
+
     const attachment = await createProjectAttachment({
       projectId: id,
       phaseId: phaseId || null,
@@ -115,6 +133,8 @@ export const POST = withAuth(
       fileUrl,
       fileName,
       description: description || "",
+      disciplineId: disciplineId || null,
+      drawingType: drawingType || null,
     });
 
     await sendUploadNotifications(fileName, attachment.id);

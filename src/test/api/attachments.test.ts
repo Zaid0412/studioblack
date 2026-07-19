@@ -51,6 +51,9 @@ const validCreateBody = {
   fileUrl: SUPABASE_FILE_URL,
   fileName: "test.pdf",
   phaseId: "d1111111-1111-4111-8111-111111111111",
+  // A new design upload must be classified (Document Control, PR-2).
+  disciplineId: "e2222222-2222-4222-8222-222222222222",
+  drawingType: "PLAN",
 };
 
 // ── GET /api/projects/[id]/attachments ──────────────────────────────────────
@@ -132,8 +135,23 @@ describe("POST /api/projects/[id]/attachments", () => {
         projectId: PROJECT_ID,
         uploadedBy: TEST_USER_ID,
         fileName: "test.pdf",
+        disciplineId: "e2222222-2222-4222-8222-222222222222",
+        drawingType: "PLAN",
       })
     );
+  });
+
+  it("returns 400 when a new design upload has no discipline/type", async () => {
+    setupAuth(mocks.auth, mockSession());
+
+    const req = buildRequest(`/api/projects/${PROJECT_ID}/attachments`, {
+      method: "POST",
+      body: { fileUrl: SUPABASE_FILE_URL, fileName: "test.pdf" },
+    });
+    const res = await POST(req, buildParams({ id: PROJECT_ID }));
+
+    expect((await parseResponse(res)).status).toBe(400);
+    expect(createProjectAttachment).not.toHaveBeenCalled();
   });
 
   it("returns 400 on invalid body (missing fileName)", async () => {

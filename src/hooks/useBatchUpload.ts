@@ -14,6 +14,9 @@ export interface BatchUploadInput {
   description?: string;
   /** Optional per-index filename override (e.g. user-edited display names). */
   displayNames?: string[];
+  /** Drawing classification, applied to every NEW file in the batch (not versions). */
+  disciplineId?: string | null;
+  drawingType?: string | null;
 }
 
 export interface BatchUploadResult {
@@ -60,7 +63,12 @@ export function useBatchUpload() {
             fileName,
             description: input.description ?? "",
             phaseId: input.phaseId,
-            ...(input.versionGroup ? { versionGroup: input.versionGroup } : {}),
+            ...(input.versionGroup
+              ? { versionGroup: input.versionGroup }
+              : {
+                  disciplineId: input.disciplineId,
+                  drawingType: input.drawingType,
+                }),
           });
           justUploaded.add(i);
         });

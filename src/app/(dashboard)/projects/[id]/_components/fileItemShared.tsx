@@ -29,6 +29,11 @@ export function FileStatusIndicators({
 }) {
   return (
     <>
+      {att.document_number && (
+        <span className="inline-flex items-center rounded bg-bg-elevated text-text-secondary text-[9px] font-mono px-1.5 py-0.5 shrink-0">
+          {att.document_number}
+        </span>
+      )}
       {att.frozen_at && <Lock className="w-3 h-3 text-accent shrink-0" />}
       {isNewForClient && (
         <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />

@@ -24,6 +24,17 @@ import {
   UPLOAD_ACCEPTED_TYPES,
 } from "@/lib/fileUtils";
 import { useBatchUpload } from "@/hooks/useBatchUpload";
+import useSWR from "swr";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { DRAWING_TYPES } from "@/lib/validations";
+import { DRAWING_TYPE_LABELS } from "@/lib/designTemplates";
+import type { DesignDiscipline } from "@/types";
 
 interface UploadDialogProps {
   open: boolean;
@@ -50,8 +61,18 @@ export function UploadDialog({
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editValue, setEditValue] = useState("");
   const [description, setDescription] = useState("");
+  const [disciplineId, setDisciplineId] = useState("");
+  const [drawingType, setDrawingType] = useState("");
   const [success, setSuccess] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+
+  // Classification is required for a NEW design upload (not a new version).
+  const isVersion = !!versionGroup;
+  const { data: disciplineData } = useSWR<{ disciplines: DesignDiscipline[] }>(
+    open && !isVersion ? "/api/design-disciplines" : null
+  );
+  const disciplines = disciplineData?.disciplines ?? [];
+  const needsClassification = !isVersion && (!disciplineId || !drawingType);
   const {
     uploading,
     error,
@@ -77,6 +98,8 @@ export function UploadDialog({
     setEditingIndex(null);
     setEditValue("");
     setDescription("");
+    setDisciplineId("");
+    setDrawingType("");
     setSuccess(false);
     setDragOver(false);
     resetBatchUpload();
@@ -163,6 +186,8 @@ export function UploadDialog({
       versionGroup,
       description,
       displayNames,
+      disciplineId: disciplineId || null,
+      drawingType: drawingType || null,
     });
 
     if (result.completed) {
@@ -292,6 +317,47 @@ export function UploadDialog({
               </div>
             )}
 
+            {/* Drawing classification — required for a new upload, so the file
+                gets a document number. Not shown for a new version. */}
+            {!isVersion && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-medium text-text-secondary">
+                    Discipline
+                  </label>
+                  <Select value={disciplineId} onValueChange={setDisciplineId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select discipline" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {disciplines.map((d) => (
+                        <SelectItem key={d.id} value={d.id}>
+                          {d.code} · {d.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-medium text-text-secondary">
+                    Drawing type
+                  </label>
+                  <Select value={drawingType} onValueChange={setDrawingType}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DRAWING_TYPES.map((t) => (
+                        <SelectItem key={t} value={t}>
+                          {t} · {DRAWING_TYPE_LABELS[t]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+
             {/* Description */}
             <textarea
               rows={2}
@@ -308,7 +374,9 @@ export function UploadDialog({
             <div className="flex justify-end">
               <Button
                 onClick={handleUpload}
-                disabled={uploading || files.length === 0}
+                disabled={
+                  uploading || files.length === 0 || needsClassification
+                }
               >
                 {uploading ? (
                   <>
