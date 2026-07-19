@@ -1,5 +1,8 @@
 # ArchBuild Implementation Plan
 
+> **Related roadmap:** [Design → Document Control Module](./design-document-control-plan.md) —
+> phased plan for the PRD "01.Design doc" (design packages, drawings, revisions, lifecycles).
+
 ## Implementation status (audited 2026-07-11)
 
 **Verified against the actual codebase** (tables, queries, routes, UI) — not the
@@ -74,7 +77,7 @@ RFQs nested under Order), not the 8-tab bar this plan describes.
 > - [RFQ & Vendor Management FRD](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.xa6xrobksshj)
 > - [Vendor Master Taxonomy](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.ahdn7rk1bmeb)
 >
-> **Later tabs** (added after the addendum — RFQ / rate-contract / procurement material; tab names are the doc's current labels):
+> **Later tabs** (added after the addendum — RFQ / rate-contract / procurement, plus a design & document-control module; tab names are the doc's current labels):
 >
 > - [RFQ - NEW](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.tb2wrtgb4f1f)
 > - [RFQ - detailed REQ New](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.wt5zwx8zv889)
@@ -86,6 +89,7 @@ RFQs nested under Order), not the 8-tab bar this plan describes.
 > - [PO/Invoice](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.gpgps6teep6q)
 > - [Awards & PO](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.xs6yeduybzkk)
 > - [Numbering System](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.2givkzbri20k)
+> - [01.Design doc — Design Management & Document Control (PDS)](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.sw56y13u47f3)
 
 ## Overview
 
