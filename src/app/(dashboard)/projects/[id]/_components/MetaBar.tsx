@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Calendar, Users } from "lucide-react";
+import { Calendar, ChevronDown, Users } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import {
   Tooltip,
@@ -56,6 +57,7 @@ export function MetaBar({
   state,
 }: MetaBarProps) {
   const t = useTranslations("projectDetail");
+  const [expanded, setExpanded] = useState(false);
 
   if (variant === "client") {
     return (
@@ -123,103 +125,113 @@ export function MetaBar({
     );
   }
 
-  // PM variant
+  // PM variant \u2014 a compact summary that expands to the full detail grid.
   const client = clientName || clientEmail || "\u2014";
-  const architects =
-    members
-      .filter((m) => m.role === "architect")
-      .map((m) => m.name)
-      .join(", ") || "\u2014";
+  const architectNames = members
+    .filter((m) => m.role === "architect")
+    .map((m) => m.name);
+  const architects = architectNames.join(", ") || "\u2014";
   const pms =
     members
       .filter((m) => m.role === "pm")
       .map((m) => m.name)
       .join(", ") || "\u2014";
   const createdDate = formatDate(createdAt);
+  const location = [address, city, state].filter(Boolean).join(", ");
+
   return (
     <div className="px-4 lg:px-10 py-3 animate-in fade-in slide-in-from-bottom-2 duration-300 ease-out motion-reduce:animate-none">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-0 rounded-[10px] bg-bg-secondary border border-border-default px-4 lg:px-5 py-4">
-        {/* Client */}
-        <div className="flex flex-col gap-1 py-2 min-w-0">
-          <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase">
-            {t("clientLabel").replace(":", "")}
-          </span>
-          <span className="text-[14px] font-medium text-text-primary break-words">
-            {client}
-          </span>
+      <div className="rounded-[10px] bg-bg-secondary border border-border-default px-4 lg:px-5 py-2.5">
+        {/* Summary row \u2014 always visible */}
+        <div className="flex items-center gap-x-3 gap-y-1 flex-wrap text-[13px]">
+          <MetaInline
+            label={t("clientLabel").replace(":", "")}
+            value={client}
+          />
+          <Dot />
+          <MetaInline label={t("pms") || "PMs"} value={pms} />
+          {architectNames.length > 0 && (
+            <>
+              <Dot />
+              <span className="text-text-primary font-medium">
+                {architectNames.length} {t("architects") || "Architects"}
+              </span>
+            </>
+          )}
+          {areaSqft != null && (
+            <>
+              <Dot />
+              <MetaInline
+                label={t("areaSqft") || "Area (SQFT)"}
+                value={areaSqft.toLocaleString()}
+              />
+            </>
+          )}
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            aria-expanded={expanded}
+            className="ml-auto flex items-center gap-1 text-[12px] font-medium text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+          >
+            {t("details") || "Details"}
+            <ChevronDown
+              className={`w-3.5 h-3.5 transition-transform ${expanded ? "rotate-180" : ""}`}
+            />
+          </button>
         </div>
-        {/* PMs */}
-        <div className="flex flex-col gap-1 py-2 min-w-0">
-          <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase">
-            {t("pms") || "PMs"}
-          </span>
-          <span className="text-[14px] font-medium text-text-primary break-words">
-            {pms}
-          </span>
-        </div>
-        {/* Architects */}
-        <div className="flex flex-col gap-1 py-2 min-w-0">
-          <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase">
-            {t("architects") || "Architects"}
-          </span>
-          <span className="text-[14px] font-medium text-text-primary break-words">
-            {architects}
-          </span>
-        </div>
-        {/* Created */}
-        <div className="flex flex-col gap-1 py-2 min-w-0">
-          <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase">
-            {t("created") || "Created"}
-          </span>
-          <span className="text-[14px] font-medium text-text-primary whitespace-nowrap">
-            {createdDate}
-          </span>
-        </div>
-        {/* Location */}
-        {(address || city || state) && (
-          <div className="flex flex-col gap-1 py-2 min-w-0">
-            <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase">
-              {t("location") || "Location"}
-            </span>
-            <span className="text-[14px] font-medium text-text-primary break-words">
-              {[address, city, state].filter(Boolean).join(", ")}
-            </span>
-          </div>
-        )}
-        {/* Scope */}
-        {scope && (
-          <div className="flex flex-col gap-1 py-2 min-w-0">
-            <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase">
-              {t("scope") || "Scope"}
-            </span>
-            <span className="text-[14px] font-medium text-text-primary break-words">
-              {scope}
-            </span>
-          </div>
-        )}
-        {/* Area */}
-        {areaSqft != null && (
-          <div className="flex flex-col gap-1 py-2 min-w-0">
-            <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase">
-              {t("areaSqft") || "Area (SQFT)"}
-            </span>
-            <span className="text-[14px] font-medium text-text-primary">
-              {areaSqft.toLocaleString()}
-            </span>
-          </div>
-        )}
-        {/* Estimate */}
-        {estimationInr != null && (
-          <div className="flex flex-col gap-1 py-2 min-w-0">
-            <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase">
-              {t("estimationInr") || "Estimate (INR)"}
-            </span>
-            <span className="text-[14px] font-medium text-text-primary">
-              {estimationInr.toLocaleString("en-IN")}
-            </span>
+
+        {/* Detail grid \u2014 revealed on expand */}
+        {expanded && (
+          <div className="mt-3 pt-3 border-t border-border-default grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 animate-in fade-in slide-in-from-top-1 duration-200 motion-reduce:animate-none">
+            {location && (
+              <MetaField label={t("location") || "Location"} value={location} />
+            )}
+            {scope && <MetaField label={t("scope") || "Scope"} value={scope} />}
+            {estimationInr != null && (
+              <MetaField
+                label={t("estimationInr") || "Estimate (INR)"}
+                value={estimationInr.toLocaleString("en-IN")}
+              />
+            )}
+            <MetaField label={t("created") || "Created"} value={createdDate} />
+            {architectNames.length > 0 && (
+              <MetaField
+                label={t("architects") || "Architects"}
+                value={architects}
+              />
+            )}
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Inline `label value` summary item. */
+function MetaInline({ label, value }: { label: string; value: string }) {
+  return (
+    <span className="min-w-0 truncate">
+      <span className="text-text-muted">{label}</span>{" "}
+      <span className="text-text-primary font-medium">{value}</span>
+    </span>
+  );
+}
+
+/** Separator dot between summary items. */
+function Dot() {
+  return <span className="text-text-muted select-none">\u00b7</span>;
+}
+
+/** Stacked label/value cell in the expanded detail grid. */
+function MetaField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col gap-1 min-w-0">
+      <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase">
+        {label}
+      </span>
+      <span className="text-[14px] font-medium text-text-primary break-words">
+        {value}
+      </span>
     </div>
   );
 }

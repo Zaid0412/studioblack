@@ -238,6 +238,7 @@
     "scope": "Scope",
     "areaSqft": "Area (SQFT)",
     "estimationInr": "Estimate (INR)",
+    "details": "Details",
     "sections": "Sections",
     "designReview": "Design Review",
     "editProject": "Edit Project",
