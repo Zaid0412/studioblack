@@ -34,6 +34,7 @@ export const HOOK_TEST_FILES = [
   "src/test/unit/MobileSectionAccordion.test.tsx",
   "src/test/unit/DonutChart.test.tsx",
   "src/test/unit/BarChart.test.tsx",
+  "src/test/unit/OverviewComponents.test.tsx",
   "src/test/unit/useLongPress.test.tsx",
   "src/test/unit/useDismissOnEscape.test.tsx",
   "src/test/unit/MobileBottomNav.test.tsx",
