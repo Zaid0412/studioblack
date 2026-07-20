@@ -36,6 +36,12 @@ interface LabeledSearchableSelectBaseProps<T extends string> {
    * opaque IDs (UUIDs) and only the name is meaningful to the user.
    */
   hideTriggerCode?: boolean;
+  /**
+   * Hide the `code` column in the option LIST too (not just the trigger). For
+   * opaque values like UUIDs — pair with `hideTriggerCode` and carry any short
+   * code inside the option `name`.
+   */
+  hideCode?: boolean;
   /** Override the trigger's outer className (border/bg/etc). */
   triggerClassName?: string;
 }
@@ -89,6 +95,7 @@ export function LabeledSearchableSelect<T extends string>(
     triggerPlaceholder,
     hideTriggerName,
     hideTriggerCode,
+    hideCode,
     triggerClassName,
   } = props;
   // Union-typed internal handler — `T` is assignable to `T | ""`, and the
@@ -209,15 +216,22 @@ export function LabeledSearchableSelect<T extends string>(
                       <span className="w-4 shrink-0">
                         {selected && <Check className="h-4 w-4" />}
                       </span>
+                      {!hideCode && (
+                        <span
+                          className={cn(
+                            "font-medium shrink-0",
+                            codeColumnClassName ?? "w-12"
+                          )}
+                        >
+                          {opt.code}
+                        </span>
+                      )}
                       <span
                         className={cn(
-                          "font-medium shrink-0",
-                          codeColumnClassName ?? "w-12"
+                          "truncate",
+                          hideCode ? "text-text-primary" : "text-text-muted"
                         )}
                       >
-                        {opt.code}
-                      </span>
-                      <span className="truncate text-text-muted">
                         {opt.name}
                       </span>
                     </button>

@@ -120,6 +120,28 @@ export async function nextDocumentNumber(
 }
 
 /**
+ * Claim the next drawing document number under a project —
+ * `P2026-001-AR-PLAN-001` (Document Control, PR-2). Two mid-segments — discipline
+ * then drawing type — vs `nextDocumentNumber`'s single type; the counter is keyed
+ * on the whole `${projectNumber}-${discipline}-${type}` prefix with `year = 0`,
+ * so it never resets and counts independently per project + discipline + type.
+ *
+ * The prefix must fit `sequence_counter.prefix` (widened to VARCHAR(40) in
+ * migrate-drawings.sql — the longest is `P2026-001-HVAC-PLAN`, 19 chars).
+ */
+export async function nextDrawingNumber(
+  executor: Executor,
+  orgId: string,
+  projectNumber: string,
+  disciplineCode: string,
+  typeCode: string
+): Promise<string> {
+  const prefix = `${projectNumber}-${disciplineCode}-${typeCode}`;
+  const n = await bumpSequenceCounter(executor, orgId, prefix, NO_YEAR, 1);
+  return `${prefix}-${String(n).padStart(3, "0")}`;
+}
+
+/**
  * The prefix an element's code is built from: the full path code of its
  * category (`KIT`, `KIT-CAB`, `KIT-CAB-BASE` — see `categoryTemplates.ts`).
  * Falls back to `GEN` when the element is uncategorized or its category

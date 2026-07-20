@@ -1,6 +1,10 @@
+"use client";
+
 import { Lock } from "lucide-react";
 import type { FileContextMenuProps } from "@/components/ui/FileContextMenu";
 import type { DbAttachment } from "@/types";
+import { useFlag } from "@/hooks/useFlag";
+import { DRAWING_TYPE_LABELS } from "@/lib/designTemplates";
 
 /** Shared props for both FileRow (desktop) and FileCard (mobile). */
 export interface FileItemBaseProps {
@@ -39,5 +43,27 @@ export function FileStatusIndicators({
         </span>
       )}
     </>
+  );
+}
+
+/**
+ * Dim sub-line under the filename: `<document number> · <discipline> · <type>`.
+ * Renders nothing when Document Control is off, or for unclassified/legacy
+ * files (no document number).
+ */
+export function DrawingMeta({ att }: { att: DbAttachment }) {
+  const docControl = useFlag("designDocumentControl");
+  if (!docControl || !att.document_number) return null;
+  const parts = [
+    att.discipline_name,
+    att.drawing_type
+      ? (DRAWING_TYPE_LABELS[att.drawing_type] ?? att.drawing_type)
+      : null,
+  ].filter(Boolean);
+  return (
+    <span className="block text-[10px] leading-tight text-text-muted truncate">
+      <span className="font-mono">{att.document_number}</span>
+      {parts.length > 0 && ` · ${parts.join(" · ")}`}
+    </span>
   );
 }

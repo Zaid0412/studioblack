@@ -8,6 +8,7 @@ import {
   getOrgRole,
   hasProjectAccess,
 } from "@/lib/queries";
+import { getServerFeatureFlag } from "@/lib/posthog-server";
 import { GET, POST } from "@/app/api/projects/[id]/attachments/route";
 import {
   GET as GET_BY_ID,
@@ -23,6 +24,11 @@ import {
   TEST_USER_ID,
 } from "../helpers";
 import { mocks } from "../setup";
+
+vi.mock("@/lib/posthog-server", () => ({
+  getServerFeatureFlag: vi.fn(),
+  captureServerException: vi.fn(),
+}));
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -51,6 +57,9 @@ const validCreateBody = {
   fileUrl: SUPABASE_FILE_URL,
   fileName: "test.pdf",
   phaseId: "d1111111-1111-4111-8111-111111111111",
+  // A new design upload must be classified (Document Control, PR-2).
+  disciplineId: "e2222222-2222-4222-8222-222222222222",
+  drawingType: "PLAN",
 };
 
 // ── GET /api/projects/[id]/attachments ──────────────────────────────────────
@@ -109,6 +118,8 @@ describe("GET /api/projects/[id]/attachments", () => {
 describe("POST /api/projects/[id]/attachments", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Document Control on by default; the flag-off case is tested explicitly.
+    vi.mocked(getServerFeatureFlag).mockResolvedValue(true);
   });
 
   it("creates attachment with valid body, returns 201", async () => {
@@ -132,8 +143,60 @@ describe("POST /api/projects/[id]/attachments", () => {
         projectId: PROJECT_ID,
         uploadedBy: TEST_USER_ID,
         fileName: "test.pdf",
+        disciplineId: "e2222222-2222-4222-8222-222222222222",
+        drawingType: "PLAN",
       })
     );
+  });
+
+  it("returns 400 when a new design upload has no discipline/type", async () => {
+    setupAuth(mocks.auth, mockSession());
+
+    const req = buildRequest(`/api/projects/${PROJECT_ID}/attachments`, {
+      method: "POST",
+      body: { fileUrl: SUPABASE_FILE_URL, fileName: "test.pdf" },
+    });
+    const res = await POST(req, buildParams({ id: PROJECT_ID }));
+
+    expect((await parseResponse(res)).status).toBe(400);
+    expect(createProjectAttachment).not.toHaveBeenCalled();
+  });
+
+  it("allows an unclassified upload when Document Control is off", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(getServerFeatureFlag).mockResolvedValue(false);
+    vi.mocked(createProjectAttachment).mockResolvedValue(
+      sampleAttachment as never
+    );
+
+    const req = buildRequest(`/api/projects/${PROJECT_ID}/attachments`, {
+      method: "POST",
+      body: { fileUrl: SUPABASE_FILE_URL, fileName: "test.pdf" },
+    });
+    const res = await POST(req, buildParams({ id: PROJECT_ID }));
+
+    expect((await parseResponse(res)).status).toBe(201);
+    expect(createProjectAttachment).toHaveBeenCalledWith(
+      expect.objectContaining({ disciplineId: null, drawingType: null })
+    );
+  });
+
+  it("rejects a partial classification even with Document Control off", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(getServerFeatureFlag).mockResolvedValue(false);
+
+    const req = buildRequest(`/api/projects/${PROJECT_ID}/attachments`, {
+      method: "POST",
+      body: {
+        fileUrl: SUPABASE_FILE_URL,
+        fileName: "test.pdf",
+        disciplineId: "e2222222-2222-4222-8222-222222222222",
+      },
+    });
+    const res = await POST(req, buildParams({ id: PROJECT_ID }));
+
+    expect((await parseResponse(res)).status).toBe(400);
+    expect(createProjectAttachment).not.toHaveBeenCalled();
   });
 
   it("returns 400 on invalid body (missing fileName)", async () => {

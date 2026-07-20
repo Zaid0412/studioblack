@@ -8,6 +8,7 @@ import {
 } from "@/lib/queries";
 import { createNotificationsForTeam } from "@/lib/notifications";
 import { withAuth } from "@/lib/withAuth";
+import { getServerFeatureFlag } from "@/lib/posthog-server";
 import { env } from "@/env";
 import { parseRequest, createProjectAttachmentSchema } from "@/lib/validations";
 import { logger } from "@/lib/logger";
@@ -41,8 +42,16 @@ export const POST = withAuth(
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
-    const { fileUrl, fileName, description, phaseId, taskId, versionGroup } =
-      parsed.data;
+    const {
+      fileUrl,
+      fileName,
+      description,
+      phaseId,
+      taskId,
+      versionGroup,
+      disciplineId,
+      drawingType,
+    } = parsed.data;
 
     // Business logic: fileUrl must point to Supabase storage
     let fileHostname: string;
@@ -107,6 +116,25 @@ export const POST = withAuth(
       return NextResponse.json(attachment, { status: 201 });
     }
 
+    // Classification rules for a new design upload (task attachments aren't
+    // drawings, so they're exempt). Discipline + type are both-or-neither
+    // (mirrors createDrawing's invariant) — always enforced. Requiring a design
+    // upload to be classified *at all* is Document Control only; with the flag
+    // off a fully-unclassified upload is allowed (pre-Document-Control). PostHog
+    // is only consulted for that one case.
+    if (!taskId && (!disciplineId || !drawingType)) {
+      const bothMissing = !disciplineId && !drawingType;
+      const reject =
+        !bothMissing ||
+        (await getServerFeatureFlag("designDocumentControl", user.id, false));
+      if (reject) {
+        return NextResponse.json(
+          { error: "Discipline and drawing type are required" },
+          { status: 400 }
+        );
+      }
+    }
+
     const attachment = await createProjectAttachment({
       projectId: id,
       phaseId: phaseId || null,
@@ -115,6 +143,8 @@ export const POST = withAuth(
       fileUrl,
       fileName,
       description: description || "",
+      disciplineId: disciplineId || null,
+      drawingType: drawingType || null,
     });
 
     await sendUploadNotifications(fileName, attachment.id);

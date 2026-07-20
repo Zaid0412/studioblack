@@ -6,7 +6,11 @@ import { deriveInitials } from "@/lib/utils";
 import { fileType, versionColor } from "@/lib/fileUtils";
 import { avatarColor } from "@/lib/avatarUtils";
 import { formatDate } from "@/lib/formatDate";
-import { FileItemBaseProps, FileStatusIndicators } from "./fileItemShared";
+import {
+  FileItemBaseProps,
+  FileStatusIndicators,
+  DrawingMeta,
+} from "./fileItemShared";
 
 interface FileRowProps extends FileItemBaseProps {
   onRowClick: (e: React.MouseEvent) => void;
@@ -98,16 +102,21 @@ export function FileRow({
             V{att.version || 1}
           </span>
         </div>
-        <FileStatusIndicators
-          att={att}
-          isStaff={isStaff}
-          isNewForClient={isNewForClient}
-        />
-        <span
-          className={`text-[13px] font-medium truncate ${isNewForClient ? "text-text-primary font-semibold" : "text-text-primary"}`}
-        >
-          {att.file_name}
-        </span>
+        <div className="min-w-0 flex flex-col justify-center">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span
+              className={`text-[13px] font-medium truncate ${isNewForClient ? "text-text-primary font-semibold" : "text-text-primary"}`}
+            >
+              {att.file_name}
+            </span>
+            <FileStatusIndicators
+              att={att}
+              isStaff={isStaff}
+              isNewForClient={isNewForClient}
+            />
+          </div>
+          <DrawingMeta att={att} />
+        </div>
       </div>
       <div className="w-[120px]">
         <span className="text-[13px] text-text-secondary">

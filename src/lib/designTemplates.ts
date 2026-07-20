@@ -26,6 +26,20 @@ export interface DisciplineTemplate {
   name: string;
 }
 
+/** Human labels for the drawing-type codes (PRD "01.Design doc" §6). */
+export const DRAWING_TYPE_LABELS: Record<string, string> = {
+  PLAN: "Floor Plan",
+  ELEV: "Elevation",
+  SECT: "Section",
+  DET: "Detail",
+  RCP: "Reflected Ceiling Plan",
+  LAY: "Layout",
+  SCH: "Schedule",
+  SPEC: "Specification",
+  "3DV": "3D View",
+  REND: "Rendering",
+};
+
 /** The 10 default disciplines — seeded per org; extendable with custom entries. */
 export const DISCIPLINE_DEFAULTS: ReadonlyArray<DisciplineTemplate> = [
   { code: "AR", name: "Architecture" },
