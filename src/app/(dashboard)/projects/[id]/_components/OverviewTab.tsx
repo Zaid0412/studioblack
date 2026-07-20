@@ -14,6 +14,8 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { useProjectOverview } from "@/hooks/useProjectOverview";
 import { useLoadStagger } from "@/hooks/useLoadStagger";
 import { API } from "@/lib/api/routes";
+import { formatCurrency } from "@/lib/formatCurrency";
+import { DEFAULT_CURRENCY } from "@/lib/constants";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { DonutChart, type DonutSegment } from "@/components/ui/DonutChart";
 import { BarChart } from "@/components/ui/BarChart";
@@ -29,14 +31,14 @@ const STATUS_COLOR: Record<string, string> = {
   approved: "var(--success)",
   pending: "var(--accent)",
   rejected: "var(--error)",
-  request_changes: "var(--warning)",
+  reviewed: "var(--text-secondary)",
 };
 
 const STATUS_LABEL_KEY: Record<string, string> = {
   approved: "statusApproved",
   pending: "statusPending",
   rejected: "statusRejected",
-  request_changes: "statusChangesRequested",
+  reviewed: "statusReviewed",
 };
 
 /** Currency-format a raw money value (string/number) against the project currency. */
@@ -47,15 +49,7 @@ function formatMoney(
   if (value == null) return "—";
   const n = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(n)) return "—";
-  try {
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: currency || "INR",
-      maximumFractionDigits: 0,
-    }).format(n);
-  } catch {
-    return n.toLocaleString("en-IN");
-  }
+  return formatCurrency(n, currency || DEFAULT_CURRENCY, 0);
 }
 
 /**
@@ -88,14 +82,41 @@ export function OverviewTab({ projectId }: { projectId: string }) {
     value: s.count,
     color: STATUS_COLOR[s.status] ?? "var(--text-muted)",
   }));
-  const approvedCount =
-    overview.designStatus.find((s) => s.status === "approved")?.count ?? 0;
   const { kpis } = overview;
 
   const shell =
     "px-4 lg:px-10 py-6 lg:py-8 stagger-children flex flex-col gap-6";
 
+  // Shared between both variants — the donut and the details/activity/team row
+  // differ only by the client/pm variant flag.
+  const donut = (
+    <DonutChart
+      segments={donutSegments}
+      centerValue={String(kpis.designFiles)}
+      centerLabel={t("filesCenter")}
+    />
+  );
+  const detailsRow = (
+    <div className="grid gap-4 lg:grid-cols-3">
+      <div className="lg:col-span-2">
+        <ProjectDetailsCard
+          project={project}
+          variant={isClient ? "client" : "pm"}
+        />
+      </div>
+      <div className="flex flex-col gap-4">
+        <ActivityFeed items={overview.activity} />
+        <TeamList
+          members={project.members}
+          variant={isClient ? "client" : "pm"}
+        />
+      </div>
+    </div>
+  );
+
   if (isClient) {
+    const approvedCount =
+      overview.designStatus.find((s) => s.status === "approved")?.count ?? 0;
     return (
       <div ref={staggerRef} className={shell}>
         <ReviewBanner
@@ -130,13 +151,7 @@ export function OverviewTab({ projectId }: { projectId: string }) {
           />
         </div>
         <div className="grid gap-4 lg:grid-cols-2">
-          <OverviewCard title={t("reviewProgress")}>
-            <DonutChart
-              segments={donutSegments}
-              centerValue={String(kpis.designFiles)}
-              centerLabel={t("filesCenter")}
-            />
-          </OverviewCard>
+          <OverviewCard title={t("reviewProgress")}>{donut}</OverviewCard>
           <OverviewCard title={t("designProgress")}>
             <BarChart
               bars={overview.chart.bars}
@@ -146,15 +161,7 @@ export function OverviewTab({ projectId }: { projectId: string }) {
             />
           </OverviewCard>
         </div>
-        <div className="grid gap-4 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <ProjectDetailsCard project={project} variant="client" />
-          </div>
-          <div className="flex flex-col gap-4">
-            <ActivityFeed items={overview.activity} />
-            <TeamList members={project.members} variant="client" />
-          </div>
-        </div>
+        {detailsRow}
       </div>
     );
   }
@@ -191,13 +198,7 @@ export function OverviewTab({ projectId }: { projectId: string }) {
         />
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        <OverviewCard title={t("designStatus")}>
-          <DonutChart
-            segments={donutSegments}
-            centerValue={String(kpis.designFiles)}
-            centerLabel={t("filesCenter")}
-          />
-        </OverviewCard>
+        <OverviewCard title={t("designStatus")}>{donut}</OverviewCard>
         <OverviewCard title={t("costByDivision")}>
           <BarChart
             bars={overview.chart.bars}
@@ -206,15 +207,7 @@ export function OverviewTab({ projectId }: { projectId: string }) {
           />
         </OverviewCard>
       </div>
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <ProjectDetailsCard project={project} variant="pm" />
-        </div>
-        <div className="flex flex-col gap-4">
-          <ActivityFeed items={overview.activity} />
-          <TeamList members={project.members} variant="pm" />
-        </div>
-      </div>
+      {detailsRow}
     </div>
   );
 }

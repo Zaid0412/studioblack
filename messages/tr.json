@@ -1953,7 +1953,7 @@
     "statusApproved": "Onaylandı",
     "statusPending": "Beklemede",
     "statusRejected": "Reddedildi",
-    "statusChangesRequested": "Değişiklik istendi",
+    "statusReviewed": "İncelendi",
     "filesCenter": "Dosyalar",
     "noData": "Veri yok",
     "projectDetails": "Proje detayları",

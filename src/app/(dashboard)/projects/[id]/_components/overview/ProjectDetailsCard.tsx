@@ -2,7 +2,8 @@
 
 import { useTranslations } from "next-intl";
 import { formatDate } from "@/lib/formatDate";
-import type { DbProjectDetail } from "@/types";
+import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
+import type { DbProjectDetail, ProjectStatus } from "@/types";
 import { OverviewCard } from "./OverviewCard";
 
 interface ProjectDetailsCardProps {
@@ -22,11 +23,6 @@ function Detail({ label, value }: { label: string; value: React.ReactNode }) {
     </div>
   );
 }
-
-const STATUS_BADGE: Record<string, string> = {
-  active: "bg-emerald-500/20 text-emerald-400",
-  completed: "bg-blue-500/20 text-blue-400",
-};
 
 /**
  * Project metadata card on the Overview — the fields that used to live in the
@@ -50,15 +46,12 @@ export function ProjectDetailsCard({
           <Detail
             label={t("statusLabel")}
             value={
-              <span
-                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
-                  STATUS_BADGE[project.status] ??
-                  "bg-border-default text-text-secondary"
-                }`}
+              <Badge
+                variant={statusToBadgeVariant(project.status as ProjectStatus)}
               >
                 {project.status.charAt(0).toUpperCase() +
                   project.status.slice(1)}
-              </span>
+              </Badge>
             }
           />
         )}

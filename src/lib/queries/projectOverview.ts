@@ -7,7 +7,7 @@ import type {
   OverviewBar,
   OverviewActivityItem,
 } from "@/types";
-import { getBoqByProject, getBoqSummary, BOQ_SELL_PRICE_SQL } from "./boq";
+import { BOQ_SELL_PRICE_SQL } from "./boq";
 
 /**
  * Aggregate the project Overview dashboard for one project, scoped to the
@@ -29,10 +29,11 @@ export async function getProjectOverview(
   // that were actually sent to them.
   const sentGate = clientOnly ? "AND a.sent_to_client_at IS NOT NULL" : "";
 
-  const [statusRes, chartBars, activity, boq, openOrders] = await Promise.all([
-    // Design-status breakdown over the latest version of each file.
-    pool.query<OverviewStatusSlice>(
-      `SELECT la.review_status AS status, COUNT(*)::int AS count
+  const [statusRes, chartBars, activity, boqAgg, openOrders] =
+    await Promise.all([
+      // Design-status breakdown over the latest version of each file.
+      pool.query<OverviewStatusSlice>(
+        `SELECT la.review_status AS status, COUNT(*)::int AS count
        FROM (
          SELECT DISTINCT ON (a.version_group) a.version_group, a.review_status
          FROM attachment a
@@ -40,32 +41,59 @@ export async function getProjectOverview(
          ORDER BY a.version_group, a.version DESC
        ) la
        GROUP BY la.review_status`,
-      [projectId]
-    ),
-    clientOnly ? designProgressByPhase(projectId) : costByDivision(projectId),
-    recentActivity(projectId, sentGate),
-    getBoqByProject(projectId),
-    clientOnly
-      ? Promise.resolve<number | null>(null)
-      : pool
-          .query<{ count: number }>(
-            `SELECT COUNT(*)::int AS count FROM rfq
+        [projectId]
+      ),
+      clientOnly ? designProgressByPhase(projectId) : costByDivision(projectId),
+      recentActivity(projectId, sentGate),
+      // Latest BOQ's sell-side total + line count in one query. The Overview only
+      // needs these two numbers (plus the pcts to derive the client total), so it
+      // skips the full `getBoqSummary` (section totals + margin/budget aggregates).
+      pool
+        .query<{
+          total_sell_price: number;
+          item_count: number;
+          contingency_pct: string;
+          vat_pct: string;
+        }>(
+          `WITH latest AS (
+           SELECT id, contingency_pct, vat_pct FROM boq
+           WHERE project_id = $1 ORDER BY version DESC LIMIT 1
+         )
+         SELECT
+           COALESCE(SUM(${BOQ_SELL_PRICE_SQL}) FILTER (WHERE NOT bi.is_excluded), 0)::float8 AS total_sell_price,
+           COUNT(bi.id)::int AS item_count,
+           l.contingency_pct, l.vat_pct
+         FROM latest l
+         LEFT JOIN boq_item bi ON bi.boq_id = l.id
+         GROUP BY l.id, l.contingency_pct, l.vat_pct`,
+          [projectId]
+        )
+        .then((r) => r.rows[0] ?? null),
+      clientOnly
+        ? Promise.resolve<number | null>(null)
+        : pool
+            .query<{ count: number }>(
+              `SELECT COUNT(*)::int AS count FROM rfq
              WHERE project_id = $1 AND status <> 'superseded'`,
-            [projectId]
-          )
-          .then((r) => r.rows[0]?.count ?? 0),
-  ]);
+              [projectId]
+            )
+            .then((r) => r.rows[0]?.count ?? 0),
+    ]);
 
   const designStatus = statusRes.rows;
   const designFiles = designStatus.reduce((sum, s) => sum + s.count, 0);
   const pendingReviews =
     designStatus.find((s) => s.status === "pending")?.count ?? 0;
 
-  const summary = boq ? await getBoqSummary(boq.id) : null;
-  const boqValue = summary
+  // Client sees the contingency + VAT-inclusive total; studio sees sell-side.
+  const boqValue = boqAgg
     ? clientOnly
-      ? summary.client_total
-      : summary.total_sell_price
+      ? String(
+          boqAgg.total_sell_price *
+            (1 + Number(boqAgg.contingency_pct) / 100) *
+            (1 + Number(boqAgg.vat_pct) / 100)
+        )
+      : String(boqAgg.total_sell_price)
     : null;
 
   return {
@@ -73,7 +101,7 @@ export async function getProjectOverview(
       designFiles,
       pendingReviews,
       boqValue,
-      boqLineCount: summary?.item_count ?? 0,
+      boqLineCount: boqAgg?.item_count ?? 0,
       openOrders,
     },
     designStatus,

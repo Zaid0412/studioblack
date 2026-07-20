@@ -1953,7 +1953,7 @@
     "statusApproved": "Approved",
     "statusPending": "Pending",
     "statusRejected": "Rejected",
-    "statusChangesRequested": "Changes requested",
+    "statusReviewed": "Reviewed",
     "filesCenter": "Files",
     "noData": "No data",
     "projectDetails": "Project details",
