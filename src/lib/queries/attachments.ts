@@ -332,16 +332,22 @@ export async function createProjectAttachment(params: {
     );
     if (!project) throw new Error("Project not found");
 
-    const drawing = params.taskId
-      ? null
-      : await createDrawing(client, {
+    // Open a register drawing only for a classified design upload. Task
+    // attachments aren't drawings, and when Document Control is gated off no
+    // classification is sent — those uploads stay plain version_groups with no
+    // drawing row or document number (pre-Document-Control behaviour).
+    const classify =
+      !params.taskId && (params.disciplineId || params.drawingType);
+    const drawing = classify
+      ? await createDrawing(client, {
           projectId: params.projectId,
           orgId: project.org_id,
           projectNumber: project.project_number,
           disciplineId: params.disciplineId,
           drawingType: params.drawingType,
           title: params.fileName,
-        });
+        })
+      : null;
 
     const {
       rows: [attachment],

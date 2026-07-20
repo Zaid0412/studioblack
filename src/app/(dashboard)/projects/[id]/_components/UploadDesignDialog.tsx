@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import useSWR from "swr";
+import { useFlag } from "@/hooks/useFlag";
 import { Input } from "@/components/ui/input";
 import { LabeledSearchableSelect } from "@/components/ui/LabeledSearchableSelect";
 import {
@@ -59,8 +60,12 @@ export function UploadDesignDialog({
   onSuccess,
 }: UploadDesignDialogProps) {
   const isVersion = !!versionGroup;
+  // Per-file classification (discipline + drawing type + document number) is
+  // the Document Control feature — gated off restores the plain upload.
+  const docControl = useFlag("designDocumentControl");
+  const classify = !isVersion && docControl;
   const { data } = useSWR<{ disciplines: DesignDiscipline[] }>(
-    open && !isVersion ? "/api/design-disciplines" : null
+    open && classify ? "/api/design-disciplines" : null
   );
 
   const disciplineOptions = useMemo(
@@ -81,12 +86,13 @@ export function UploadDesignDialog({
       fileName,
       description: entry.fields.description.trim(),
       phaseId,
-      ...(isVersion
-        ? { versionGroup: versionGroup! }
-        : {
+      ...(isVersion ? { versionGroup: versionGroup! } : {}),
+      ...(classify
+        ? {
             disciplineId: entry.fields.disciplineId,
             drawingType: entry.fields.drawingType,
-          }),
+          }
+        : {}),
     });
   }
 
@@ -100,7 +106,9 @@ export function UploadDesignDialog({
       subtitle={
         isVersion
           ? "One file replaces the latest version; classification is inherited."
-          : "Each file gets its own discipline, type, and document number."
+          : classify
+            ? "Each file gets its own discipline, type, and document number."
+            : "Add one or more files to this project."
       }
       uploadLabel="Upload"
       accept={UPLOAD_ACCEPTED_TYPES}
@@ -113,7 +121,7 @@ export function UploadDesignDialog({
       entryLabel={(e) => e.fields.baseName.trim() || e.file.name}
       isEntryValid={(e) =>
         e.fields.baseName.trim().length > 0 &&
-        (isVersion || (!!e.fields.disciplineId && !!e.fields.drawingType))
+        (!classify || (!!e.fields.disciplineId && !!e.fields.drawingType))
       }
       uploadEntry={uploadEntry}
       onSuccess={onSuccess}
@@ -148,7 +156,7 @@ export function UploadDesignDialog({
               </div>
             </div>
 
-            {!isVersion && (
+            {classify && (
               <div className="grid grid-cols-2 gap-3">
                 <LabeledSearchableSelect<string>
                   label="Discipline"
