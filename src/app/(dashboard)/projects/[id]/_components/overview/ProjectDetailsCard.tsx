@@ -93,7 +93,11 @@ export function ProjectDetailsCard({
       <Detail label={t("architects")} value={architects} />
       <Detail label={t("created")} value={formatDate(project.created_at)} />
       {location && <Detail label={t("location")} value={location} />}
-      {project.scope && <Detail label={t("scope")} value={project.scope} />}
+      {project.scope && (
+        <div className="hidden lg:block">
+          <Detail label={t("scope")} value={project.scope} />
+        </div>
+      )}
       {project.area_sqft != null && (
         <Detail
           label={t("areaSqft")}

@@ -96,6 +96,27 @@ export function OverviewTab({ projectId }: { projectId: string }) {
       centerLabel={t("filesCenter")}
     />
   );
+  // Donut (always) + the money/percent bar chart (desktop-only). Both variants
+  // share this row; only the titles and the bar's scale/format differ.
+  const chartsRow = (
+    <div className="grid gap-4 lg:grid-cols-2">
+      <OverviewCard title={t(isClient ? "reviewProgress" : "designStatus")}>
+        {donut}
+      </OverviewCard>
+      <OverviewCard
+        title={t(isClient ? "designProgress" : "costByDivision")}
+        className="hidden lg:block"
+      >
+        <BarChart
+          bars={overview.chart.bars}
+          {...(isClient
+            ? { max: 100, formatValue: (v: number) => `${v}%` }
+            : { formatValue: (v: number) => money(v) })}
+          emptyLabel={t("noData")}
+        />
+      </OverviewCard>
+    </div>
+  );
   const detailsRow = (
     <div className="grid gap-4 lg:grid-cols-3">
       <div className="lg:col-span-2">
@@ -150,17 +171,7 @@ export function OverviewTab({ projectId }: { projectId: string }) {
             sub={kpis.boqValue == null ? t("noBoq") : undefined}
           />
         </div>
-        <div className="grid gap-4 lg:grid-cols-2">
-          <OverviewCard title={t("reviewProgress")}>{donut}</OverviewCard>
-          <OverviewCard title={t("designProgress")}>
-            <BarChart
-              bars={overview.chart.bars}
-              max={100}
-              formatValue={(v) => `${v}%`}
-              emptyLabel={t("noData")}
-            />
-          </OverviewCard>
-        </div>
+        {chartsRow}
         {detailsRow}
       </div>
     );
@@ -197,16 +208,7 @@ export function OverviewTab({ projectId }: { projectId: string }) {
           icon={Package}
         />
       </div>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <OverviewCard title={t("designStatus")}>{donut}</OverviewCard>
-        <OverviewCard title={t("costByDivision")}>
-          <BarChart
-            bars={overview.chart.bars}
-            formatValue={(v) => money(v)}
-            emptyLabel={t("noData")}
-          />
-        </OverviewCard>
-      </div>
+      {chartsRow}
       {detailsRow}
     </div>
   );
