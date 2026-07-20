@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { Upload, CheckCircle2, XCircle, FileClock } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { timeAgo } from "@/lib/formatTime";
+import { useScrollFade } from "@/hooks/useScrollFade";
 import type { OverviewActivityItem } from "@/types";
 import { OverviewCard } from "./OverviewCard";
 
@@ -48,13 +49,18 @@ function descriptor(item: OverviewActivityItem): {
 /** Recent uploads + review decisions on the project. */
 export function ActivityFeed({ items }: ActivityFeedProps) {
   const t = useTranslations("projectOverview");
+  const { ref, maskImage } = useScrollFade<HTMLUListElement>();
 
   return (
     <OverviewCard title={t("recentActivity")}>
       {items.length === 0 ? (
         <p className="text-[13px] text-text-muted">{t("noActivity")}</p>
       ) : (
-        <ul className="flex flex-col gap-3.5">
+        <ul
+          ref={ref}
+          style={{ maskImage, WebkitMaskImage: maskImage }}
+          className="flex max-h-[280px] flex-col gap-3.5 overflow-y-auto pr-1"
+        >
           {items.map((item) => {
             const { Icon, iconClass, verbKey } = descriptor(item);
             return (

@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { Avatar } from "@/components/ui/avatar";
 import { deriveInitials } from "@/lib/utils";
 import { avatarColor } from "@/lib/avatarUtils";
+import { useScrollFade } from "@/hooks/useScrollFade";
 import type { DbMember } from "@/types";
 import { OverviewCard } from "./OverviewCard";
 
@@ -23,6 +24,7 @@ const ROLE_KEY: Record<string, string> = {
  */
 export function TeamList({ members, variant }: TeamListProps) {
   const t = useTranslations("projectOverview");
+  const { ref, maskImage } = useScrollFade<HTMLUListElement>();
   const list =
     variant === "client"
       ? members.filter((m) => m.role === "pm" || m.role === "architect")
@@ -33,7 +35,11 @@ export function TeamList({ members, variant }: TeamListProps) {
       {list.length === 0 ? (
         <p className="text-[13px] text-text-muted">{t("noTeam")}</p>
       ) : (
-        <ul className="flex flex-col gap-3">
+        <ul
+          ref={ref}
+          style={{ maskImage, WebkitMaskImage: maskImage }}
+          className="flex max-h-[280px] flex-col gap-3 overflow-y-auto pr-1"
+        >
           {list.map((m) => (
             <li key={m.user_id} className="flex items-center gap-3">
               <Avatar
