@@ -1973,6 +1973,8 @@
     "statusReviewed": "İncelendi",
     "filesCenter": "Dosyalar",
     "noData": "Veri yok",
+    "noDesigns": "Henüz tasarım yok",
+    "noDesignsHint": "Tasarım dosyaları ve inceleme durumları burada görünecek.",
     "projectDetails": "Proje detayları",
     "recentActivity": "Son etkinlikler",
     "noActivity": "Son etkinlik yok",

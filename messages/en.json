@@ -1973,6 +1973,8 @@
     "statusReviewed": "Reviewed",
     "filesCenter": "Files",
     "noData": "No data",
+    "noDesigns": "No designs yet",
+    "noDesignsHint": "Design files and their review status will show up here.",
     "projectDetails": "Project details",
     "recentActivity": "Recent activity",
     "noActivity": "No recent activity",

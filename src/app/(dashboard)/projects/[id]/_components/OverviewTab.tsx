@@ -83,19 +83,29 @@ export function OverviewTab({ projectId }: { projectId: string }) {
     color: STATUS_COLOR[s.status] ?? "var(--text-muted)",
   }));
   const { kpis } = overview;
+  const base = `/projects/${projectId}`;
 
   const shell =
     "px-4 lg:px-10 py-6 lg:py-8 stagger-children flex flex-col gap-6";
 
   // Shared between both variants — the donut and the details/activity/team row
-  // differ only by the client/pm variant flag.
-  const donut = (
-    <DonutChart
-      segments={donutSegments}
-      centerValue={String(kpis.designFiles)}
-      centerLabel={t("filesCenter")}
-    />
-  );
+  // differ only by the client/pm variant flag. With no design files yet, the
+  // donut would be an empty ring, so show a "nothing yet" hint instead.
+  const donut =
+    kpis.designFiles > 0 ? (
+      <DonutChart
+        segments={donutSegments}
+        centerValue={String(kpis.designFiles)}
+        centerLabel={t("filesCenter")}
+      />
+    ) : (
+      <div className="flex flex-col items-center justify-center gap-1 py-10 text-center">
+        <p className="text-sm font-medium text-text-secondary">
+          {t("noDesigns")}
+        </p>
+        <p className="text-xs text-text-muted">{t("noDesignsHint")}</p>
+      </div>
+    );
   // Donut (always) + the money/percent bar chart (desktop-only). Both variants
   // share this row; only the titles and the bar's scale/format differ.
   const chartsRow = (
@@ -140,10 +150,7 @@ export function OverviewTab({ projectId }: { projectId: string }) {
       overview.designStatus.find((s) => s.status === "approved")?.count ?? 0;
     return (
       <div ref={staggerRef} className={shell}>
-        <ReviewBanner
-          count={kpis.pendingReviews}
-          href={`/projects/${projectId}/designs`}
-        />
+        <ReviewBanner count={kpis.pendingReviews} href={`${base}/designs`} />
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <KpiCard
             label={t("awaitingYourReview")}
@@ -151,6 +158,7 @@ export function OverviewTab({ projectId }: { projectId: string }) {
             icon={Hourglass}
             sub={kpis.pendingReviews > 0 ? t("needsAction") : undefined}
             subTone="accent"
+            href={`${base}/designs`}
           />
           <KpiCard
             label={t("approvedByYou")}
@@ -158,17 +166,20 @@ export function OverviewTab({ projectId }: { projectId: string }) {
             icon={CircleCheck}
             sub={t("ofShared", { count: kpis.designFiles })}
             subTone="success"
+            href={`${base}/designs`}
           />
           <KpiCard
             label={t("filesShared")}
             value={String(kpis.designFiles)}
             icon={Files}
+            href={`${base}/designs`}
           />
           <KpiCard
             label={t("projectValue")}
             value={money(kpis.boqValue)}
             icon={Wallet}
             sub={kpis.boqValue == null ? t("noBoq") : undefined}
+            href={`${base}/boq`}
           />
         </div>
         {chartsRow}
@@ -184,6 +195,7 @@ export function OverviewTab({ projectId }: { projectId: string }) {
           label={t("designFiles")}
           value={String(kpis.designFiles)}
           icon={Files}
+          href={`${base}/designs`}
         />
         <KpiCard
           label={t("pendingReviews")}
@@ -191,6 +203,7 @@ export function OverviewTab({ projectId }: { projectId: string }) {
           icon={Clock}
           sub={kpis.pendingReviews > 0 ? t("needsAction") : undefined}
           subTone="accent"
+          href={`${base}/designs`}
         />
         <KpiCard
           label={t("boqValue")}
@@ -201,11 +214,13 @@ export function OverviewTab({ projectId }: { projectId: string }) {
               ? t("noBoq")
               : t("lines", { count: kpis.boqLineCount })
           }
+          href={`${base}/boq`}
         />
         <KpiCard
           label={t("openOrders")}
           value={String(kpis.openOrders ?? 0)}
           icon={Package}
+          href={`${base}/order`}
         />
       </div>
       {chartsRow}
