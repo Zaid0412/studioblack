@@ -13,6 +13,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { StatCard } from "@/components/ui/StatCard";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton, SkeletonCard } from "@/components/ui/Skeleton";
+import { EmptyHint } from "@/components/ui/EmptyHint";
 import { DonutChart, type DonutSegment } from "@/components/ui/DonutChart";
 import { OverviewCard } from "@/app/(dashboard)/projects/[id]/_components/overview/OverviewCard";
 import { VendorPortalComingSoon } from "@/components/vendor/VendorPortalComingSoon";
@@ -217,15 +218,6 @@ function outcomeSegments(
       color: "var(--text-muted)",
     },
   ];
-}
-
-function EmptyHint({ title, hint }: { title: string; hint: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center gap-1 py-8 text-center">
-      <p className="text-sm font-medium text-text-secondary">{title}</p>
-      <p className="text-xs text-text-muted">{hint}</p>
-    </div>
-  );
 }
 
 /** Page-owned skeleton (no route loading.tsx). */

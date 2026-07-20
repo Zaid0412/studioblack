@@ -17,6 +17,7 @@ import { API } from "@/lib/api/routes";
 import { formatCurrency } from "@/lib/formatCurrency";
 import { DEFAULT_CURRENCY } from "@/lib/constants";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { EmptyHint } from "@/components/ui/EmptyHint";
 import { DonutChart, type DonutSegment } from "@/components/ui/DonutChart";
 import { BarChart } from "@/components/ui/BarChart";
 import { OverviewCard } from "./overview/OverviewCard";
@@ -99,15 +100,26 @@ export function OverviewTab({ projectId }: { projectId: string }) {
         centerLabel={t("filesCenter")}
       />
     ) : (
-      <div className="flex flex-col items-center justify-center gap-1 py-10 text-center">
-        <p className="text-sm font-medium text-text-secondary">
-          {t("noDesigns")}
-        </p>
-        <p className="text-xs text-text-muted">{t("noDesignsHint")}</p>
-      </div>
+      <EmptyHint title={t("noDesigns")} hint={t("noDesignsHint")} />
     );
-  // Donut (always) + the money/percent bar chart (desktop-only). Both variants
-  // share this row; only the titles and the bar's scale/format differ.
+  // The money (PM) / percent (client) bar chart, with a friendly empty state
+  // when the project has no priced BOQ / no phase progress yet.
+  const bars =
+    overview.chart.bars.length > 0 ? (
+      <BarChart
+        bars={overview.chart.bars}
+        {...(isClient
+          ? { max: 100, formatValue: (v: number) => `${v}%` }
+          : { formatValue: (v: number) => money(v) })}
+      />
+    ) : (
+      <EmptyHint
+        title={t(isClient ? "noProgress" : "noCosts")}
+        hint={t(isClient ? "noProgressHint" : "noCostsHint")}
+      />
+    );
+  // Donut + bar chart (desktop-only). Both variants share this row; only the
+  // titles and the bar's scale/format differ.
   const chartsRow = (
     <div className="grid gap-4 lg:grid-cols-2">
       <OverviewCard title={t(isClient ? "reviewProgress" : "designStatus")}>
@@ -117,13 +129,7 @@ export function OverviewTab({ projectId }: { projectId: string }) {
         title={t(isClient ? "designProgress" : "costByDivision")}
         className="hidden lg:block"
       >
-        <BarChart
-          bars={overview.chart.bars}
-          {...(isClient
-            ? { max: 100, formatValue: (v: number) => `${v}%` }
-            : { formatValue: (v: number) => money(v) })}
-          emptyLabel={t("noData")}
-        />
+        {bars}
       </OverviewCard>
     </div>
   );
@@ -145,84 +151,85 @@ export function OverviewTab({ projectId }: { projectId: string }) {
     </div>
   );
 
-  if (isClient) {
-    const approvedCount =
-      overview.designStatus.find((s) => s.status === "approved")?.count ?? 0;
-    return (
-      <div ref={staggerRef} className={shell}>
-        <ReviewBanner count={kpis.pendingReviews} href={`${base}/designs`} />
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <KpiCard
-            label={t("awaitingYourReview")}
-            value={String(kpis.pendingReviews)}
-            icon={Hourglass}
-            sub={kpis.pendingReviews > 0 ? t("needsAction") : undefined}
-            subTone="accent"
-            href={`${base}/designs`}
-          />
-          <KpiCard
-            label={t("approvedByYou")}
-            value={String(approvedCount)}
-            icon={CircleCheck}
-            sub={t("ofShared", { count: kpis.designFiles })}
-            subTone="success"
-            href={`${base}/designs`}
-          />
-          <KpiCard
-            label={t("filesShared")}
-            value={String(kpis.designFiles)}
-            icon={Files}
-            href={`${base}/designs`}
-          />
-          <KpiCard
-            label={t("projectValue")}
-            value={money(kpis.boqValue)}
-            icon={Wallet}
-            sub={kpis.boqValue == null ? t("noBoq") : undefined}
-            href={`${base}/boq`}
-          />
-        </div>
-        {chartsRow}
-        {detailsRow}
-      </div>
-    );
-  }
+  const approvedCount =
+    overview.designStatus.find((s) => s.status === "approved")?.count ?? 0;
+
+  // Only the KPI tiles + the client review banner differ between variants; the
+  // shell, chart row, and details row are shared.
+  const kpiCards = isClient ? (
+    <>
+      <KpiCard
+        label={t("awaitingYourReview")}
+        value={String(kpis.pendingReviews)}
+        icon={Hourglass}
+        sub={kpis.pendingReviews > 0 ? t("needsAction") : undefined}
+        subTone="accent"
+        href={`${base}/designs`}
+      />
+      <KpiCard
+        label={t("approvedByYou")}
+        value={String(approvedCount)}
+        icon={CircleCheck}
+        sub={t("ofShared", { count: kpis.designFiles })}
+        subTone="success"
+        href={`${base}/designs`}
+      />
+      <KpiCard
+        label={t("filesShared")}
+        value={String(kpis.designFiles)}
+        icon={Files}
+        href={`${base}/designs`}
+      />
+      <KpiCard
+        label={t("projectValue")}
+        value={money(kpis.boqValue)}
+        icon={Wallet}
+        sub={kpis.boqValue == null ? t("noBoq") : undefined}
+        href={`${base}/boq`}
+      />
+    </>
+  ) : (
+    <>
+      <KpiCard
+        label={t("designFiles")}
+        value={String(kpis.designFiles)}
+        icon={Files}
+        href={`${base}/designs`}
+      />
+      <KpiCard
+        label={t("pendingReviews")}
+        value={String(kpis.pendingReviews)}
+        icon={Clock}
+        sub={kpis.pendingReviews > 0 ? t("needsAction") : undefined}
+        subTone="accent"
+        href={`${base}/designs`}
+      />
+      <KpiCard
+        label={t("boqValue")}
+        value={money(kpis.boqValue)}
+        icon={Wallet}
+        sub={
+          kpis.boqValue == null
+            ? t("noBoq")
+            : t("lines", { count: kpis.boqLineCount })
+        }
+        href={`${base}/boq`}
+      />
+      <KpiCard
+        label={t("openOrders")}
+        value={String(kpis.openOrders ?? 0)}
+        icon={Package}
+        href={`${base}/order`}
+      />
+    </>
+  );
 
   return (
     <div ref={staggerRef} className={shell}>
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiCard
-          label={t("designFiles")}
-          value={String(kpis.designFiles)}
-          icon={Files}
-          href={`${base}/designs`}
-        />
-        <KpiCard
-          label={t("pendingReviews")}
-          value={String(kpis.pendingReviews)}
-          icon={Clock}
-          sub={kpis.pendingReviews > 0 ? t("needsAction") : undefined}
-          subTone="accent"
-          href={`${base}/designs`}
-        />
-        <KpiCard
-          label={t("boqValue")}
-          value={money(kpis.boqValue)}
-          icon={Wallet}
-          sub={
-            kpis.boqValue == null
-              ? t("noBoq")
-              : t("lines", { count: kpis.boqLineCount })
-          }
-          href={`${base}/boq`}
-        />
-        <KpiCard
-          label={t("openOrders")}
-          value={String(kpis.openOrders ?? 0)}
-          icon={Package}
-          href={`${base}/order`}
-        />
-      </div>
+      {isClient && (
+        <ReviewBanner count={kpis.pendingReviews} href={`${base}/designs`} />
+      )}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">{kpiCards}</div>
       {chartsRow}
       {detailsRow}
     </div>

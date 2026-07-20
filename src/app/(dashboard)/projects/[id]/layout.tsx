@@ -103,24 +103,20 @@ export default function ProjectDetailLayout({
   // there — but kept on the RFQ list (`/order/rfq`).
   const onRfqSubpage = pathname.startsWith(`${base}/order/rfq/`);
 
-  // MetaBar (the project info card) returns when the Overview flag is off — it
-  // shows on the standard chrome surfaces exactly as it did before this
-  // feature, so a disabled flag reproduces the pre-Overview experience.
-  const showMetaBar =
-    !overviewOn &&
-    showHeader &&
-    !pathname.startsWith(`${base}/documents`) &&
-    !onRfqSubpage;
+  // The standard project chrome surface — every headered route except the
+  // documents file list (needs the height) and the RFQ create/detail forms
+  // (own full-height chrome). Both the info card and the comments strip hang
+  // off this one predicate.
+  const standardChromeSurface =
+    showHeader && !pathname.startsWith(`${base}/documents`) && !onRfqSubpage;
 
-  // The project comments strip is only relevant on design/BOQ surfaces —
-  // Overview has its own activity feed, documents has its own context, and the
-  // RFQ create/detail forms would collide with it (it renders below a
-  // full-height form), so all three are excluded.
-  const showComments =
-    showHeader &&
-    pathname !== base &&
-    !pathname.startsWith(`${base}/documents`) &&
-    !onRfqSubpage;
+  // MetaBar (the project info card) returns when the Overview flag is off, so a
+  // disabled flag reproduces the pre-Overview experience.
+  const showMetaBar = !overviewOn && standardChromeSurface;
+
+  // Comments strip — the same surfaces, minus the Overview home (which has its
+  // own activity feed).
+  const showComments = standardChromeSurface && pathname !== base;
 
   // Gate on the primary resource only: once the project lands, keep rendering
   // the chrome even while a secondary one (comments, phase-counts) revalidates
@@ -251,6 +247,7 @@ export default function ProjectDetailLayout({
           projectId={id}
           phaseCounts={phaseCounts}
           showBoq={boqEnabled}
+          showOverview={overviewOn}
           disabledStepNames={(project?.steps ?? [])
             .filter((s) => !s.enabled)
             .map((s) => s.name)}
