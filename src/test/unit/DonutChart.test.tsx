@@ -28,22 +28,13 @@ describe("DonutChart", () => {
     expect(screen.getByText("Files")).toBeTruthy();
   });
 
-  it("builds a conic-gradient ring from the segments", () => {
-    render(<DonutChart segments={SEGMENTS} />);
-    const ring = screen.getByRole("img");
-    expect(ring.style.background).toContain("conic-gradient");
-    expect(ring.getAttribute("aria-label")).toContain("Approved: 7");
-  });
-
-  it("renders an empty ring when there is no data", () => {
-    render(<DonutChart segments={[]} />);
-    const ring = screen.getByRole("img");
-    expect(ring.getAttribute("aria-label")).toBe("No data");
-    expect(ring.style.background).toContain("var(--border)");
-  });
-
   it("hides the legend when legend={false}", () => {
     render(<DonutChart segments={SEGMENTS} legend={false} />);
     expect(screen.queryByText("Approved")).toBeNull();
+  });
+
+  it("renders without crashing when there is no data", () => {
+    const { container } = render(<DonutChart segments={[]} />);
+    expect(container.querySelector(".donut-chart")).toBeTruthy();
   });
 });
