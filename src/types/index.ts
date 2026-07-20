@@ -1651,3 +1651,36 @@ export interface ProjectOverview {
   };
   activity: OverviewActivityItem[];
 }
+
+// --- Vendor Dashboard (the vendor portal home) ---
+
+/** Top-line metric tiles for the vendor dashboard. */
+export interface VendorDashboardKpis {
+  openRfqs: number;
+  quotesUnderReview: number;
+  awarded: number;
+  /** Integer percent of decided quotes that were awarded; 0 when none decided. */
+  winRate: number;
+}
+
+/** One bucket of the vendor's current quotes, grouped by status. */
+export interface VendorQuoteOutcome {
+  status: string;
+  count: number;
+}
+
+/** An RFQ still awaiting this vendor's quote. */
+export interface VendorAwaitingRfq {
+  id: string;
+  rfq_number: string;
+  title: string;
+  item_count: number;
+  response_deadline: string | null;
+}
+
+/** Aggregated vendor-portal dashboard payload, scoped to the caller's vendor. */
+export interface VendorDashboard {
+  kpis: VendorDashboardKpis;
+  outcomes: VendorQuoteOutcome[];
+  awaitingRfqs: VendorAwaitingRfq[];
+}

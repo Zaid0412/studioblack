@@ -37,3 +37,4 @@ export * from "./quotes";
 export * from "./audit";
 export * from "./projectDocuments";
 export * from "./projectOverview";
+export * from "./vendorDashboard";

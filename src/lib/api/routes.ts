@@ -170,6 +170,7 @@ export const API = {
   vendorKycStatus:       (id: string)                  => `/api/vendors/${id}/kyc-status`,
 
   // ── Vendor Portal — Self-Service (Feature 8.5) ─
+  vendorPortalDashboard:       ()                       => "/api/vendor-portal/dashboard",
   vendorPortalMe:              ()                       => "/api/vendor-portal/me",
   vendorPortalBankDetails:     ()                       => "/api/vendor-portal/me/bank-details",
   vendorPortalKycDocuments:    ()                       => "/api/vendor-portal/me/kyc-documents",
