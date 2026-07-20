@@ -21,7 +21,7 @@ export function list(
   return apiGet<DbAttachment[]>(`${base}${qs ? `?${qs}` : ""}`);
 }
 
-/** Per-phase attachment counts — lightweight; powers the stepper/MetaBar. */
+/** Per-phase attachment counts — lightweight; powers the stepper. */
 export function phaseCounts(projectId: string) {
   return apiGet<PhaseAttachmentCount[]>(API.attachmentPhaseCounts(projectId));
 }

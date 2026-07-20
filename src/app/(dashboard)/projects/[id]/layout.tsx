@@ -78,7 +78,7 @@ export default function ProjectDetailLayout({
   // they would have no tab switcher. On BOQ side only visible on the
   // my-scope sub-tab; on Order side only on the RFQ list (detail pages
   // render their own header). Documents is a separate surface entered via
-  // MetaBar — no stepper there.
+  // the header pill — no stepper there.
   const showWorkflowSteps =
     boqEnabled &&
     (pathname === base ||

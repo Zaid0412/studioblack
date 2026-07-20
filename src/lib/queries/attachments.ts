@@ -47,7 +47,7 @@ export async function getAttachments(filters: {
 
 /**
  * Per-phase attachment counts for a project — the lightweight companion to
- * `getAttachments({ all: true })`. The project layout's stepper/MetaBar only
+ * `getAttachments({ all: true })`. The project layout's stepper only
  * needs a count per phase, so this avoids downloading every full row on every
  * non-Designs route. Counts the latest version per `version_group` (matching
  * `getAttachments`' `DISTINCT ON` shape) and honors the same `clientOnly`

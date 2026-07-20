@@ -25,7 +25,7 @@ interface UseProjectDetailOptions {
   /**
    * When true, fetch the full attachment list (needed to render files, e.g.
    * DesignsTab via `phaseFiles`). Default false — only the lightweight
-   * per-phase counts are fetched, so routes that just show the stepper/MetaBar
+   * per-phase counts are fetched, so routes that just show the stepper
    * don't download every full attachment row.
    */
   includeAttachments?: boolean;
@@ -136,8 +136,8 @@ export function useProjectDetail(
   );
 
   // --- Refresh ---
-  // Mutate both the full list (if fetched) and the counts so the stepper/MetaBar
-  // update after an upload/delete regardless of which route is mounted.
+  // Mutate both the full list (if fetched) and the counts so the stepper
+  // updates after an upload/delete regardless of which route is mounted.
   const refreshAttachments = useCallback(() => {
     mutateAttachments();
     mutatePhaseCounts();
