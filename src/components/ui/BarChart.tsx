@@ -97,6 +97,25 @@ export function BarChart({
     );
   }
 
+  const renderLabelTick = ({
+    y,
+    payload,
+  }: {
+    y?: string | number;
+    payload?: { value?: string };
+  }) => (
+    <text
+      x={0}
+      y={Number(y)}
+      dy={4}
+      textAnchor="start"
+      fontSize={12}
+      fill="var(--text-secondary)"
+    >
+      {payload?.value}
+    </text>
+  );
+
   const renderValueTick = ({
     x,
     y,
@@ -145,7 +164,7 @@ export function BarChart({
             width={104}
             axisLine={false}
             tickLine={false}
-            tick={{ fontSize: 12, fill: "var(--text-secondary)" }}
+            tick={renderLabelTick}
           />
           <YAxis
             yAxisId="right"
