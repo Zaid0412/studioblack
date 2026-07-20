@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import Link from "next/link";
 import { ArrowRight, Settings } from "lucide-react";
 import { ProjectHeader } from "./_components/ProjectHeader";
+import { MetaBar } from "./_components/MetaBar";
 import { CommentsSection } from "./_components/CommentsSection";
 import { ProjectWorkflowSteps } from "./_components/ProjectWorkflowSteps";
 import { DEFAULT_BOQ_SEGMENT } from "./boq/_lib/tabs";
@@ -44,6 +45,7 @@ export default function ProjectDetailLayout({
   const ctx = useUserRoleContext();
   const isClient = role === "client";
   const boqEnabled = useFlag("boq");
+  const overviewOn = useFlag("overviewTab");
   const pathname = usePathname();
 
   const {
@@ -81,7 +83,7 @@ export default function ProjectDetailLayout({
   // the header pill — no stepper there.
   const showWorkflowSteps =
     boqEnabled &&
-    (pathname === base ||
+    ((overviewOn && pathname === base) ||
       pathname === `${base}/designs` ||
       pathname === `${base}/boq/${DEFAULT_BOQ_SEGMENT}` ||
       pathname === `${base}/order/${DEFAULT_ORDER_SEGMENT}`);
@@ -100,6 +102,15 @@ export default function ProjectDetailLayout({
   // own focused header + full-height form, so the comments strip is suppressed
   // there — but kept on the RFQ list (`/order/rfq`).
   const onRfqSubpage = pathname.startsWith(`${base}/order/rfq/`);
+
+  // MetaBar (the project info card) returns when the Overview flag is off — it
+  // shows on the standard chrome surfaces exactly as it did before this
+  // feature, so a disabled flag reproduces the pre-Overview experience.
+  const showMetaBar =
+    !overviewOn &&
+    showHeader &&
+    !pathname.startsWith(`${base}/documents`) &&
+    !onRfqSubpage;
 
   // The project comments strip is only relevant on design/BOQ surfaces —
   // Overview has its own activity feed, documents has its own context, and the
@@ -211,6 +222,27 @@ export default function ProjectDetailLayout({
           actions={headerActions}
           projectHref={onDocuments ? base : undefined}
           subSection={onDocuments ? "Documents" : undefined}
+        />
+      )}
+
+      {showMetaBar && (
+        <MetaBar
+          variant={isClient ? "client" : "pm"}
+          clientName={project.client_name}
+          clientEmail={project.client_email}
+          members={project.members}
+          createdAt={project.created_at}
+          phases={project.phases}
+          phaseCounts={phaseCounts}
+          status={project.status}
+          category={project.category}
+          deadline={project.deadline}
+          scope={project.scope}
+          areaSqft={project.area_sqft}
+          estimationInr={project.estimation_inr}
+          address={project.address}
+          city={project.city}
+          state={project.state}
         />
       )}
 

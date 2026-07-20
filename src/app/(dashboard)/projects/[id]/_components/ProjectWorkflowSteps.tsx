@@ -7,6 +7,7 @@ import { useRfqList } from "@/hooks/useRfqs";
 import { DEFAULT_BOQ_SEGMENT } from "../boq/_lib/tabs";
 import { DEFAULT_ORDER_SEGMENT } from "../order/_lib/tabs";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useFlag } from "@/hooks/useFlag";
 import { isStudioUser } from "@/lib/roles";
 import { useLoadStagger } from "@/hooks/useLoadStagger";
 import { useActiveProjectTab, type ProjectTab } from "./ProjectTabs";
@@ -55,6 +56,7 @@ export function ProjectWorkflowSteps({
   disabledStepNames = [],
 }: ProjectWorkflowStepsProps) {
   const activeTab = useActiveProjectTab(projectId);
+  const overviewOn = useFlag("overviewTab");
   const { boq, notFound } = useBoq(projectId);
   const { role } = useUserRole();
   const isStudio = isStudioUser(role);
@@ -105,19 +107,23 @@ export function ProjectWorkflowSteps({
 
   const steps: StepDef[] = [
     {
-      id: "overview",
-      name: "Overview",
-      status: "completed", // unused — Overview renders an icon, not a status dot
-      href: `/projects/${projectId}`,
-      icon: true,
-    },
-    {
       id: "designs",
       name: "Design",
       status: designStatus,
       href: `/projects/${projectId}/designs`,
     },
   ];
+  // Overview is the landing tab only when its flag is on; off, the project has
+  // no Overview and Design is the first stage (pre-Overview behaviour).
+  if (overviewOn) {
+    steps.unshift({
+      id: "overview",
+      name: "Overview",
+      status: "completed", // unused — Overview renders an icon, not a status dot
+      href: `/projects/${projectId}`,
+      icon: true,
+    });
+  }
   if (showBoqStep) {
     // Link straight to the first visible sub-tab so we skip the
     // intermediate /boq → /boq/my-scope redirect on every click. The
