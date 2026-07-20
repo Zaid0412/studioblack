@@ -19,6 +19,17 @@ process.env.LOG_LEVEL = "error"; // suppress noise during tests
 process.env.VENDOR_ENCRYPTION_KEY =
   "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
+// ── DOM globals ──────────────────────────────────────────────────────────────
+// jsdom lacks ResizeObserver, which recharts' ResponsiveContainer observes.
+// Harmless in the node project (defines an otherwise-unused global).
+if (typeof globalThis.ResizeObserver === "undefined") {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  } as unknown as typeof ResizeObserver;
+}
+
 // ── Mock: next/headers ──────────────────────────────────────────────────────
 
 vi.mock("next/headers", () => ({
@@ -199,6 +210,7 @@ vi.mock("@/lib/queries", () => ({
   getProjectsByArchitectId: vi.fn().mockResolvedValue([]),
   getProjectsByPmId: vi.fn().mockResolvedValue([]),
   getProjectById: vi.fn().mockResolvedValue(null),
+  getProjectOverview: vi.fn(),
   createProjectWithPhases: vi.fn(),
   updateProject: vi.fn(),
   deleteProject: vi.fn(),
@@ -537,6 +549,7 @@ vi.mock("@/lib/queries", () => ({
   getAllVendorsForRfq: vi.fn().mockResolvedValue([]),
   getRfqsForVendor: vi.fn().mockResolvedValue({ rows: [], total: 0 }),
   getRfqDetailForVendor: vi.fn().mockResolvedValue(null),
+  getVendorDashboard: vi.fn(),
   getRfqContactsForEmail: vi.fn().mockResolvedValue([]),
   createRfqDraft: vi.fn(),
   updateRfqDraft: vi.fn().mockResolvedValue({ ok: false, reason: "not_found" }),

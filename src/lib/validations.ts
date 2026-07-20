@@ -1869,6 +1869,21 @@ export function isRevisableQuote(status: VendorQuoteStatus): boolean {
   );
 }
 
+/**
+ * Which headline bucket each quote status rolls up to on the vendor dashboard —
+ * the single source of the won / lost / pending grouping shared by the win-rate
+ * math and the quote-outcomes donut. Exhaustive over `VendorQuoteStatus`, so
+ * adding a status is a compile error until it's classified here.
+ */
+export const QUOTE_OUTCOME_BUCKET = {
+  awarded: "won",
+  submitted: "pending",
+  under_review: "pending",
+  rejected: "lost",
+  declined: "lost",
+  expired: "lost",
+} as const satisfies Record<VendorQuoteStatus, "won" | "lost" | "pending">;
+
 /** §14: a vendor (or PM, off-portal) declining to quote — optional reason. */
 export const declineQuoteSchema = z.object({
   reason: z.string().trim().max(2000).optional().nullable(),

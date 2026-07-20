@@ -27,6 +27,7 @@ export const API = {
   projectPermanent:      (id: string)                  => `/api/projects/${id}/permanent`,
   projectPhase:          (id: string, phaseId: string)  => `/api/projects/${id}/phases/${phaseId}`,
   projectStep:           (id: string, stepId: string)   => `/api/projects/${id}/steps/${stepId}`,
+  projectOverview:       (id: string)                  => `/api/projects/${id}/overview`,
 
   // ── Project → Attachments ──────────────────────
   attachments:           (pid: string)                 => `/api/projects/${pid}/attachments`,
@@ -169,6 +170,7 @@ export const API = {
   vendorKycStatus:       (id: string)                  => `/api/vendors/${id}/kyc-status`,
 
   // ── Vendor Portal — Self-Service (Feature 8.5) ─
+  vendorPortalDashboard:       ()                       => "/api/vendor-portal/dashboard",
   vendorPortalMe:              ()                       => "/api/vendor-portal/me",
   vendorPortalBankDetails:     ()                       => "/api/vendor-portal/me/bank-details",
   vendorPortalKycDocuments:    ()                       => "/api/vendor-portal/me/kyc-documents",

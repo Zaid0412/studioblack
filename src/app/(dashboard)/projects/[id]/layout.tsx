@@ -22,9 +22,9 @@ import { DEFAULT_ORDER_SEGMENT } from "./order/_lib/tabs";
 import type { DbMember } from "@/types";
 
 /**
- * Shared chrome for every project sub-route — header, meta bar, and the
- * comments section pinned below tab content. The active tab page (Design
- * / BOQ Scope / future) renders as `children`.
+ * Shared chrome for every project sub-route — header, tab strip, and the
+ * comments section pinned below tab content. The active tab page (Overview
+ * / Design / BOQ Scope / future) renders as `children`.
  *
  * `useProjectDetail` is called both here and in child pages — SWR
  * dedupes the network calls, and the local UI state (`activePhaseId`,
@@ -45,6 +45,7 @@ export default function ProjectDetailLayout({
   const ctx = useUserRoleContext();
   const isClient = role === "client";
   const boqEnabled = useFlag("boq");
+  const overviewOn = useFlag("overviewTab");
   const pathname = usePathname();
 
   const {
@@ -79,10 +80,11 @@ export default function ProjectDetailLayout({
   // they would have no tab switcher. On BOQ side only visible on the
   // my-scope sub-tab; on Order side only on the RFQ list (detail pages
   // render their own header). Documents is a separate surface entered via
-  // MetaBar — no stepper there.
+  // the header pill — no stepper there.
   const showWorkflowSteps =
     boqEnabled &&
-    (pathname === `${base}/designs` ||
+    ((overviewOn && pathname === base) ||
+      pathname === `${base}/designs` ||
       pathname === `${base}/boq/${DEFAULT_BOQ_SEGMENT}` ||
       pathname === `${base}/order/${DEFAULT_ORDER_SEGMENT}`);
 
@@ -96,23 +98,25 @@ export default function ProjectDetailLayout({
     pathname.startsWith(`${base}/boq`) ||
     pathname.startsWith(`${base}/order`);
 
-  // Surfaces that carry the project info card + comments strip: everything with
-  // the standard header except the documents file list (needs the height).
-  const metaSurface = showHeader && !pathname.startsWith(`${base}/documents`);
-
   // RFQ create/detail pages (`/order/rfq/<id>`, `/order/rfq/new`) carry their
-  // own focused header + full-height form, so the project chrome (info card,
-  // comments strip) is suppressed there — but kept on the RFQ list
-  // (`/order/rfq`).
+  // own focused header + full-height form, so the comments strip is suppressed
+  // there — but kept on the RFQ list (`/order/rfq`).
   const onRfqSubpage = pathname.startsWith(`${base}/order/rfq/`);
 
-  // MetaBar is the project info card.
-  const showMetaBar = metaSurface && !onRfqSubpage;
+  // The standard project chrome surface — every headered route except the
+  // documents file list (needs the height) and the RFQ create/detail forms
+  // (own full-height chrome). Both the info card and the comments strip hang
+  // off this one predicate.
+  const standardChromeSurface =
+    showHeader && !pathname.startsWith(`${base}/documents`) && !onRfqSubpage;
 
-  // The project comments strip is only relevant on design/BOQ surfaces —
-  // documents has its own context, and the RFQ create/detail forms would
-  // collide with it (it renders below a full-height form), so both are excluded.
-  const showComments = metaSurface && !onRfqSubpage;
+  // MetaBar (the project info card) returns when the Overview flag is off, so a
+  // disabled flag reproduces the pre-Overview experience.
+  const showMetaBar = !overviewOn && standardChromeSurface;
+
+  // Comments strip — the same surfaces, minus the Overview home (which has its
+  // own activity feed).
+  const showComments = standardChromeSurface && pathname !== base;
 
   // Gate on the primary resource only: once the project lands, keep rendering
   // the chrome even while a secondary one (comments, phase-counts) revalidates
@@ -243,6 +247,7 @@ export default function ProjectDetailLayout({
           projectId={id}
           phaseCounts={phaseCounts}
           showBoq={boqEnabled}
+          showOverview={overviewOn}
           disabledStepNames={(project?.steps ?? [])
             .filter((s) => !s.enabled)
             .map((s) => s.name)}

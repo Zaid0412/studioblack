@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useState,
-  useEffect,
-  useRef,
-  useCallback,
-  type ReactNode,
-} from "react";
+import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { X, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +14,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
 import { deriveInitials, cn } from "@/lib/utils";
 import { avatarColor } from "@/lib/avatarUtils";
 import { useLoadStagger } from "@/hooks/useLoadStagger";
@@ -98,9 +97,9 @@ interface MemberPickerProps {
 }
 
 /**
- * Multi-select picker used for both the architect and PM lists. Self-contained
- * dropdown state + click-outside handler so the parent form doesn't have to
- * track one set per picker.
+ * Multi-select picker used for both the architect and PM lists. Built on the
+ * shared `Popover` so the options panel is portaled (escaping the form's
+ * overflow/stacking contexts) with click-outside handled for us.
  */
 export function MemberPicker({
   label,
@@ -110,19 +109,6 @@ export function MemberPicker({
   selectedIds,
   onToggle,
 }: MemberPickerProps) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
   return (
     <div className="flex flex-col gap-1.5">
       <label className="text-[13px] font-medium text-text-secondary">
@@ -131,73 +117,76 @@ export function MemberPicker({
       {members.length === 0 ? (
         <p className="text-xs text-text-muted">{emptyText}</p>
       ) : (
-        <div className="relative" ref={ref}>
-          <button
-            type="button"
-            onClick={() => setOpen(!open)}
-            className="flex items-center flex-wrap gap-1.5 w-full min-h-[42px] rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary cursor-pointer hover:border-accent/50 transition-colors"
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="flex items-center flex-wrap gap-1.5 w-full min-h-[42px] rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary cursor-pointer hover:border-accent/50 transition-colors"
+            >
+              {selectedIds.length === 0 ? (
+                <span className="text-text-muted">{placeholder}</span>
+              ) : (
+                selectedIds.map((userId) => {
+                  const member = members.find((a) => a.user.id === userId);
+                  if (!member) return null;
+                  return (
+                    <span
+                      key={userId}
+                      className="inline-flex items-center gap-1 rounded-md bg-accent/10 text-accent px-2 py-0.5 text-xs font-medium"
+                    >
+                      {member.user.name}
+                      <X
+                        className="w-3 h-3 cursor-pointer hover:text-error"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggle(userId);
+                        }}
+                      />
+                    </span>
+                  );
+                })
+              )}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="start"
+            sideOffset={6}
+            className="max-h-56 w-[var(--radix-popover-trigger-width)] overflow-y-auto p-1"
           >
-            {selectedIds.length === 0 ? (
-              <span className="text-text-muted">{placeholder}</span>
-            ) : (
-              selectedIds.map((userId) => {
-                const member = members.find((a) => a.user.id === userId);
-                if (!member) return null;
-                return (
-                  <span
-                    key={userId}
-                    className="inline-flex items-center gap-1 rounded-md bg-accent/10 text-accent px-2 py-0.5 text-xs font-medium"
-                  >
-                    {member.user.name}
-                    <X
-                      className="w-3 h-3 cursor-pointer hover:text-error"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onToggle(userId);
-                      }}
-                    />
-                  </span>
-                );
-              })
-            )}
-          </button>
-          {open && (
-            <div className="absolute z-10 mt-1 w-full rounded-lg border border-border-default bg-bg-primary shadow-lg py-1 max-h-48 overflow-y-auto">
-              {members.map((member) => {
-                const isSelected = selectedIds.includes(member.user.id);
-                return (
-                  <button
-                    key={member.id}
-                    type="button"
-                    onClick={() => onToggle(member.user.id)}
-                    className={cn(
-                      "flex items-center gap-2.5 w-full px-3 py-2 text-sm hover:bg-bg-elevated/50 transition-colors cursor-pointer",
-                      isSelected && "bg-accent/5"
-                    )}
-                  >
-                    <Avatar
-                      initials={deriveInitials(member.user.name)}
-                      size="sm"
-                      src={member.user.image ?? undefined}
-                      color={avatarColor(member.user.id)}
-                    />
-                    <div className="flex flex-col items-start min-w-0 flex-1">
-                      <span className="text-sm font-medium text-text-primary truncate">
-                        {member.user.name}
-                      </span>
-                      <span className="text-xs text-text-muted truncate">
-                        {member.user.email}
-                      </span>
-                    </div>
-                    {isSelected && (
-                      <Check className="w-4 h-4 text-accent shrink-0" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+            {members.map((member) => {
+              const isSelected = selectedIds.includes(member.user.id);
+              return (
+                <button
+                  key={member.id}
+                  type="button"
+                  onClick={() => onToggle(member.user.id)}
+                  className={cn(
+                    "flex items-center gap-2.5 w-full rounded-md px-3 py-2 text-sm hover:bg-bg-elevated/50 transition-colors cursor-pointer",
+                    isSelected && "bg-accent/5"
+                  )}
+                >
+                  <Avatar
+                    initials={deriveInitials(member.user.name)}
+                    size="sm"
+                    src={member.user.image ?? undefined}
+                    color={avatarColor(member.user.id)}
+                  />
+                  <div className="flex flex-col items-start min-w-0 flex-1">
+                    <span className="text-sm font-medium text-text-primary truncate">
+                      {member.user.name}
+                    </span>
+                    <span className="text-xs text-text-muted truncate">
+                      {member.user.email}
+                    </span>
+                  </div>
+                  {isSelected && (
+                    <Check className="w-4 h-4 text-accent shrink-0" />
+                  )}
+                </button>
+              );
+            })}
+          </PopoverContent>
+        </Popover>
       )}
     </div>
   );

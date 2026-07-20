@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, LayoutDashboard } from "lucide-react";
 import { useBoq } from "@/hooks/useBoq";
 import { useRfqList } from "@/hooks/useRfqs";
 import { DEFAULT_BOQ_SEGMENT } from "../boq/_lib/tabs";
@@ -18,6 +18,8 @@ interface StepDef {
   name: string;
   status: StepStatus;
   href: string;
+  /** Landing tab (Overview) — renders a dashboard icon instead of a status dot. */
+  icon?: boolean;
 }
 
 interface ProjectWorkflowStepsProps {
@@ -26,6 +28,8 @@ interface ProjectWorkflowStepsProps {
   phaseCounts: Map<string, number>;
   /** Hide the BOQ + Order steps (e.g. for clients or when the feature is off). */
   showBoq: boolean;
+  /** Show the Overview landing tab (the `overviewTab` flag, read once in the layout). */
+  showOverview: boolean;
   /** Workflow steps disabled in project Settings — the matching tab is hidden. */
   disabledStepNames?: string[];
 }
@@ -50,6 +54,7 @@ export function ProjectWorkflowSteps({
   projectId,
   phaseCounts,
   showBoq,
+  showOverview,
   disabledStepNames = [],
 }: ProjectWorkflowStepsProps) {
   const activeTab = useActiveProjectTab(projectId);
@@ -101,14 +106,24 @@ export function ProjectWorkflowSteps({
   // a clear end signal (e.g. all RFQs awarded).
   const orderStatus: StepStatus = rfqTotal > 0 ? "in_progress" : "pending";
 
-  const steps: StepDef[] = [
-    {
-      id: "designs",
-      name: "Design",
-      status: designStatus,
-      href: `/projects/${projectId}/designs`,
-    },
-  ];
+  const steps: StepDef[] = [];
+  // Overview is the landing tab only when its flag is on; off, Design is the
+  // first stage (pre-Overview behaviour).
+  if (showOverview) {
+    steps.push({
+      id: "overview",
+      name: "Overview",
+      status: "completed", // unused — Overview renders an icon, not a status dot
+      href: `/projects/${projectId}`,
+      icon: true,
+    });
+  }
+  steps.push({
+    id: "designs",
+    name: "Design",
+    status: designStatus,
+    href: `/projects/${projectId}/designs`,
+  });
   if (showBoqStep) {
     // Link straight to the first visible sub-tab so we skip the
     // intermediate /boq → /boq/my-scope redirect on every click. The
@@ -153,9 +168,15 @@ export function ProjectWorkflowSteps({
                       : "hover:bg-bg-elevated hover:text-text-primary"
                   }`}
                 >
-                  <span
-                    className={`w-3 h-3 rounded-full ${STATUS_DOT[step.status]}`}
-                  />
+                  {step.icon ? (
+                    <LayoutDashboard
+                      className={`w-4 h-4 ${isActive ? "text-accent" : "text-text-muted"}`}
+                    />
+                  ) : (
+                    <span
+                      className={`w-3 h-3 rounded-full ${STATUS_DOT[step.status]}`}
+                    />
+                  )}
                   <span
                     className={`text-base transition-colors ${
                       isActive
@@ -166,7 +187,9 @@ export function ProjectWorkflowSteps({
                     {step.name}
                   </span>
                 </Link>
-                {i < steps.length - 1 && (
+                {/* Chevrons separate the workflow stages only — Overview is a
+                    landing tab, not a stage, so no chevron follows it. */}
+                {step.id !== "overview" && i < steps.length - 1 && (
                   <ChevronRight
                     aria-hidden="true"
                     className="h-5 w-5 text-text-muted/60"

@@ -1602,3 +1602,85 @@ export interface QuoteComparison {
   vendors: QuoteComparisonVendorColumn[];
   invited_no_response: { vendor_id: string; vendor_name: string }[];
 }
+
+// --- Project Overview (the project home dashboard) ---
+
+/** Top-line metric cards. Role-scoped: `openOrders` is null for clients. */
+export interface OverviewKpis {
+  designFiles: number;
+  pendingReviews: number;
+  /** Sell-side total (studio) or client-scrubbed total (client); null if no BOQ. */
+  boqValue: string | null;
+  boqLineCount: number;
+  openOrders: number | null;
+}
+
+/** One slice of the design-status donut — a `review_status` bucket. */
+export interface OverviewStatusSlice {
+  status: string;
+  count: number;
+}
+
+/** One bar in the overview bar chart (cost per division, or % progress per phase). */
+export interface OverviewBar {
+  label: string;
+  value: number;
+}
+
+/** One row of the recent-activity feed. */
+export interface OverviewActivityItem {
+  id: string;
+  kind: "upload" | "review";
+  actor: string | null;
+  fileName: string | null;
+  /** Review decision (`approved`/`rejected`) for `kind: "review"`; null for uploads. */
+  status: string | null;
+  at: string;
+}
+
+/**
+ * Aggregated project Overview payload. Project details + team come from the
+ * layout's `/api/projects/[id]` fetch, so this stays lean.
+ */
+export interface ProjectOverview {
+  kpis: OverviewKpis;
+  designStatus: OverviewStatusSlice[];
+  chart: {
+    kind: "cost_by_division" | "design_progress_by_phase";
+    bars: OverviewBar[];
+  };
+  activity: OverviewActivityItem[];
+}
+
+// --- Vendor Dashboard (the vendor portal home) ---
+
+/** Top-line metric tiles for the vendor dashboard. */
+export interface VendorDashboardKpis {
+  openRfqs: number;
+  quotesUnderReview: number;
+  awarded: number;
+  /** Integer percent of decided quotes that were awarded; 0 when none decided. */
+  winRate: number;
+}
+
+/** One bucket of the vendor's current quotes, grouped by status. */
+export interface VendorQuoteOutcome {
+  status: string;
+  count: number;
+}
+
+/** An RFQ still awaiting this vendor's quote. */
+export interface VendorAwaitingRfq {
+  id: string;
+  rfq_number: string;
+  title: string;
+  item_count: number;
+  response_deadline: string | null;
+}
+
+/** Aggregated vendor-portal dashboard payload, scoped to the caller's vendor. */
+export interface VendorDashboard {
+  kpis: VendorDashboardKpis;
+  outcomes: VendorQuoteOutcome[];
+  awaitingRfqs: VendorAwaitingRfq[];
+}

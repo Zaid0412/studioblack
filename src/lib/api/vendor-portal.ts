@@ -5,6 +5,7 @@ import type {
   VendorKycDocument,
   VendorKycStatus,
   BankDetails,
+  VendorDashboard,
 } from "@/types";
 import type { z } from "zod";
 import type {
@@ -22,6 +23,11 @@ type AddKycDocInput = z.infer<typeof vendorKycDocumentSchema>;
 export interface VendorMeResponse {
   vendor: VendorWithRelations;
   suspended: boolean;
+}
+
+/** GET /api/vendor-portal/dashboard — aggregated KPIs, quote outcomes, awaiting RFQs. */
+export function getDashboard() {
+  return apiGet<VendorDashboard>(API.vendorPortalDashboard());
 }
 
 /** GET /api/vendor-portal/me — vendor's own record + suspended flag. */

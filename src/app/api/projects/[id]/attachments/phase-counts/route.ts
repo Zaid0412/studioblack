@@ -5,7 +5,7 @@ import { withAuth } from "@/lib/withAuth";
 /**
  * GET /api/projects/[id]/attachments/phase-counts — per-phase attachment
  * counts (latest version per group). The lightweight companion to the full
- * `attachments?all=true` list: the project layout's stepper/MetaBar consume
+ * `attachments?all=true` list: the project layout's stepper consumes
  * only these counts, so non-Designs routes avoid fetching every full row.
  */
 export const GET = withAuth(
