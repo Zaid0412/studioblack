@@ -13,6 +13,7 @@ const FLAG_FALLBACKS = {
   vendorManagement: false,
   rateContracts: false,
   vendorPortal: false,
+  designDocumentControl: false,
 } as const;
 
 export type FlagKey = keyof typeof FLAG_FALLBACKS;

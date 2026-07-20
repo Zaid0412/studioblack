@@ -29,7 +29,7 @@ import { AnnotationRail } from "@/components/review/AnnotationRail";
 import { PinSidebar } from "@/components/review/PinSidebar";
 import { ReviewPanel } from "@/components/review/ReviewPanel";
 import { ReviewSubmitBar } from "@/components/review/ReviewSubmitBar";
-import { UploadDialog } from "@/components/ui/UploadDialog";
+import { UploadDesignDialog } from "../../_components/UploadDesignDialog";
 import { toast } from "@/components/ui/useToast";
 import { attachments as attachmentsApi, upload, ApiError } from "@/lib/api";
 import { authClient } from "@/lib/authClient";
@@ -722,7 +722,7 @@ export default function DesignReviewPage({
 
       {/* PM: Upload New Version Dialog */}
       {!isClient && attachment?.version_group && (
-        <UploadDialog
+        <UploadDesignDialog
           open={uploadOpen}
           onOpenChange={setUploadOpen}
           projectId={id}

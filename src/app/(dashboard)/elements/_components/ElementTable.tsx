@@ -298,7 +298,7 @@ function ElementRow({
         {element.element_type === "custom" && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem accent onClick={onPromote}>
+            <DropdownMenuItem positive onClick={onPromote}>
               <Star className="w-4 h-4" />
               {t("promote")}
             </DropdownMenuItem>
@@ -311,7 +311,7 @@ function ElementRow({
             {t("archive")}
           </DropdownMenuItem>
         ) : (
-          <DropdownMenuItem accent onClick={onRestore}>
+          <DropdownMenuItem positive onClick={onRestore}>
             <ArchiveRestore className="w-4 h-4" />
             {t("restore")}
           </DropdownMenuItem>

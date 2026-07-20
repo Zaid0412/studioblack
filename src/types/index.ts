@@ -128,6 +128,14 @@ export interface DbAttachment {
   sent_to_client_by?: string | null;
   reviewed_by_name?: string | null;
   versions?: DbAttachment[];
+  // Drawing register (Document Control, PR-2) — joined from `drawing`; null on
+  // unclassified/legacy files.
+  drawing_id?: string | null;
+  document_number?: string | null;
+  drawing_type?: string | null;
+  discipline_id?: string | null;
+  discipline_code?: string | null;
+  discipline_name?: string | null;
 }
 
 /** Comment record from the database. */

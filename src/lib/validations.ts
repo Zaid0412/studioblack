@@ -353,6 +353,43 @@ export const patchNotificationsSchema = z.object({
   ids: z.array(uuid).optional(),
 });
 
+// ─── Drawings (Document Control, PR-2) ──────────────────────────────────────
+
+/** Drawing-type classifications (PRD "01.Design doc" §6). */
+export const DRAWING_TYPES = [
+  "PLAN",
+  "ELEV",
+  "SECT",
+  "DET",
+  "RCP",
+  "LAY",
+  "SCH",
+  "SPEC",
+  "3DV",
+  "REND",
+] as const;
+export type DrawingType = (typeof DRAWING_TYPES)[number];
+
+/**
+ * Drawing lifecycle (12 states). Backed by a DB CHECK; the declarative
+ * transition table + executor land in PR-4.
+ */
+export const DRAWING_STATUSES = [
+  "draft",
+  "submitted",
+  "internal_review",
+  "internal_approved",
+  "sent_to_client",
+  "client_review",
+  "changes_requested",
+  "revised",
+  "resubmitted",
+  "client_approved",
+  "frozen",
+  "issued",
+] as const;
+export type DrawingStatus = (typeof DRAWING_STATUSES)[number];
+
 // ─── Attachments (/api/projects/[id]/attachments) ───────────────────────────
 
 export const createProjectAttachmentSchema = z.object({
@@ -362,6 +399,10 @@ export const createProjectAttachmentSchema = z.object({
   phaseId: optionalUuid,
   taskId: optionalUuid,
   versionGroup: optionalUuid,
+  // Drawing classification. Required for a NEW upload (enforced in the route's
+  // create branch, per PRD §22/§24); inherited from the drawing on a new version.
+  disciplineId: optionalUuid,
+  drawingType: z.enum(DRAWING_TYPES).optional(),
 });
 
 export const updateAttachmentStatusSchema = z.object({

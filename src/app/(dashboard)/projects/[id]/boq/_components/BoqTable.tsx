@@ -1168,7 +1168,7 @@ const BoqItemRow = memo(function BoqItemRow({
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           onSelect={() => onCreateAndMoveItem(item)}
-                          accent
+                          positive
                         >
                           + Create new section…
                         </DropdownMenuItem>

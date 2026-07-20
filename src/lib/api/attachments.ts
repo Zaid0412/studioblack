@@ -41,6 +41,8 @@ export function create(
     phaseId?: string | null;
     taskId?: string | null;
     versionGroup?: string;
+    disciplineId?: string | null;
+    drawingType?: string | null;
   }
 ) {
   return apiPost<DbAttachment>(API.attachments(projectId), data);

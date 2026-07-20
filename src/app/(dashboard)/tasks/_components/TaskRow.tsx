@@ -253,7 +253,7 @@ export function TaskRow({
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                accent={task.status !== "completed"}
+                positive={task.status !== "completed"}
                 onClick={() =>
                   onSetStatus(
                     task,

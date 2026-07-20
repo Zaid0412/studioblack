@@ -382,7 +382,7 @@ export function DocumentVersionList({
                               <DropdownMenuSeparator className="md:hidden" />
                               <DropdownMenuItem
                                 className="md:hidden"
-                                accent
+                                positive
                                 onSelect={() => setPendingRevert(v)}
                               >
                                 <Undo2 className="w-3.5 h-3.5" />

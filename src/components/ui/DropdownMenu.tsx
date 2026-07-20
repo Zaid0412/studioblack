@@ -83,17 +83,18 @@ const DropdownMenuItem = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Item> & {
     inset?: boolean;
     destructive?: boolean;
-    accent?: boolean;
+    /** Positive action (approve, restore, …) — painted success green. */
+    positive?: boolean;
   }
->(({ className, inset, destructive, accent, ...props }, ref) => (
+>(({ className, inset, destructive, positive, ...props }, ref) => (
   <DropdownMenuPrimitive.Item
     ref={ref}
     className={cn(
       "relative flex cursor-default select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none transition-colors focus:bg-bg-elevated data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
       destructive
         ? "text-error focus:text-error"
-        : accent
-          ? "text-accent focus:text-accent"
+        : positive
+          ? "text-success focus:text-success"
           : "text-text-primary",
       inset && "pl-8",
       className

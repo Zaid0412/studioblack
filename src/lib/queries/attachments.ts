@@ -1,4 +1,12 @@
 import { getPool } from "@/lib/db";
+import { createDrawing } from "./drawings";
+
+// Drawing-register projection shared by the attachment read queries (`a` is the
+// attachment alias). One drawing per version_group, so both joins are 1:1.
+const DRAWING_COLS = `dr.document_number, dr.drawing_type, dr.discipline_id,
+       dsc.code AS discipline_code, dsc.name AS discipline_name`;
+const DRAWING_JOINS = `LEFT JOIN drawing dr ON dr.version_group = a.version_group
+     LEFT JOIN design_discipline dsc ON dsc.id = dr.discipline_id`;
 
 /** Get attachments for a project/phase/task. */
 export async function getAttachments(filters: {
@@ -33,9 +41,11 @@ export async function getAttachments(filters: {
 
   const query = `
     WITH latest AS (
-      SELECT DISTINCT ON (a.version_group) a.*, u.name AS uploaded_by_name
+      SELECT DISTINCT ON (a.version_group) a.*, u.name AS uploaded_by_name,
+             ${DRAWING_COLS}
       FROM attachment a
       JOIN "user" u ON u.id = a.uploaded_by
+      ${DRAWING_JOINS}
       ${whereClauses}
       ORDER BY a.version_group, a.version DESC
     )
@@ -89,10 +99,12 @@ export async function getAttachmentsByPhaseId(
 ) {
   const pool = getPool();
   const { rows } = await pool.query(
-    `SELECT a.*, u.name AS uploaded_by_name, r.name AS reviewed_by_name
+    `SELECT a.*, u.name AS uploaded_by_name, r.name AS reviewed_by_name,
+            ${DRAWING_COLS}
      FROM attachment a
      JOIN "user" u ON u.id = a.uploaded_by
      LEFT JOIN "user" r ON r.id = a.reviewed_by
+     ${DRAWING_JOINS}
      WHERE a.phase_id = $1 AND a.project_id = $2
      ORDER BY a.created_at DESC`,
     [phaseId, projectId]
@@ -109,10 +121,12 @@ export async function getAttachmentById(
   const {
     rows: [row],
   } = await pool.query(
-    `SELECT a.*, u.name AS uploaded_by_name, r.name AS reviewed_by_name
+    `SELECT a.*, u.name AS uploaded_by_name, r.name AS reviewed_by_name,
+            ${DRAWING_COLS}
      FROM attachment a
      JOIN "user" u ON u.id = a.uploaded_by
      LEFT JOIN "user" r ON r.id = a.reviewed_by
+     ${DRAWING_JOINS}
      WHERE a.id = $1 AND a.project_id = $2`,
     [attachmentId, projectId]
   );
@@ -209,7 +223,7 @@ export async function uploadNewVersion(
 
     // Lock version_group rows to prevent concurrent modifications
     const { rows: lockedRows } = await client.query(
-      `SELECT id, frozen_at FROM attachment
+      `SELECT id, frozen_at, drawing_id FROM attachment
        WHERE version_group = $1 AND project_id = $2
        FOR UPDATE`,
       [versionGroup, projectId]
@@ -221,6 +235,10 @@ export async function uploadNewVersion(
         "Cannot upload a new version — this file is frozen after approval"
       );
     }
+
+    // The new version belongs to the same drawing (register header) — carry it
+    // forward; no new document number is issued on a re-upload.
+    const drawingId = lockedRows[0]?.drawing_id ?? null;
 
     // Get the current max version for this group
     const {
@@ -235,8 +253,8 @@ export async function uploadNewVersion(
     const {
       rows: [row],
     } = await client.query(
-      `INSERT INTO attachment (project_id, phase_id, uploaded_by, file_url, file_name, version, version_group)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO attachment (project_id, phase_id, uploaded_by, file_url, file_name, version, version_group, drawing_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
       [
         projectId,
@@ -246,6 +264,7 @@ export async function uploadNewVersion(
         fileName,
         nextVersion,
         versionGroup,
+        drawingId,
       ]
     );
 
@@ -281,7 +300,14 @@ export async function markAttachmentSentToClient(
 // Attachment mutations
 // ---------------------------------------------------------------------------
 
-/** Create a project attachment. */
+/**
+ * Create a project attachment — the FIRST version of a file. A design upload
+ * opens a `drawing` (register header) for its version_group (Document Control,
+ * PR-2), classified + numbered from the supplied discipline + drawing type. Task
+ * attachments (taskId set) aren't drawings, so they skip the register and get a
+ * plain version_group. Transactional so the drawing, its document number, and
+ * the attachment commit atomically (a rollback un-burns the number).
+ */
 export async function createProjectAttachment(params: {
   projectId: string;
   phaseId: string | null;
@@ -290,25 +316,71 @@ export async function createProjectAttachment(params: {
   fileUrl: string;
   fileName: string;
   description: string;
+  disciplineId?: string | null;
+  drawingType?: string | null;
 }) {
   const pool = getPool();
-  const {
-    rows: [attachment],
-  } = await pool.query(
-    `INSERT INTO attachment (project_id, phase_id, task_id, uploaded_by, file_url, file_name, description)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
-     RETURNING *`,
-    [
-      params.projectId,
-      params.phaseId,
-      params.taskId,
-      params.uploadedBy,
-      params.fileUrl,
-      params.fileName,
-      params.description,
-    ]
-  );
-  return attachment;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const {
+      rows: [project],
+    } = await client.query<{ org_id: string; project_number: string | null }>(
+      `SELECT org_id, project_number FROM project WHERE id = $1`,
+      [params.projectId]
+    );
+    if (!project) throw new Error("Project not found");
+
+    // Open a register drawing only for a classified design upload. Task
+    // attachments aren't drawings, and when Document Control is gated off no
+    // classification is sent — those uploads stay plain version_groups with no
+    // drawing row or document number (pre-Document-Control behaviour).
+    const classify =
+      !params.taskId && (params.disciplineId || params.drawingType);
+    const drawing = classify
+      ? await createDrawing(client, {
+          projectId: params.projectId,
+          orgId: project.org_id,
+          projectNumber: project.project_number,
+          disciplineId: params.disciplineId,
+          drawingType: params.drawingType,
+          title: params.fileName,
+        })
+      : null;
+
+    const {
+      rows: [attachment],
+    } = await client.query(
+      `INSERT INTO attachment (project_id, phase_id, task_id, uploaded_by, file_url, file_name, description, version_group, drawing_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8, gen_random_uuid()), $9)
+       RETURNING *`,
+      [
+        params.projectId,
+        params.phaseId,
+        params.taskId,
+        params.uploadedBy,
+        params.fileUrl,
+        params.fileName,
+        params.description,
+        drawing?.versionGroup ?? null,
+        drawing?.id ?? null,
+      ]
+    );
+
+    await client.query("COMMIT");
+    return {
+      ...attachment,
+      document_number: drawing?.documentNumber ?? null,
+      drawing_type: drawing?.drawingType ?? null,
+      discipline_id: drawing?.disciplineId ?? null,
+    };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 /** Update attachment review_status. */
