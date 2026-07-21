@@ -5,9 +5,11 @@ import {
   getAttachmentById,
   getPinCommentById,
   updatePinComment,
+  updatePinCommentStatus,
   updatePinCommentContent,
   deletePinComment,
   getPinCommentReplies,
+  isAttachmentIssued,
 } from "@/lib/queries";
 import {
   GET,
@@ -137,6 +139,22 @@ describe("POST .../pins", () => {
         page: 1,
       })
     );
+  });
+
+  it("blocks new markup on an issued (read-only) version", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(getAttachmentById).mockResolvedValue(sampleAttachment as never);
+    vi.mocked(isAttachmentIssued).mockResolvedValueOnce(true);
+
+    const req = buildRequest(basePath, {
+      method: "POST",
+      body: { content: "Fix this area", x_percent: 50, y_percent: 50, page: 1 },
+    });
+    const res = await POST(req, buildParams(baseParams));
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(409);
+    expect(createPinComment).not.toHaveBeenCalled();
   });
 
   it("returns 400 on invalid body (empty content)", async () => {
@@ -341,6 +359,56 @@ describe("PATCH .../pins/[pinId]", () => {
       "Updated text"
     );
   });
+
+  it("sets the 3-state markup status", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(getPinCommentById).mockResolvedValue(samplePin as never);
+    const closed = { ...samplePin, status: "closed", resolved: false };
+    vi.mocked(updatePinCommentStatus).mockResolvedValue(closed as never);
+
+    const req = buildRequest(pinPath, {
+      method: "PATCH",
+      body: { status: "closed" },
+    });
+    const res = await PATCH(req, buildParams(pinParams));
+    const { status, body } = await parseResponse(res);
+
+    expect(status).toBe(200);
+    expect(body).toEqual(closed);
+    expect(updatePinCommentStatus).toHaveBeenCalledWith(PIN_ID, "closed");
+  });
+
+  it("blocks a content edit on an issued (read-only) version", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(getPinCommentById).mockResolvedValue(samplePin as never);
+    vi.mocked(isAttachmentIssued).mockResolvedValueOnce(true);
+
+    const req = buildRequest(pinPath, {
+      method: "PATCH",
+      body: { content: "Updated text" },
+    });
+    const res = await PATCH(req, buildParams(pinParams));
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(409);
+    expect(updatePinCommentContent).not.toHaveBeenCalled();
+  });
+
+  it("still allows a status change on an issued version", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(getPinCommentById).mockResolvedValue(samplePin as never);
+    vi.mocked(updatePinCommentStatus).mockResolvedValue(samplePin as never);
+
+    const req = buildRequest(pinPath, {
+      method: "PATCH",
+      body: { status: "resolved" },
+    });
+    const res = await PATCH(req, buildParams(pinParams));
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(200);
+    expect(updatePinCommentStatus).toHaveBeenCalledWith(PIN_ID, "resolved");
+  });
 });
 
 // ── DELETE .../pins/[pinId] ─────────────────────────────────────────────────
@@ -376,6 +444,19 @@ describe("DELETE .../pins/[pinId]", () => {
 
     expect(status).toBe(404);
     expect(body).toMatchObject({ error: "Not found" });
+  });
+
+  it("blocks deleting markup on an issued (read-only) version", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(getPinCommentById).mockResolvedValue(samplePin as never);
+    vi.mocked(isAttachmentIssued).mockResolvedValueOnce(true);
+
+    const req = buildRequest(pinPath, { method: "DELETE" });
+    const res = await DELETE(req, buildParams(pinParams));
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(409);
+    expect(deletePinComment).not.toHaveBeenCalled();
   });
 });
 

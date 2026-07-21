@@ -268,10 +268,15 @@ vi.mock("@/lib/queries", () => ({
   createPinWithTask: vi.fn(),
   getPinCommentById: vi.fn().mockResolvedValue(null),
   updatePinComment: vi.fn(),
+  updatePinCommentStatus: vi.fn(),
   updatePinCommentContent: vi.fn(),
   updatePinCommentPosition: vi.fn(),
   deletePinComment: vi.fn(),
   getPinCommentReplies: vi.fn().mockResolvedValue([]),
+  issueRevision: vi.fn(),
+  getDrawingRevisions: vi.fn().mockResolvedValue([]),
+  getRevisionsForAttachment: vi.fn().mockResolvedValue([]),
+  isAttachmentIssued: vi.fn().mockResolvedValue(false),
   submitAttachmentReview: vi
     .fn()
     .mockResolvedValue({ attachment: null, conflict: false }),
