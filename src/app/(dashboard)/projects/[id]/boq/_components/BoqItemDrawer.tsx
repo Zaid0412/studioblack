@@ -46,8 +46,11 @@ import { BoqChangeRequestDialog } from "./BoqChangeRequestDialog";
 import { BoqDimensionUnitToggle } from "./BoqDimensionUnitToggle";
 import { BoqItemActivity } from "./BoqItemActivity";
 import { BoqItemChangeHistory } from "./BoqItemChangeHistory";
+import { BoqDivisionSelect } from "./BoqDivisionSelect";
+import { BoqSectionSelect } from "./BoqSectionSelect";
 import type { UpdateItemPayload } from "@/lib/api/boq";
 import {
+  BOQ_NO_SECTION_ID,
   convertDimensions,
   formatCurrency,
   formatDimension,
@@ -150,6 +153,10 @@ interface DrawerDraft {
   clientNotes: string;
   /** Service-area category id ("" = unclassified). Reclassification only. */
   categoryId: string;
+  /** Division id the line is filed under (mandatory; "" only before binding). */
+  divisionId: string;
+  /** Section id, or `BOQ_NO_SECTION_ID` for the "(Unassigned)" bucket. */
+  sectionId: string;
 }
 
 /** Keys compared numerically so "18" and "18.000" don't read as a change. */
@@ -208,6 +215,8 @@ const EMPTY_DRAFT: DrawerDraft = {
   notes: "",
   clientNotes: "",
   categoryId: "",
+  divisionId: "",
+  sectionId: BOQ_NO_SECTION_ID,
 };
 
 function seedDraft(item: BoqItemWithComputed): DrawerDraft {
@@ -235,6 +244,8 @@ function seedDraft(item: BoqItemWithComputed): DrawerDraft {
     notes: item.notes ?? "",
     clientNotes: item.client_notes ?? "",
     categoryId: item.category_id ?? "",
+    divisionId: item.division_id ?? "",
+    sectionId: item.section_id ?? BOQ_NO_SECTION_ID,
   };
 }
 
@@ -294,6 +305,15 @@ function buildPatch(
         // not clear it. `dirty` only flags this field when it actually changed,
         // and Save is blocked while it's empty.
         if (draft.categoryId) patch.categoryId = draft.categoryId;
+        break;
+      case "divisionId":
+        // Mandatory — only send a real id. Server re-flows per-division line
+        // numbers on a division change.
+        if (draft.divisionId) patch.divisionId = draft.divisionId;
+        break;
+      case "sectionId":
+        patch.sectionId =
+          draft.sectionId === BOQ_NO_SECTION_ID ? null : draft.sectionId;
         break;
       case "quantity":
         patch.quantity = parseFloat(draft.quantity);
@@ -417,6 +437,11 @@ export function BoqItemDrawer({
   if (!item) return null;
 
   const section = sections.find((s) => s.id === item.section_id) ?? null;
+  // Section picker is scoped to the division the draft currently targets — a
+  // section belongs to exactly one division.
+  const sectionsForDivision = sections.filter(
+    (s) => s.division_id === draft.divisionId
+  );
   const availableRates = rateData?.rates ?? [];
   const appliedRate = item.rate_contract_item_id
     ? availableRates.find(
@@ -741,6 +766,54 @@ export function BoqItemDrawer({
                       onChange={(id) => setField({ categoryId: id ?? "" })}
                       requiredHint={tRc("serviceAreaRequiredLine")}
                     />
+                  )}
+                </div>
+              )}
+              {!isExternal && (
+                <div className="grid grid-cols-2 gap-3">
+                  {fieldsDisabled ? (
+                    <>
+                      <DetailField
+                        label="Division"
+                        value={item.division_name ?? "—"}
+                      />
+                      <DetailField
+                        label="Section"
+                        value={section?.title ?? "(Unassigned)"}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <BoqDivisionSelect
+                        label="Division"
+                        required
+                        value={draft.divisionId || null}
+                        onChange={(id) => {
+                          const nextDivision = id ?? "";
+                          // A section belongs to one division — drop it if it no
+                          // longer matches the newly-chosen division.
+                          const keepSection =
+                            draft.sectionId !== BOQ_NO_SECTION_ID &&
+                            sections.some(
+                              (s) =>
+                                s.id === draft.sectionId &&
+                                s.division_id === nextDivision
+                            );
+                          setField({
+                            divisionId: nextDivision,
+                            sectionId: keepSection
+                              ? draft.sectionId
+                              : BOQ_NO_SECTION_ID,
+                          });
+                        }}
+                      />
+                      <BoqSectionSelect
+                        label="Section"
+                        value={draft.sectionId}
+                        onChange={(next) => setField({ sectionId: next })}
+                        sections={sectionsForDivision}
+                      />
+                    </>
                   )}
                 </div>
               )}
