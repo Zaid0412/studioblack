@@ -103,11 +103,15 @@ export function ReviewToolbar({
         {leftSlot}
       </div>
 
-      {/* Right: Utility icons */}
+      {/* Right: grouped utilities — panels │ file │ workflow │ overflow.
+          Each group is divided so related controls read together instead of a
+          flat row of mixed icons and buttons. */}
       <div className="flex items-center gap-2 shrink-0">
+        {/* Group 1 — info panels (Comments · Reviews · Revisions) */}
         {rightSlot}
-        {rightSlot && <div className="w-px h-4 bg-border-default" />}
 
+        {/* Group 2 — file utilities (view / get the file) */}
+        {rightSlot && <div className="w-px h-4 bg-border-default" />}
         <Tooltip>
           <TooltipTrigger asChild>
             <button
@@ -119,7 +123,35 @@ export function ReviewToolbar({
           </TooltipTrigger>
           <TooltipContent side="bottom">Fullscreen</TooltipContent>
         </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={onDownload}
+              className="text-text-secondary hover:text-text-primary cursor-pointer"
+            >
+              <Download className="w-4 h-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Download file</TooltipContent>
+        </Tooltip>
+        {onUploadNewVersion && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={onUploadNewVersion}
+                className="text-text-secondary hover:text-text-primary cursor-pointer"
+              >
+                <Upload className="w-4 h-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Upload new version</TooltipContent>
+          </Tooltip>
+        )}
 
+        {/* Group 3 — workflow actions (act on the file), primary CTA last */}
+        {(onToggleFreeze || onIssueRevision || onSendToClient) && (
+          <div className="w-px h-4 bg-border-default" />
+        )}
         {onToggleFreeze && (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -139,7 +171,6 @@ export function ReviewToolbar({
             </TooltipContent>
           </Tooltip>
         )}
-
         {onIssueRevision && (
           <div className="flex items-center gap-1.5">
             {currentRevLabel && (
@@ -156,7 +187,6 @@ export function ReviewToolbar({
             </button>
           </div>
         )}
-
         {onSendToClient && (
           <button
             onClick={onSendToClient}
@@ -167,33 +197,7 @@ export function ReviewToolbar({
           </button>
         )}
 
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={onDownload}
-              className="text-text-secondary hover:text-text-primary cursor-pointer"
-            >
-              <Download className="w-4 h-4" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">Download file</TooltipContent>
-        </Tooltip>
-
-        {onUploadNewVersion && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={onUploadNewVersion}
-                className="text-text-secondary hover:text-text-primary cursor-pointer"
-              >
-                <Upload className="w-4 h-4" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">Upload new version</TooltipContent>
-          </Tooltip>
-        )}
-
-        {/* More options dropdown */}
+        {/* Overflow — Print / Open in new tab */}
         <div className="relative" ref={moreMenuRef}>
           <Tooltip>
             <TooltipTrigger asChild>
