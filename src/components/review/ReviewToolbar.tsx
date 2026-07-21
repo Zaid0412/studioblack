@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import {
@@ -22,6 +21,12 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/DropdownMenu";
 
 interface ReviewToolbarProps {
   backPath: string;
@@ -58,31 +63,6 @@ export function ReviewToolbar({
   currentRevLabel,
 }: ReviewToolbarProps) {
   const router = useRouter();
-  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
-  const moreMenuRef = useRef<HTMLDivElement>(null);
-
-  // Close more menu on click outside or Escape — matches the keyboard
-  // behaviour of the popovers in ShapeSettingsPopover.
-  useEffect(() => {
-    if (!moreMenuOpen) return;
-    function handleClick(e: MouseEvent) {
-      if (
-        moreMenuRef.current &&
-        !moreMenuRef.current.contains(e.target as Node)
-      ) {
-        setMoreMenuOpen(false);
-      }
-    }
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setMoreMenuOpen(false);
-    }
-    document.addEventListener("mousedown", handleClick);
-    document.addEventListener("keydown", handleKey);
-    return () => {
-      document.removeEventListener("mousedown", handleClick);
-      document.removeEventListener("keydown", handleKey);
-    };
-  }, [moreMenuOpen]);
 
   return (
     <div className="h-10 shrink-0 bg-bg-secondary px-3 flex items-center justify-between gap-2">
@@ -200,43 +180,37 @@ export function ReviewToolbar({
         )}
 
         {/* Overflow — Print / Open in new tab */}
-        <div className="relative" ref={moreMenuRef}>
+        <DropdownMenu>
           <Tooltip>
             <TooltipTrigger asChild>
-              <button
-                className="text-text-secondary hover:text-text-primary cursor-pointer"
-                onClick={() => setMoreMenuOpen(!moreMenuOpen)}
-              >
-                <Ellipsis className="w-4 h-4" />
-              </button>
+              <DropdownMenuTrigger asChild>
+                <button
+                  aria-label="More options"
+                  className="text-text-secondary hover:text-text-primary cursor-pointer"
+                >
+                  <Ellipsis className="w-4 h-4" />
+                </button>
+              </DropdownMenuTrigger>
             </TooltipTrigger>
             <TooltipContent side="bottom">More options</TooltipContent>
           </Tooltip>
-          {moreMenuOpen && (
-            <div className="absolute right-0 top-full mt-1 w-44 bg-bg-elevated border border-border-default rounded-lg shadow-xl py-1 z-50">
-              <button
-                onClick={() => {
-                  window.print();
-                  setMoreMenuOpen(false);
-                }}
-                className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-text-secondary hover:text-text-primary hover:bg-bg-input transition-colors cursor-pointer"
-              >
-                <Printer className="w-4 h-4" />
-                Print
-              </button>
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuItem onSelect={() => window.print()}>
+              <Printer />
+              Print
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
               <a
                 href={`/api/proxy-file?url=${encodeURIComponent(fileUrl)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={() => setMoreMenuOpen(false)}
-                className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-text-secondary hover:text-text-primary hover:bg-bg-input transition-colors"
               >
-                <ExternalLink className="w-4 h-4" />
+                <ExternalLink />
                 Open in new tab
               </a>
-            </div>
-          )}
-        </div>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );
