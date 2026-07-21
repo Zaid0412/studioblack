@@ -19,7 +19,6 @@ import {
   closestCenter,
   useSensor,
   useSensors,
-  type DragEndEvent,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -470,6 +469,16 @@ interface SectionListProps {
   onReorderSections?: BoqTableProps["onReorderSections"];
 }
 
+/** A division's render block: its sections (reorderable) + optional loose group. */
+interface DivisionBlock {
+  key: string;
+  divisionName: string | null;
+  sections: SectionGroup[];
+  loose: SectionGroup | null;
+  itemCount: number;
+  total: number;
+}
+
 function SectionList(props: SectionListProps) {
   const { groups, onReorderSections, sectionsEditable, currency } = props;
   const { registerSectionRef } = props;
@@ -477,108 +486,105 @@ function SectionList(props: SectionListProps) {
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
   );
 
-  // Only real sections are drag-reorderable; a division's section-less items
-  // (`section === null`) render header-less and stay put.
-  const sectionGroups = groups.filter((g) => g.section !== null);
-  const canReorder =
-    sectionsEditable && onReorderSections && sectionGroups.length > 1;
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const activeGroup = sectionGroups.find((g) => g.id === String(active.id));
-    const overGroup = sectionGroups.find((g) => g.id === String(over.id));
-    if (!activeGroup || !overGroup) return;
-    // Sections only reorder within their own division — moving across divisions
-    // is done via the section's Edit dialog, not by dragging. A cross-division
-    // drop is rejected (snaps back) rather than silently re-filed.
-    if (activeGroup.divisionId !== overGroup.divisionId) return;
-    // Indices come from the DISPLAYED (division-grouped) order; the full new
-    // order is persisted, and same-division sections are contiguous, so the
-    // moved section stays in its division block.
-    const ids = sectionGroups.map((g) => g.id);
-    const oldIndex = ids.indexOf(String(active.id));
-    const newIndex = ids.indexOf(String(over.id));
-    if (oldIndex < 0 || newIndex < 0) return;
-    onReorderSections?.(arrayMove(ids, oldIndex, newIndex));
-  };
-
   const renderBody = (group: SectionGroup): ReactNode => (
     <SectionBody group={group} {...props} />
   );
 
-  // Per-division item count + total across ALL its groups (sections + loose),
-  // derived in one pass. Keyed by divisionId ("none" for the no-division run).
-  const divisionAgg = new Map<string, { count: number; total: number }>();
+  // Split the division-ordered groups into division blocks. Each block owns its
+  // sections (reorderable among themselves) plus an optional header-less loose
+  // group rendered last. Sections reorder ONLY within a division, so each block
+  // gets its OWN DndContext — the sortable list stays clean (no interspersed
+  // loose groups) and there's no cross-division drop to guard against.
+  const blocks: DivisionBlock[] = [];
   for (const g of groups) {
     const key = g.divisionId ?? "none";
-    const agg = divisionAgg.get(key) ?? { count: 0, total: 0 };
-    agg.count += g.items.length;
-    agg.total += g.total;
-    divisionAgg.set(key, agg);
+    let block = blocks[blocks.length - 1];
+    if (!block || block.key !== key) {
+      block = {
+        key,
+        divisionName: g.divisionName,
+        sections: [],
+        loose: null,
+        itemCount: 0,
+        total: 0,
+      };
+      blocks.push(block);
+    }
+    block.itemCount += g.items.length;
+    block.total += g.total;
+    if (g.section === null) block.loose = g;
+    else block.sections.push(g);
   }
 
-  // Emit a division band before the first group of each new division. Pure
-  // (index-based) — groups are already division-ordered, so a run-length
-  // comparison against the previous group is enough.
-  const withBand = (
-    group: SectionGroup,
-    index: number,
-    node: ReactNode
-  ): ReactNode => {
-    const showBand =
-      index === 0 || groups[index - 1].divisionId !== group.divisionId;
-    if (!showBand) return node;
-    const agg = divisionAgg.get(group.divisionId ?? "none")!;
-    const divKey = `division:${group.divisionId ?? "none"}`;
-    return (
-      <div
-        key={`band-${group.divisionId ?? "none"}`}
-        ref={(el) => registerSectionRef(divKey, el)}
-      >
-        <BoqDivisionHeader
-          name={group.divisionName ?? "No division"}
-          itemCount={agg.count}
-          divisionTotal={agg.total}
-          currency={currency}
-        />
-        {node}
-      </div>
-    );
+  // Full section order (division-ordered) so a within-division reorder can be
+  // spliced back into the global order the server renumbers from.
+  const allSectionIds = groups
+    .filter((g) => g.section !== null)
+    .map((g) => g.id);
+
+  const reorderWithinBlock = (
+    block: DivisionBlock,
+    activeId: string,
+    overId: string
+  ) => {
+    const ids = block.sections.map((g) => g.id);
+    const oldIndex = ids.indexOf(activeId);
+    const newIndex = ids.indexOf(overId);
+    if (oldIndex < 0 || newIndex < 0) return;
+    const reordered = arrayMove(ids, oldIndex, newIndex);
+    // The block's sections are contiguous in the global order — splice in place.
+    const start = allSectionIds.indexOf(ids[0]);
+    const next = [...allSectionIds];
+    next.splice(start, reordered.length, ...reordered);
+    onReorderSections?.(next);
   };
-
-  // A section is draggable; a loose (section-less) group renders as a plain
-  // wrapper. Both flow through `withBand` so the division header lands once per
-  // division run, over whichever group comes first.
-  const nodeFor = (group: SectionGroup): ReactNode =>
-    canReorder && group.section !== null ? (
-      <SortableSection key={group.id} id={group.id}>
-        {renderBody(group)}
-      </SortableSection>
-    ) : (
-      <div key={group.id}>{renderBody(group)}</div>
-    );
-
-  const body = groups.map((group, i) => withBand(group, i, nodeFor(group)));
 
   return (
     <div className="flex flex-col">
-      {canReorder ? (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={sectionGroups.map((g) => g.id)}
-            strategy={verticalListSortingStrategy}
+      {blocks.map((block) => {
+        const canReorder =
+          sectionsEditable && !!onReorderSections && block.sections.length > 1;
+        return (
+          <div
+            key={`division-${block.key}`}
+            ref={(el) => registerSectionRef(`division:${block.key}`, el)}
           >
-            {body}
-          </SortableContext>
-        </DndContext>
-      ) : (
-        body
-      )}
+            <BoqDivisionHeader
+              name={block.divisionName ?? "No division"}
+              itemCount={block.itemCount}
+              divisionTotal={block.total}
+              currency={currency}
+            />
+            {canReorder ? (
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={(event) => {
+                  const { active, over } = event;
+                  if (!over || active.id === over.id) return;
+                  reorderWithinBlock(block, String(active.id), String(over.id));
+                }}
+              >
+                <SortableContext
+                  items={block.sections.map((g) => g.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {block.sections.map((group) => (
+                    <SortableSection key={group.id} id={group.id}>
+                      {renderBody(group)}
+                    </SortableSection>
+                  ))}
+                </SortableContext>
+              </DndContext>
+            ) : (
+              block.sections.map((group) => (
+                <div key={group.id}>{renderBody(group)}</div>
+              ))
+            )}
+            {block.loose && renderBody(block.loose)}
+          </div>
+        );
+      })}
     </div>
   );
 }

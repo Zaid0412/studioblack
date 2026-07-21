@@ -13,6 +13,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { formatCurrency } from "../_lib/formatters";
 import type { SectionSelectionState } from "@/hooks/useBoqSelection";
 
@@ -67,7 +72,7 @@ export function BoqSectionHeader({
 
   return (
     <div
-      className={`w-full flex items-center gap-2 ${selectionMode ? "pl-3" : "pl-4"} py-3 bg-bg-elevated border-b border-border-default`}
+      className={`w-full flex items-center gap-2 ${selectionMode ? "pl-6" : "pl-8"} py-3 bg-bg-elevated border-b border-border-default`}
     >
       {selectionMode && (
         <div className="w-8 flex items-center justify-center shrink-0">
@@ -102,9 +107,17 @@ export function BoqSectionHeader({
             collapsed ? "-rotate-90" : "rotate-0"
           }`}
         />
-        <span className="text-sm font-semibold text-text-primary flex-1 truncate">
-          {title}
-        </span>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="text-sm font-semibold text-text-primary flex-1 truncate">
+              {title}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <span className="font-semibold">Section</span> — a group of line
+            items within a division
+          </TooltipContent>
+        </Tooltip>
       </button>
       {/* Summary + actions pinned to the right edge of the visible area, so they
           stay reachable while the wide table scrolls horizontally. */}
