@@ -626,6 +626,19 @@ body[data-scroll-locked]:not(:has([data-state="open"][role="dialog"])) {
 .bar-chart .recharts-rectangle {
   transition: opacity 0.2s ease-out;
 }
+/* Donut: a pure-CSS `:hover` fallback so the fade is GUARANTEED to animate —
+   native `:hover` triggers no React/recharts re-render, so the sector node is
+   stable and the transition always runs (a state-driven change can't be relied
+   on if recharts re-mounts the shape). The React `active` opacity still drives
+   legend↔chart coordination underneath; the direct-hover CSS wins over it. The
+   bar's hover is band-level (recharts `onMouseMove`), so it keeps the
+   state-driven opacity above. */
+.donut-chart:hover .recharts-sector {
+  opacity: 0.35;
+}
+.donut-chart .recharts-sector:hover {
+  opacity: 1;
+}
 @media (prefers-reduced-motion: reduce) {
   .donut-chart .recharts-sector,
   .bar-chart .recharts-rectangle {
