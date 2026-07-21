@@ -31,16 +31,20 @@ export interface DrawingRevision {
 
 export type IssueRevisionResult =
   | { revision: DrawingRevision }
-  | { revision: null; reason: "not_found" | "wrong_attachment" };
+  | { revision: null; reason: "not_found" | "no_drawing" };
 
 /**
- * Issue the next revision of a drawing. `rev_number` restarts per drawing
+ * Issue the next revision of the drawing that owns `attachmentId` — the version
+ * being viewed in the review workspace. `rev_number` restarts per drawing
  * (Rev-00 = MAX+1 of none), same idiom as the per-group version counter. Runs
- * in one transaction that also points the drawing at the new revision and flips
- * its status to `issued`. Audit is logged after commit (fire-and-forget).
+ * in one transaction that locks the drawing, snapshots the attachment as the
+ * new revision, points the drawing at it, and flips its status to `issued`.
+ * Audit is logged after commit (fire-and-forget).
+ *
+ * `not_found` — attachment isn't in this project; `no_drawing` — the attachment
+ * is a task/loose file with no drawing to revise.
  */
 export async function issueRevision(params: {
-  drawingId: string;
   attachmentId: string;
   projectId: string;
   orgId: string;
@@ -52,29 +56,33 @@ export async function issueRevision(params: {
   try {
     await client.query("BEGIN");
 
+    const { rows: attRows } = await client.query<{ drawing_id: string | null }>(
+      `SELECT drawing_id FROM attachment WHERE id = $1 AND project_id = $2`,
+      [params.attachmentId, params.projectId]
+    );
+    if (attRows.length === 0) {
+      await client.query("ROLLBACK");
+      return { revision: null, reason: "not_found" };
+    }
+    const drawingId = attRows[0].drawing_id;
+    if (!drawingId) {
+      await client.query("ROLLBACK");
+      return { revision: null, reason: "no_drawing" };
+    }
+
     const { rows: drawingRows } = await client.query(
       `SELECT id FROM drawing WHERE id = $1 AND project_id = $2 FOR UPDATE`,
-      [params.drawingId, params.projectId]
+      [drawingId, params.projectId]
     );
     if (drawingRows.length === 0) {
       await client.query("ROLLBACK");
       return { revision: null, reason: "not_found" };
     }
 
-    // The version being issued must belong to this drawing.
-    const { rows: attRows } = await client.query(
-      `SELECT id FROM attachment WHERE id = $1 AND drawing_id = $2`,
-      [params.attachmentId, params.drawingId]
-    );
-    if (attRows.length === 0) {
-      await client.query("ROLLBACK");
-      return { revision: null, reason: "wrong_attachment" };
-    }
-
     const { rows: nextRows } = await client.query<{ next: number }>(
       `SELECT COALESCE(MAX(rev_number), -1) + 1 AS next
          FROM drawing_revision WHERE drawing_id = $1`,
-      [params.drawingId]
+      [drawingId]
     );
     const revNumber = nextRows[0].next;
 
@@ -86,7 +94,7 @@ export async function issueRevision(params: {
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
       [
-        params.drawingId,
+        drawingId,
         params.orgId,
         revNumber,
         params.attachmentId,
@@ -99,7 +107,7 @@ export async function issueRevision(params: {
       `UPDATE drawing
           SET current_revision_id = $1, status = 'issued', updated_at = now()
         WHERE id = $2`,
-      [revision.id, params.drawingId]
+      [revision.id, drawingId]
     );
 
     await client.query("COMMIT");
@@ -109,7 +117,7 @@ export async function issueRevision(params: {
       actorId: params.userId,
       action: AUDIT_ACTIONS.DRAWING_REVISION_ISSUED,
       targetTable: "drawing",
-      targetId: params.drawingId,
+      targetId: drawingId,
       metadata: {
         rev_number: revNumber,
         attachment_id: params.attachmentId,
@@ -138,6 +146,28 @@ export async function getDrawingRevisions(
       WHERE dr.drawing_id = $1
       ORDER BY dr.rev_number DESC`,
     [drawingId]
+  );
+  return rows;
+}
+
+/**
+ * Revision history for the drawing an attachment belongs to — the review
+ * workspace holds an attachment id, not a drawing id. Empty for loose files
+ * (no drawing) or a drawing that's never been issued.
+ */
+export async function getRevisionsForAttachment(
+  attachmentId: string,
+  projectId: string
+): Promise<DrawingRevision[]> {
+  const pool = getPool();
+  const { rows } = await pool.query<DrawingRevision>(
+    `SELECT dr.*, u.name AS issuer_name
+       FROM attachment a
+       JOIN drawing_revision dr ON dr.drawing_id = a.drawing_id
+       JOIN "user" u ON u.id = dr.issued_by
+      WHERE a.id = $1 AND a.project_id = $2
+      ORDER BY dr.rev_number DESC`,
+    [attachmentId, projectId]
   );
   return rows;
 }

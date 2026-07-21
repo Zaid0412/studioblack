@@ -6,7 +6,7 @@ import {
 } from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
 import { parseRequest, updateAttachmentStatusSchema } from "@/lib/validations";
-import { findAttachmentOrFail } from "../helpers";
+import { findAttachmentOrFail, failIfIssued } from "../helpers";
 
 /** GET /api/projects/[id]/attachments/[attachmentId] — get single attachment with version history. */
 export const GET = withAuth(
@@ -54,6 +54,9 @@ export const DELETE = withAuth(
         { status: 400 }
       );
     }
+
+    const issuedError = await failIfIssued(attachmentId);
+    if (issuedError) return issuedError;
 
     await deleteAttachment(attachmentId, id);
     return NextResponse.json({ success: true });

@@ -524,7 +524,6 @@ export const ISSUE_PURPOSES = [
 export type IssuePurpose = (typeof ISSUE_PURPOSES)[number];
 
 export const issueRevisionSchema = z.object({
-  attachmentId: z.string().uuid(),
   issuePurpose: z.enum(ISSUE_PURPOSES),
 });
 
