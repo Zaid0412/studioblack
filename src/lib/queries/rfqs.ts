@@ -613,7 +613,8 @@ export async function getRfqDetailForVendor(
   const itemRows = itemRes.rows;
 
   // Vendors get a sanitised event list:
-  //  - studio user identities stripped (actorId / actorName)
+  //  - internal actor id stripped (actorId); the studio actor's display
+  //    name is preserved so the vendor sees who issued/awarded the RFQ
   //  - other vendors' identities stripped from RFQ events (vendor_names /
   //    vendor_ids on rfq.issued / rfq.vendors_added)
   //  - quote.* events filtered to ONLY this vendor's own submissions, so
@@ -648,7 +649,7 @@ export async function getRfqDetailForVendor(
             )
           )
         : null;
-      return { ...e, actorId: null, actorName: null, metadata };
+      return { ...e, actorId: null, metadata };
     });
 
   return {
