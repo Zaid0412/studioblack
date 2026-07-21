@@ -204,9 +204,12 @@ export async function updatePinComment(pinId: string, resolved: boolean) {
  */
 export async function updatePinCommentStatus(pinId: string, status: PinStatus) {
   const pool = getPool();
+  // `resolved` is computed in JS and passed as its own param — reusing $1 in
+  // both `status = $1` and a `$1 = 'resolved'` comparison makes Postgres deduce
+  // conflicting types for the parameter ("inconsistent types deduced for $1").
   await pool.query(
-    `UPDATE pin_comment SET status = $1, resolved = ($1 = 'resolved') WHERE id = $2`,
-    [status, pinId]
+    `UPDATE pin_comment SET status = $1, resolved = $2 WHERE id = $3`,
+    [status, status === "resolved", pinId]
   );
   return getPinCommentById(pinId);
 }
