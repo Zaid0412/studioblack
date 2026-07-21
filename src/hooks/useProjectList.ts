@@ -25,8 +25,13 @@ function defaultSearch<T extends ProjectListItem>(item: T, query: string) {
 }
 
 /** "client_name, else client_email, else empty" — the value shown and sorted. */
-function clientLabel(p: ProjectListItem): string {
+export function clientLabel(p: ProjectListItem): string {
   return p.client_name || p.client_email || "";
+}
+
+/** Recency key: last update, falling back to creation. */
+function updatedAtMs(p: ProjectListItem): number {
+  return new Date(p.updated_at || p.created_at).getTime();
 }
 
 /** Ascending comparison for a sortable column; caller negates for descending. */
@@ -45,10 +50,7 @@ function compareProjects(
     case "estimate":
       return Number(a.estimation_inr ?? 0) - Number(b.estimation_inr ?? 0);
     case "updated":
-      return (
-        new Date(a.updated_at || a.created_at).getTime() -
-        new Date(b.updated_at || b.created_at).getTime()
-      );
+      return updatedAtMs(a) - updatedAtMs(b);
     default: // name
       return a.name.localeCompare(b.name);
   }
@@ -128,10 +130,7 @@ export function useProjectList<T extends ProjectListItem>({
         case "name":
           return a.name.localeCompare(b.name);
         case "updated":
-          return (
-            new Date(b.updated_at || b.created_at).getTime() -
-            new Date(a.updated_at || a.created_at).getTime()
-          );
+          return updatedAtMs(b) - updatedAtMs(a);
         default: // newest
           return (
             new Date(b.created_at).getTime() - new Date(a.created_at).getTime()

@@ -72,7 +72,8 @@ import { BoqDivisionHeader } from "./BoqDivisionHeader";
 import { useDivisions } from "@/hooks/useDivisions";
 import { BoqSectionChips, type BoqChipDescriptor } from "./BoqSectionChips";
 import {
-  buildBoqGroups,
+  buildDivisionBlocks,
+  type BoqDivisionBlock,
   type BoqRenderGroup as SectionGroup,
 } from "../_lib/grouping";
 import { BoqEditableCell } from "./BoqEditableCell";
@@ -267,14 +268,14 @@ export function BoqTable({
     visibleItems.map((i) => i.id).join(",")
   );
 
-  const groups = useMemo<SectionGroup[]>(() => {
+  const blocks = useMemo<BoqDivisionBlock[]>(() => {
     const sectionTotal = (sectionId: string): number => {
       const match = summary.section_totals.find(
         (s) => s.section_id === sectionId
       );
       return match ? toNum(match.total_sell_price) : 0;
     };
-    return buildBoqGroups({
+    return buildDivisionBlocks({
       items: visibleItems,
       sections,
       sectionTotal,
@@ -290,30 +291,18 @@ export function BoqTable({
     divisionById,
   ]);
 
-  // Chips navigate by DIVISION (the top grouping level), not per section — one
-  // chip per division, counting all its items and scrolling to its band. Ids
-  // match the `division:<id>` refs registered on each band in `SectionList`.
-  const chips = useMemo<BoqChipDescriptor[]>(() => {
-    const byDivision = new Map<string, { title: string; count: number }>();
-    const order: string[] = [];
-    for (const g of groups) {
-      const id = `division:${g.divisionId ?? "none"}`;
-      const existing = byDivision.get(id);
-      if (existing) existing.count += g.items.length;
-      else {
-        byDivision.set(id, {
-          title: g.divisionName ?? "No division",
-          count: g.items.length,
-        });
-        order.push(id);
-      }
-    }
-    return order.map((id) => ({
-      id,
-      title: byDivision.get(id)!.title,
-      itemCount: byDivision.get(id)!.count,
-    }));
-  }, [groups]);
+  // Chips navigate by DIVISION (the top grouping level) — one chip per block,
+  // scrolling to its band. Ids match the `division:<id>` refs registered on each
+  // band in `SectionList`.
+  const chips = useMemo<BoqChipDescriptor[]>(
+    () =>
+      blocks.map((b) => ({
+        id: `division:${b.divisionId ?? "none"}`,
+        title: b.divisionName ?? "No division",
+        itemCount: b.itemCount,
+      })),
+    [blocks]
+  );
 
   const expandSection = useCallback((sectionId: string) => {
     setCollapsed((prev) =>
@@ -385,7 +374,7 @@ export function BoqTable({
             </div>
 
             <SectionList
-              groups={groups}
+              blocks={blocks}
               sections={sections}
               currency={currency}
               marginFloor={marginFloor}
@@ -436,7 +425,7 @@ export function BoqTable({
 // ── Section list + sortable wrapper ────────────────────────────────────────
 
 interface SectionListProps {
-  groups: SectionGroup[];
+  blocks: BoqDivisionBlock[];
   sections: BoqSection[];
   currency: string;
   marginFloor?: number;
@@ -469,18 +458,8 @@ interface SectionListProps {
   onReorderSections?: BoqTableProps["onReorderSections"];
 }
 
-/** A division's render block: its sections (reorderable) + optional loose group. */
-interface DivisionBlock {
-  key: string;
-  divisionName: string | null;
-  sections: SectionGroup[];
-  loose: SectionGroup | null;
-  itemCount: number;
-  total: number;
-}
-
 function SectionList(props: SectionListProps) {
-  const { groups, onReorderSections, sectionsEditable, currency } = props;
+  const { blocks, onReorderSections, sectionsEditable, currency } = props;
   const { registerSectionRef } = props;
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
@@ -490,40 +469,16 @@ function SectionList(props: SectionListProps) {
     <SectionBody group={group} {...props} />
   );
 
-  // Split the division-ordered groups into division blocks. Each block owns its
-  // sections (reorderable among themselves) plus an optional header-less loose
-  // group rendered last. Sections reorder ONLY within a division, so each block
-  // gets its OWN DndContext — the sortable list stays clean (no interspersed
-  // loose groups) and there's no cross-division drop to guard against.
-  const blocks: DivisionBlock[] = [];
-  for (const g of groups) {
-    const key = g.divisionId ?? "none";
-    let block = blocks[blocks.length - 1];
-    if (!block || block.key !== key) {
-      block = {
-        key,
-        divisionName: g.divisionName,
-        sections: [],
-        loose: null,
-        itemCount: 0,
-        total: 0,
-      };
-      blocks.push(block);
-    }
-    block.itemCount += g.items.length;
-    block.total += g.total;
-    if (g.section === null) block.loose = g;
-    else block.sections.push(g);
-  }
-
+  // Sections reorder ONLY within a division, so each block gets its OWN
+  // DndContext — the sortable list stays clean (no interspersed loose groups)
+  // and there's no cross-division drop to guard against.
+  //
   // Full section order (division-ordered) so a within-division reorder can be
   // spliced back into the global order the server renumbers from.
-  const allSectionIds = groups
-    .filter((g) => g.section !== null)
-    .map((g) => g.id);
+  const allSectionIds = blocks.flatMap((b) => b.sections.map((g) => g.id));
 
   const reorderWithinBlock = (
-    block: DivisionBlock,
+    block: BoqDivisionBlock,
     activeId: string,
     overId: string
   ) => {
@@ -542,12 +497,13 @@ function SectionList(props: SectionListProps) {
   return (
     <div className="flex flex-col">
       {blocks.map((block) => {
+        const divKey = block.divisionId ?? "none";
         const canReorder =
           sectionsEditable && !!onReorderSections && block.sections.length > 1;
         return (
           <div
-            key={`division-${block.key}`}
-            ref={(el) => registerSectionRef(`division:${block.key}`, el)}
+            key={`division-${divKey}`}
+            ref={(el) => registerSectionRef(`division:${divKey}`, el)}
           >
             <BoqDivisionHeader
               name={block.divisionName ?? "No division"}
@@ -645,7 +601,6 @@ function SectionBody({
   role,
   currentUserId,
   boqCreatorId,
-  registerSectionRef,
   onUpdateItem,
   onDeleteItem,
   onApplyRate,
@@ -668,11 +623,6 @@ function SectionBody({
   const dragHandleProps = sortableCtx
     ? { ...sortableCtx.attributes, ...(sortableCtx.listeners ?? {}) }
     : undefined;
-
-  const headerRefCallback = useCallback(
-    (el: HTMLDivElement | null) => registerSectionRef(group.id, el),
-    [registerSectionRef, group.id]
-  );
 
   const rows = group.items.map((item) => (
     <BoqItemRow
@@ -700,19 +650,14 @@ function SectionBody({
   ));
 
   // A division's section-less items: no section header, no collapse — they sit
-  // directly under the division band. The ref is kept so the chip nav can still
-  // scroll to the block.
+  // directly under the division band.
   if (section === null) {
-    return (
-      <div ref={headerRefCallback} className="overflow-hidden">
-        {rows}
-      </div>
-    );
+    return <div className="overflow-hidden">{rows}</div>;
   }
 
   return (
     <div>
-      <div ref={headerRefCallback}>
+      <div>
         <BoqSectionHeader
           title={group.title}
           itemCount={group.items.length}

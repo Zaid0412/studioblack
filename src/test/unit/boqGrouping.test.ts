@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { buildBoqGroups } from "@/app/(dashboard)/projects/[id]/boq/_lib/grouping";
+import { buildDivisionBlocks } from "@/app/(dashboard)/projects/[id]/boq/_lib/grouping";
 import type { BoqItemWithComputed, BoqSection } from "@/types";
 
-// Minimal fixtures — only the fields buildBoqGroups reads.
+// Minimal fixtures — only the fields buildDivisionBlocks reads.
 const item = (
   id: string,
   opts: {
@@ -36,81 +36,78 @@ const divisionRank = (d: string | null) =>
 const divisionName = (d: string | null) => (d ? `Div ${d}` : null);
 const sectionTotal = () => 0;
 
-describe("buildBoqGroups", () => {
-  it("files section-less items under their own division, not one global bucket", () => {
-    const groups = buildBoqGroups({
-      items: [
-        item("i1", { division_id: "A" }),
-        item("i2", { division_id: "B" }),
-      ],
-      sections: [],
-      sectionTotal,
-      divisionName,
-      divisionRank,
-    });
-    expect(groups.map((g) => [g.divisionId, g.section === null])).toEqual([
-      ["A", true],
-      ["B", true],
-    ]);
-    expect(groups[0].items.map((i) => i.id)).toEqual(["i1"]);
-    expect(groups[1].items.map((i) => i.id)).toEqual(["i2"]);
+const build = (
+  items: BoqItemWithComputed[],
+  sections: BoqSection[],
+  totals: () => number = sectionTotal
+) =>
+  buildDivisionBlocks({
+    items,
+    sections,
+    sectionTotal: totals,
+    divisionName,
+    divisionRank,
   });
 
-  it("orders sections before the loose group within a division", () => {
-    const groups = buildBoqGroups({
-      items: [
+describe("buildDivisionBlocks", () => {
+  it("files section-less items under their own division, not one global bucket", () => {
+    const blocks = build(
+      [item("i1", { division_id: "A" }), item("i2", { division_id: "B" })],
+      []
+    );
+    expect(blocks.map((b) => b.divisionId)).toEqual(["A", "B"]);
+    expect(blocks[0].loose?.items.map((i) => i.id)).toEqual(["i1"]);
+    expect(blocks[1].loose?.items.map((i) => i.id)).toEqual(["i2"]);
+    expect(blocks.every((b) => b.sections.length === 0)).toBe(true);
+  });
+
+  it("keeps sections and the loose group together in one division block", () => {
+    const blocks = build(
+      [
         item("loose", { division_id: "A" }),
         item("s1i", { section_id: "s1", division_id: "A" }),
       ],
-      sections: [section("s1", { division_id: "A", sort_order: 0 })],
-      sectionTotal,
-      divisionName,
-      divisionRank,
-    });
-    expect(groups[0].section?.id).toBe("s1");
-    expect(groups[1].section).toBeNull();
-    expect(groups[1].divisionId).toBe("A");
-    expect(groups[1].items.map((i) => i.id)).toEqual(["loose"]);
+      [section("s1", { division_id: "A", sort_order: 0 })]
+    );
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].sections.map((g) => g.id)).toEqual(["s1"]);
+    expect(blocks[0].loose?.items.map((i) => i.id)).toEqual(["loose"]);
+    expect(blocks[0].itemCount).toBe(2);
   });
 
   it("orders divisions by rank, with the null division last", () => {
-    const groups = buildBoqGroups({
-      items: [
+    const blocks = build(
+      [
         item("b", { division_id: "B" }),
         item("a", { division_id: "A" }),
         item("none", { division_id: null }),
       ],
-      sections: [],
-      sectionTotal,
-      divisionName,
-      divisionRank,
-    });
-    expect(groups.map((g) => g.divisionId)).toEqual(["A", "B", null]);
+      []
+    );
+    expect(blocks.map((b) => b.divisionId)).toEqual(["A", "B", null]);
   });
 
-  it("sums a loose group's total from item sell prices", () => {
-    const groups = buildBoqGroups({
-      items: [
+  it("orders a division's sections by sort_order", () => {
+    const blocks = build(
+      [],
+      [
+        section("second", { division_id: "A", sort_order: 1 }),
+        section("first", { division_id: "A", sort_order: 0 }),
+      ]
+    );
+    expect(blocks[0].sections.map((g) => g.id)).toEqual(["first", "second"]);
+  });
+
+  it("rolls up the block total from loose sell prices + section totals", () => {
+    const blocks = build(
+      [
         item("i1", { division_id: "A", sell: 100 }),
         item("i2", { division_id: "A", sell: 50 }),
       ],
-      sections: [],
-      sectionTotal,
-      divisionName,
-      divisionRank,
-    });
-    expect(groups[0].total).toBe(150);
-  });
-
-  it("renders a division that has only sections (no loose items)", () => {
-    const groups = buildBoqGroups({
-      items: [item("s1i", { section_id: "s1", division_id: "A" })],
-      sections: [section("s1", { division_id: "A", sort_order: 0 })],
-      sectionTotal,
-      divisionName,
-      divisionRank,
-    });
-    expect(groups).toHaveLength(1);
-    expect(groups[0].section?.id).toBe("s1");
+      [],
+      () => 0
+    );
+    expect(blocks[0].loose?.total).toBe(150);
+    expect(blocks[0].total).toBe(150);
   });
 });

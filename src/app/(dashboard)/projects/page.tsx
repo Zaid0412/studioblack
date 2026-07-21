@@ -29,7 +29,11 @@ import { toast } from "@/components/ui/useToast";
 import { projects as projectsApi } from "@/lib/api";
 import type { DbProjectRow } from "@/types";
 import { relativeTime } from "@/lib/formatTime";
-import { useProjectList, type FilterTab } from "@/hooks/useProjectList";
+import {
+  useProjectList,
+  clientLabel,
+  type FilterTab,
+} from "@/hooks/useProjectList";
 import { useUserRole } from "@/hooks/useUserRole";
 import { SkeletonRow } from "@/components/ui/Skeleton";
 import { useStaggerReveal } from "@/hooks/useStaggerReveal";
@@ -96,10 +100,9 @@ export default function ProjectsPage() {
     searchFilter: (p, query) => {
       const q = query.toLowerCase();
       const row = p as DbProjectRow;
-      const client = row.client_name || row.client_email || "";
       return (
         p.name.toLowerCase().includes(q) ||
-        client.toLowerCase().includes(q) ||
+        clientLabel(row).toLowerCase().includes(q) ||
         (row.project_number?.toLowerCase().includes(q) ?? false)
       );
     },
