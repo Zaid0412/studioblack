@@ -343,13 +343,17 @@ function RungFields({
   const creating = !pickable || rung.pick === NEW;
   const picked = options.find((o) => o.id === rung.pick);
 
+  // Progressive reveal: a rung stays hidden until the one above it is filled,
+  // so we never render a bare label with no field beneath it.
+  if (!parentReady) return null;
+
   return (
     <div className="flex flex-col gap-1.5">
       <label className="text-[13px] font-medium text-text-secondary">
         {label}
       </label>
 
-      {parentReady && pickable && (
+      {pickable && (
         <SearchableDropdown
           minContentWidth={280}
           maxListHeight={240}
@@ -435,7 +439,7 @@ function RungFields({
         </SearchableDropdown>
       )}
 
-      {parentReady && creating && (
+      {creating && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {/* Both are mandatory — `rungReady` gates Save on a name AND a code
               segment for every rung being created. */}
@@ -451,13 +455,12 @@ function RungFields({
             label={t("categoryCodeSegment")}
             placeholder={t("categoryCodeSegmentPlaceholder")}
             value={rung.segment}
-            onChange={(e) =>
-              onChange({
-                ...rung,
-                segment: normalizeCodeSegment(e.target.value),
-                codeTouched: true,
-              })
-            }
+            onChange={(e) => {
+              const segment = normalizeCodeSegment(e.target.value);
+              // Typing a code stops auto-fill; clearing it back to empty
+              // resumes name-driven auto-fill.
+              onChange({ ...rung, segment, codeTouched: segment !== "" });
+            }}
             maxLength={maxSegmentLength(parentPrefix)}
             required={!autoGenerate}
           />
