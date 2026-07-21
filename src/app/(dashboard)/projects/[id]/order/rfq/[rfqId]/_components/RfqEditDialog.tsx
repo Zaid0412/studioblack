@@ -146,7 +146,7 @@ export function RfqEditDialog({
               value={scopeOfWork}
               onChange={(e) => setScopeOfWork(e.target.value)}
               rows={3}
-              className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 resize-y min-h-[80px]"
+              className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-strong focus:ring-1 focus:ring-accent/30 resize-y min-h-[80px]"
             />
           </div>
 
@@ -158,7 +158,7 @@ export function RfqEditDialog({
               value={termsConditions}
               onChange={(e) => setTermsConditions(e.target.value)}
               rows={3}
-              className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 resize-y min-h-[80px]"
+              className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-strong focus:ring-1 focus:ring-accent/30 resize-y min-h-[80px]"
             />
           </div>
 

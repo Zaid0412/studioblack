@@ -540,7 +540,7 @@ export default function DesignReviewPage({
                       }}
                       className={`cursor-pointer transition-colors flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium ${
                         commentsOpen
-                          ? "bg-[#F5C518]/15 text-[#F5C518]"
+                          ? "bg-accent/15 text-accent-strong"
                           : pinState.pins.length > 0
                             ? "bg-bg-elevated text-text-secondary hover:text-text-primary"
                             : "text-text-secondary hover:text-text-primary"
@@ -566,7 +566,7 @@ export default function DesignReviewPage({
                         }}
                         className={`cursor-pointer transition-colors flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium ${
                           reviewsOpen
-                            ? "bg-[#F5C518]/15 text-[#F5C518]"
+                            ? "bg-accent/15 text-accent-strong"
                             : (review.reviews ?? []).length > 0
                               ? "bg-bg-elevated text-text-secondary hover:text-text-primary"
                               : "text-text-secondary hover:text-text-primary"

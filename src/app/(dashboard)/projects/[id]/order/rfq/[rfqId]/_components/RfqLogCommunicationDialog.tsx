@@ -133,7 +133,7 @@ export function RfqLogCommunicationDialog({
               rows={3}
               maxLength={2000}
               placeholder={t("remarksPlaceholder")}
-              className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 resize-y min-h-[80px]"
+              className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-strong focus:ring-1 focus:ring-accent/30 resize-y min-h-[80px]"
             />
           </div>
         </div>

@@ -276,8 +276,8 @@ export function BoqImportDialog({
               className={cn(
                 "border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer",
                 dragOver
-                  ? "border-accent bg-accent/10"
-                  : "border-border-default hover:border-accent/50"
+                  ? "border-accent-strong bg-accent/10"
+                  : "border-border-default hover:border-accent-strong/50"
               )}
               onClick={() => fileInputRef.current?.click()}
             >
@@ -663,7 +663,7 @@ function StrategyOption({
         selected
           ? destructive
             ? "border-error bg-error/5"
-            : "border-accent bg-accent/10"
+            : "border-accent-strong bg-accent/10"
           : "border-border-default hover:bg-bg-elevated"
       )}
     >

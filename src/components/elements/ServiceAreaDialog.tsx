@@ -365,7 +365,7 @@ function RungFields({
                 onPick?.(NEW);
                 close();
               }}
-              className="flex items-center gap-2 px-3 py-2.5 text-sm text-accent hover:bg-accent/10 border-b border-border-default transition-colors"
+              className="flex items-center gap-2 px-3 py-2.5 text-sm text-accent-strong hover:bg-accent/10 border-b border-border-default transition-colors"
             >
               <Plus className="h-4 w-4" />
               {newLabel}
@@ -374,7 +374,7 @@ function RungFields({
           trigger={
             <button
               type="button"
-              className="flex items-center justify-between w-full rounded-lg border border-border-default bg-bg-input px-4 py-3 text-sm text-text-primary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
+              className="flex items-center justify-between w-full rounded-lg border border-border-default bg-bg-input px-4 py-3 text-sm text-text-primary focus:outline-none focus:border-accent-strong focus:ring-1 focus:ring-accent/30"
             >
               <span className="truncate">
                 {picked ? (
@@ -383,7 +383,7 @@ function RungFields({
                     {picked.code_prefix ? ` (${picked.code_prefix})` : ""}
                   </>
                 ) : (
-                  <span className="text-accent">{newLabel}</span>
+                  <span className="text-accent-strong">{newLabel}</span>
                 )}
               </span>
               <ChevronDown className="h-4 w-4 text-text-muted shrink-0" />
@@ -417,7 +417,7 @@ function RungFields({
                   }}
                   className={cn(
                     "flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-bg-elevated",
-                    selected && "text-accent"
+                    selected && "text-accent-strong"
                   )}
                 >
                   <span className="w-4 shrink-0">

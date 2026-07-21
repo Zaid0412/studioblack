@@ -76,7 +76,7 @@ export function SectionNameAndIconFields({
               key={`custom-${icon}`}
               type="button"
               onClick={() => setBrowserOpen(true)}
-              className="flex items-center justify-center w-9 h-9 rounded-md border-2 border-accent bg-accent/10 text-accent cursor-pointer"
+              className="flex items-center justify-center w-9 h-9 rounded-md border-2 border-accent-strong bg-accent/10 text-accent-strong cursor-pointer"
               aria-pressed
               aria-label={`Current icon: ${icon}`}
               title={icon}
@@ -92,7 +92,7 @@ export function SectionNameAndIconFields({
             onClick={() => setBrowserOpen(true)}
             className={cn(
               "flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-dashed border-border-default bg-transparent px-3 text-[12px] text-text-secondary",
-              "hover:border-accent/60 hover:text-text-primary"
+              "hover:border-accent-strong/60 hover:text-text-primary"
             )}
           >
             <Search className="h-3.5 w-3.5" aria-hidden />

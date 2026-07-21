@@ -91,7 +91,7 @@ export function PmDashboard() {
       {isEmpty && (
         <div className="rounded-xl border border-border-default bg-bg-elevated p-8 flex flex-col items-center gap-4 text-center">
           <div className="w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center">
-            <FolderOpen className="w-7 h-7 text-accent" />
+            <FolderOpen className="w-7 h-7 text-accent-strong" />
           </div>
           <div className="flex flex-col gap-1">
             <h2 className="text-lg font-bold text-text-primary">

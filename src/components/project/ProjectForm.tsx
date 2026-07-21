@@ -121,7 +121,7 @@ export function MemberPicker({
           <PopoverTrigger asChild>
             <button
               type="button"
-              className="flex items-center flex-wrap gap-1.5 w-full min-h-[42px] rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary cursor-pointer hover:border-accent/50 transition-colors"
+              className="flex items-center flex-wrap gap-1.5 w-full min-h-[42px] rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary cursor-pointer hover:border-accent-strong/50 transition-colors"
             >
               {selectedIds.length === 0 ? (
                 <span className="text-text-muted">{placeholder}</span>
@@ -132,7 +132,7 @@ export function MemberPicker({
                   return (
                     <span
                       key={userId}
-                      className="inline-flex items-center gap-1 rounded-md bg-accent/10 text-accent px-2 py-0.5 text-xs font-medium"
+                      className="inline-flex items-center gap-1 rounded-md bg-accent/10 text-accent-strong px-2 py-0.5 text-xs font-medium"
                     >
                       {member.user.name}
                       <X
@@ -180,7 +180,7 @@ export function MemberPicker({
                     </span>
                   </div>
                   {isSelected && (
-                    <Check className="w-4 h-4 text-accent shrink-0" />
+                    <Check className="w-4 h-4 text-accent-strong shrink-0" />
                   )}
                 </button>
               );

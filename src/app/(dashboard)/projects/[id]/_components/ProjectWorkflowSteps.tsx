@@ -170,7 +170,7 @@ export function ProjectWorkflowSteps({
                 >
                   {step.icon ? (
                     <LayoutDashboard
-                      className={`w-4 h-4 ${isActive ? "text-accent" : "text-text-muted"}`}
+                      className={`w-4 h-4 ${isActive ? "text-accent-strong" : "text-text-muted"}`}
                     />
                   ) : (
                     <span
@@ -180,7 +180,7 @@ export function ProjectWorkflowSteps({
                   <span
                     className={`text-base transition-colors ${
                       isActive
-                        ? "font-semibold text-accent"
+                        ? "font-semibold text-accent-strong"
                         : "font-medium text-text-muted"
                     }`}
                   >

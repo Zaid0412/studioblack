@@ -395,7 +395,7 @@ export function VendorDrawer({
                             <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-secondary">
                               <a
                                 href={`mailto:${c.email}`}
-                                className="inline-flex items-center gap-1 hover:text-accent"
+                                className="inline-flex items-center gap-1 hover:text-accent-strong"
                               >
                                 <Mail className="w-3.5 h-3.5" />
                                 {c.email}
@@ -403,7 +403,7 @@ export function VendorDrawer({
                               {c.phone && (
                                 <a
                                   href={`tel:${c.phone}`}
-                                  className="inline-flex items-center gap-1 hover:text-accent"
+                                  className="inline-flex items-center gap-1 hover:text-accent-strong"
                                 >
                                   <Phone className="w-3.5 h-3.5" />
                                   {c.phone}

@@ -104,7 +104,7 @@ export function ReviewPanel({ reviews, onClose }: ReviewPanelProps) {
                       {isRejected ? "Changes Requested" : "Approved"}
                     </span>
                     {rev.annotation_count > 0 && (
-                      <span className="flex items-center gap-1 text-[10px] text-[#F5C518]">
+                      <span className="flex items-center gap-1 text-[10px] text-accent-strong">
                         <Pencil className="w-2.5 h-2.5" />
                         {rev.annotation_count}
                       </span>
@@ -124,7 +124,7 @@ export function ReviewPanel({ reviews, onClose }: ReviewPanelProps) {
                       href={`/api/proxy-file?url=${encodeURIComponent(rev.annotated_file_url)}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-[11px] text-[#F5C518] hover:text-[#F5C518]/80 ml-5.5"
+                      className="inline-flex items-center gap-1 text-[11px] text-accent-strong hover:text-accent-strong/80 ml-5.5"
                     >
                       <ExternalLink className="w-3 h-3" />
                       Annotated PDF

@@ -125,7 +125,7 @@ function DocumentRowInner({
         // still copy from the detail sheet, so this is acceptable.
         "group flex items-center gap-3 md:gap-3.5 px-3 md:px-4 py-3 md:py-3.5 bg-bg-primary border rounded-[10px] transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent select-none touch-manipulation",
         isSelected
-          ? "border-accent/60 bg-accent/[0.06] hover:bg-accent/[0.1]"
+          ? "border-accent-strong/60 bg-accent/[0.06] hover:bg-accent/[0.1]"
           : "border-border-default hover:bg-bg-elevated/50"
       )}
     >

@@ -180,7 +180,7 @@ export function TaskSection({
       <div className="flex justify-center">
         <Link
           href={`/tasks?projectId=${projectId}`}
-          className="flex items-center gap-1.5 text-sm text-text-secondary hover:text-accent transition-colors"
+          className="flex items-center gap-1.5 text-sm text-text-secondary hover:text-accent-strong transition-colors"
         >
           View all tasks in Task Manager
           <ArrowRight className="w-4 h-4" />

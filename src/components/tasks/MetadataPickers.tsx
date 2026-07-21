@@ -139,7 +139,7 @@ export function PickerPanel<T>({
       )}
       {searchKeys && (
         <div className="px-2 py-2 border-b border-border-default">
-          <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-bg-input border border-border-default focus-within:border-accent transition-colors">
+          <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-bg-input border border-border-default focus-within:border-accent-strong transition-colors">
             <Search className="w-3.5 h-3.5 text-text-muted shrink-0" />
             <input
               type="text"
@@ -173,7 +173,7 @@ export function PickerPanel<T>({
                 >
                   <Check
                     className={`w-3.5 h-3.5 shrink-0 ${
-                      selected ? "text-accent" : "text-transparent"
+                      selected ? "text-accent-strong" : "text-transparent"
                     }`}
                   />
                   <div className="flex-1 min-w-0">{renderOption(option)}</div>

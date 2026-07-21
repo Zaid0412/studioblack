@@ -33,7 +33,9 @@ export function FileStatusIndicators({
 }) {
   return (
     <>
-      {att.frozen_at && <Lock className="w-3 h-3 text-accent shrink-0" />}
+      {att.frozen_at && (
+        <Lock className="w-3 h-3 text-accent-strong shrink-0" />
+      )}
       {isNewForClient && (
         <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
       )}

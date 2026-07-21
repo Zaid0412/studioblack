@@ -206,7 +206,7 @@ export function RfqIssueDialog({
                         {v.preferred_vendor && (
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <span className="shrink-0 rounded-md bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent cursor-default">
+                              <span className="shrink-0 rounded-md bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent-strong cursor-default">
                                 {t("preferred")}
                               </span>
                             </TooltipTrigger>

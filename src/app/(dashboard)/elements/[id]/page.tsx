@@ -225,7 +225,7 @@ function FileLink({ url, name }: { url: string; name: string | null }) {
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-1 text-accent hover:underline"
+      className="inline-flex items-center gap-1 text-accent-strong hover:underline"
     >
       {name ?? url}
       <ExternalLink className="h-3 w-3" />

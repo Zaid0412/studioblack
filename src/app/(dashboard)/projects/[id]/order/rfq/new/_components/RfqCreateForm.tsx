@@ -44,7 +44,7 @@ const EMPTY_AVAILABILITY: Record<string, AvailableRate | null> = {};
 const DISABLED_TONE: Record<string, string> = {
   rfq_issued: "bg-info/10 text-info border-info/20",
   quoted: "bg-warning/10 text-warning border-warning/20",
-  po_raised: "bg-accent/10 text-accent border-accent/20",
+  po_raised: "bg-accent/10 text-accent-strong border-accent-strong/20",
   delivered: "bg-success/10 text-success border-success/20",
 };
 const NEUTRAL_TONE = "bg-bg-elevated text-text-muted border-border-default";
@@ -271,7 +271,7 @@ export function RfqCreateForm({ projectId }: Props) {
             onChange={(e) => setScopeOfWork(e.target.value)}
             rows={3}
             placeholder={t("create.scopePlaceholder")}
-            className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-3 text-sm text-text-primary placeholder:text-text-muted transition-colors focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 resize-y min-h-[80px]"
+            className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-3 text-sm text-text-primary placeholder:text-text-muted transition-colors focus:outline-none focus:border-accent-strong focus:ring-1 focus:ring-accent/30 resize-y min-h-[80px]"
           />
         </div>
 
@@ -284,7 +284,7 @@ export function RfqCreateForm({ projectId }: Props) {
             onChange={(e) => setTermsConditions(e.target.value)}
             rows={3}
             placeholder={t("create.termsPlaceholder")}
-            className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-3 text-sm text-text-primary placeholder:text-text-muted transition-colors focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 resize-y min-h-[80px]"
+            className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-3 text-sm text-text-primary placeholder:text-text-muted transition-colors focus:outline-none focus:border-accent-strong focus:ring-1 focus:ring-accent/30 resize-y min-h-[80px]"
           />
         </div>
 

@@ -327,7 +327,7 @@ function Toolbar({
                     onClick={() => onAction(a)}
                     className="flex items-center gap-3 px-3 py-2 text-sm text-text-primary hover:bg-bg-elevated rounded-md text-left cursor-pointer"
                   >
-                    <Icon className="h-4 w-4 text-accent" />
+                    <Icon className="h-4 w-4 text-accent-strong" />
                     {ACTION_LABELS[a]}
                   </button>
                 );

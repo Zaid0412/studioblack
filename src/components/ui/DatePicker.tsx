@@ -75,7 +75,7 @@ function DatePicker({
             disabled={disabled}
             className={cn(
               "flex items-center gap-3 w-full rounded-lg border border-border-default bg-bg-input px-4 py-3 text-sm transition-colors text-left cursor-pointer",
-              "hover:border-border-light focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30",
+              "hover:border-border-light focus:outline-none focus:border-accent-strong focus:ring-1 focus:ring-accent/30",
               selected ? "text-text-primary" : "text-text-muted",
               disabled && "opacity-50 cursor-not-allowed"
             )}

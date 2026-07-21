@@ -474,7 +474,7 @@ export function FileTable({
       <div
         className={`rounded-[10px] bg-bg-secondary border overflow-hidden flex flex-col ${readOnly ? "min-h-[300px]" : "min-h-[400px]"} transition-colors ${
           dragOver && !readOnly
-            ? "border-accent bg-[#F5C518]/5"
+            ? "border-accent-strong bg-accent/5"
             : "border-border-default"
         }`}
         onDragOver={readOnly ? undefined : handleTableDragOver}
@@ -531,7 +531,7 @@ export function FileTable({
                   <div className="w-2 h-0.5 rounded-full bg-text-muted" />
                 ) : null}
               </div>
-              <span className="ml-3 text-[13px] font-semibold text-accent">
+              <span className="ml-3 text-[13px] font-semibold text-accent-strong">
                 {selectedIds.size} selected
               </span>
               <button
@@ -593,8 +593,8 @@ export function FileTable({
         <div ref={listRef} className="flex-1">
           {dragOver && !readOnly ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 py-16">
-              <Upload className="w-8 h-8 text-accent" />
-              <p className="text-sm font-medium text-accent">
+              <Upload className="w-8 h-8 text-accent-strong" />
+              <p className="text-sm font-medium text-accent-strong">
                 Drop files to upload
               </p>
             </div>
@@ -730,7 +730,7 @@ export function FileTable({
       {hasSelection && (
         <div className="fixed bottom-14 inset-x-0 z-40 lg:hidden bg-bg-secondary border-t border-border-default px-4 py-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))]">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-accent shrink-0">
+            <span className="text-xs font-semibold text-accent-strong shrink-0">
               {selectedIds.size} selected
             </span>
             <button

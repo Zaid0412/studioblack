@@ -75,7 +75,7 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(
         <div
           className={cn(
             "w-full rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm transition-colors",
-            "focus-within:outline-none focus-within:border-accent focus-within:ring-1 focus-within:ring-accent/30",
+            "focus-within:outline-none focus-within:border-accent-strong focus-within:ring-1 focus-within:ring-accent/30",
             disabled && "opacity-60 pointer-events-none"
           )}
           onClick={() => innerRef.current?.focus()}
@@ -84,7 +84,7 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(
             {value.map((tag, i) => (
               <span
                 key={`${tag}-${i}`}
-                className="inline-flex items-center gap-1 rounded-md bg-accent/10 px-2 py-0.5 text-[12px] text-accent"
+                className="inline-flex items-center gap-1 rounded-md bg-accent/10 px-2 py-0.5 text-[12px] text-accent-strong"
               >
                 <span className="truncate max-w-[180px]">{tag}</span>
                 <button
@@ -93,7 +93,7 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(
                     e.stopPropagation();
                     removeAt(i);
                   }}
-                  className="text-accent/70 hover:text-error cursor-pointer"
+                  className="text-accent-strong/70 hover:text-error cursor-pointer"
                   aria-label={`Remove ${tag}`}
                   tabIndex={-1}
                 >

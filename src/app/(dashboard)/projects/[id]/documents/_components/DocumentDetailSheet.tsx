@@ -210,7 +210,7 @@ export function DocumentDetailSheet({
                   rows={3}
                   maxLength={2000}
                   disabled={saving}
-                  className="w-full rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary placeholder:text-text-muted resize-none focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
+                  className="w-full rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary placeholder:text-text-muted resize-none focus:outline-none focus:border-accent-strong focus:ring-1 focus:ring-accent/30"
                 />
               ) : doc.description ? (
                 <p className="text-sm text-text-primary whitespace-pre-wrap">

@@ -334,7 +334,7 @@ export function MobileBottomNav() {
                 // open state is conveyed by the icon+label swap, so the
                 // selected primary tab stays the only accented item.
                 "flex flex-col items-center justify-center gap-1 flex-1 h-full transition-colors cursor-pointer",
-                moreActive ? "text-accent" : "text-text-muted"
+                moreActive ? "text-accent-strong" : "text-text-muted"
               )}
             >
               {moreOpen ? (
@@ -372,7 +372,7 @@ export function MobileBottomNav() {
                     className={cn(
                       "flex items-center gap-3 px-3 py-3 rounded-lg transition-colors",
                       isActiveRoute(pathname, tab.href, tab.activeHref)
-                        ? "bg-bg-elevated text-accent"
+                        ? "bg-bg-elevated text-accent-strong"
                         : "text-text-primary hover:bg-bg-elevated/60"
                     )}
                   >
@@ -380,7 +380,7 @@ export function MobileBottomNav() {
                       className={cn(
                         "w-5 h-5",
                         isActiveRoute(pathname, tab.href, tab.activeHref)
-                          ? "text-accent"
+                          ? "text-accent-strong"
                           : "text-text-muted"
                       )}
                     />
@@ -402,7 +402,7 @@ function TabLink({ tab, active }: { tab: Tab; active: boolean }) {
       href={tab.href}
       className={cn(
         "flex flex-col items-center justify-center gap-1 flex-1 h-full transition-colors",
-        active ? "text-accent" : "text-text-muted"
+        active ? "text-accent-strong" : "text-text-muted"
       )}
     >
       <tab.icon className="w-5 h-5" />

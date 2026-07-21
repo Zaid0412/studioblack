@@ -179,7 +179,7 @@ function AwaitingRow({
       )}
       <Link
         href={`/rfqs/${rfq.id}`}
-        className="group inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-accent outline-none ring-1 ring-transparent transition-colors hover:bg-accent/10 focus-visible:ring-2 focus-visible:ring-accent"
+        className="group inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-accent-strong outline-none ring-1 ring-transparent transition-colors hover:bg-accent/10 focus-visible:ring-2 focus-visible:ring-accent"
       >
         {t("dashboard.submitQuote")}
         <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />

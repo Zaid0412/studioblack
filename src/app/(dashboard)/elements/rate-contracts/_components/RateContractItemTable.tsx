@@ -230,7 +230,7 @@ function RateCell({ item, currency, canEdit, onSave }: RateCellProps) {
       onClick={() => setEditing(true)}
       title={t("editRateTooltip")}
       aria-label={tCommon("edit")}
-      className="text-sm text-text-primary lg:text-right font-mono cursor-pointer hover:text-accent transition-colors w-full lg:w-auto"
+      className="text-sm text-text-primary lg:text-right font-mono cursor-pointer hover:text-accent-strong transition-colors w-full lg:w-auto"
     >
       {formatCurrency(Number(item.rate), currency)}
     </button>

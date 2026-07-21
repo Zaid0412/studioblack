@@ -401,7 +401,7 @@ export default function RateContractDetailPage({ params }: Props) {
                     href={f.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-sm text-accent hover:underline"
+                    className="inline-flex items-center gap-1 text-sm text-accent-strong hover:underline"
                   >
                     {f.fileName}
                     <ExternalLink className="w-3 h-3" />

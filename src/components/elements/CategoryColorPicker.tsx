@@ -89,14 +89,14 @@ export function CategoryColorPicker({
               commitHex((e.target as HTMLInputElement).value);
             }
           }}
-          className="h-8 flex-1 rounded-md border border-border-default bg-bg-input px-2 text-[12px] text-text-primary outline-none focus:border-accent"
+          className="h-8 flex-1 rounded-md border border-border-default bg-bg-input px-2 text-[12px] text-text-primary outline-none focus:border-accent-strong"
           aria-label="Hex color"
         />
         {value != null && (
           <button
             type="button"
             onClick={() => onChange(null)}
-            className="h-8 cursor-pointer rounded-md border border-border-default bg-bg-input px-3 text-[12px] text-text-secondary hover:text-text-primary hover:border-accent/60"
+            className="h-8 cursor-pointer rounded-md border border-border-default bg-bg-input px-3 text-[12px] text-text-secondary hover:text-text-primary hover:border-accent-strong/60"
           >
             {tCommon("clear")}
           </button>

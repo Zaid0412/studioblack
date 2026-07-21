@@ -34,7 +34,7 @@ export function AuthCard({
         {/* Top section — icon, title, description */}
         <div className="flex flex-col items-center gap-5 px-8 pt-10 pb-7 bg-gradient-to-b from-accent/40 dark:from-accent/5 to-transparent">
           <div className="w-12 h-12 rounded-[14px] bg-accent/10 flex items-center justify-center">
-            <Icon className="w-6 h-6 text-accent" />
+            <Icon className="w-6 h-6 text-accent-strong" />
           </div>
           <div className="text-center">
             <h1 className="text-[22px] font-bold text-text-primary">{title}</h1>

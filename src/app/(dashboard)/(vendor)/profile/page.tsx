@@ -586,7 +586,7 @@ function NewContactForm({
   };
 
   return (
-    <div className="rounded-lg border border-accent/40 bg-bg-input p-4 flex flex-col gap-3">
+    <div className="rounded-lg border border-accent-strong/40 bg-bg-input p-4 flex flex-col gap-3">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
         <Input
           label={tVendors("contactName")}

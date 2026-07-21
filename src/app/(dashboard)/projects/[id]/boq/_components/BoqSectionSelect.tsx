@@ -61,7 +61,7 @@ export function BoqSectionSelect({
                     close();
                     setCreateOpen(true);
                   }}
-                  className="flex items-center gap-2 px-3 py-2.5 text-sm text-accent hover:bg-accent/10 border-b border-border-default transition-colors w-full text-left"
+                  className="flex items-center gap-2 px-3 py-2.5 text-sm text-accent-strong hover:bg-accent/10 border-b border-border-default transition-colors w-full text-left"
                 >
                   <Plus className="h-4 w-4" />
                   New section
@@ -74,7 +74,7 @@ export function BoqSectionSelect({
             type="button"
             className={cn(
               "flex items-center justify-between w-full rounded-lg border border-border-default bg-bg-input px-3 py-2.5 text-sm text-text-primary",
-              "focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
+              "focus:outline-none focus:border-accent-strong focus:ring-1 focus:ring-accent/30"
             )}
           >
             <span className="truncate">{selectedLabel}</span>
@@ -100,7 +100,7 @@ export function BoqSectionSelect({
                   }}
                   className={cn(
                     "flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-bg-elevated",
-                    value === BOQ_NO_SECTION_ID && "text-accent"
+                    value === BOQ_NO_SECTION_ID && "text-accent-strong"
                   )}
                 >
                   <span className="w-4 shrink-0">
@@ -128,7 +128,7 @@ export function BoqSectionSelect({
                       }}
                       className={cn(
                         "flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-bg-elevated",
-                        selected && "text-accent"
+                        selected && "text-accent-strong"
                       )}
                     >
                       <span className="w-4 shrink-0">

@@ -53,7 +53,7 @@ export function NavItem({
         "flex items-center rounded-lg text-sm font-medium w-full overflow-hidden transition-all duration-200 py-2.5",
         isCollapsed ? "justify-center gap-0 px-3" : "gap-3 px-4",
         isActive
-          ? "bg-bg-elevated text-accent font-semibold"
+          ? "bg-bg-elevated text-accent-strong font-semibold"
           : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated/50"
       )}
     >

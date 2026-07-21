@@ -113,7 +113,7 @@ export function PinCard({
             ? "bg-amber-500/10 border-amber-500/30"
             : "bg-amber-500/5 border-amber-500/20 hover:border-amber-500/30"
           : isSelected
-            ? "bg-accent/5 border-accent/20"
+            ? "bg-accent/5 border-accent-strong/20"
             : "bg-bg-secondary border-border-default hover:border-border-light hover:bg-bg-elevated"
       } ${isTemp ? "opacity-60" : ""}`}
       role="button"
@@ -191,7 +191,7 @@ export function PinCard({
         ) : (
           <span
             className={`w-5 h-5 flex items-center justify-center shrink-0 ${
-              isSelected ? "text-accent" : "text-text-secondary"
+              isSelected ? "text-accent-strong" : "text-text-secondary"
             }`}
           >
             <MessageCircle className="w-3.5 h-3.5" />
@@ -216,12 +216,12 @@ export function PinCard({
               }
             }}
             rows={3}
-            className="w-full resize-none bg-bg-elevated border border-border-default rounded-md px-2.5 py-2 text-[13px] text-text-primary outline-none focus:border-accent/30"
+            className="w-full resize-none bg-bg-elevated border border-border-default rounded-md px-2.5 py-2 text-[13px] text-text-primary outline-none focus:border-accent-strong/30"
           />
           <div className="flex items-center gap-2 mt-1.5">
             <button
               onClick={handleEditSave}
-              className="text-[11px] text-accent hover:underline cursor-pointer"
+              className="text-[11px] text-accent-strong hover:underline cursor-pointer"
             >
               Save
             </button>
@@ -268,7 +268,7 @@ export function PinCard({
               aria-label={repliesOpen ? "Hide replies" : "Show replies"}
               className={`flex items-center gap-1.5 text-[11px] cursor-pointer transition-colors ${
                 repliesOpen
-                  ? "text-accent"
+                  ? "text-accent-strong"
                   : "text-text-secondary hover:text-text-primary"
               }`}
             >
@@ -311,7 +311,7 @@ export function PinCard({
                 {replies.map((reply) => (
                   <div key={reply.id} className="flex gap-2.5">
                     <div className="w-5 h-5 rounded-full bg-accent/20 flex items-center justify-center shrink-0 mt-0.5">
-                      <span className="text-[9px] text-accent font-bold">
+                      <span className="text-[9px] text-accent-strong font-bold">
                         {reply.user_name?.charAt(0)?.toUpperCase()}
                       </span>
                     </div>
@@ -356,12 +356,12 @@ export function PinCard({
                   }
                 }}
                 placeholder="Reply…"
-                className="flex-1 bg-bg-elevated border border-border-default/20 rounded-md px-2.5 py-1.5 text-[12px] text-text-primary placeholder:text-text-secondary outline-none focus:border-accent/30"
+                className="flex-1 bg-bg-elevated border border-border-default/20 rounded-md px-2.5 py-1.5 text-[12px] text-text-primary placeholder:text-text-secondary outline-none focus:border-accent-strong/30"
               />
               <button
                 onClick={handleSubmitReply}
                 disabled={!replyText.trim() || replySubmitting}
-                className="text-text-secondary hover:text-accent disabled:opacity-30 transition-colors cursor-pointer p-1"
+                className="text-text-secondary hover:text-accent-strong disabled:opacity-30 transition-colors cursor-pointer p-1"
               >
                 {replySubmitting ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />

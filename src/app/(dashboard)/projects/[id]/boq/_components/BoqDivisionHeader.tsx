@@ -46,7 +46,7 @@ export function BoqDivisionHeader({
         <Tooltip>
           <TooltipTrigger asChild>
             <span className="flex items-center gap-2">
-              <Layers className="h-4 w-4 shrink-0 text-accent" />
+              <Layers className="h-4 w-4 shrink-0 text-accent-strong" />
               <span className="text-xs font-bold uppercase tracking-wide text-text-primary whitespace-nowrap">
                 {name}
               </span>

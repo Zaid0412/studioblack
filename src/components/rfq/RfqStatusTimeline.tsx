@@ -82,7 +82,7 @@ function EventRow({
   return (
     <li className="relative pl-10">
       <span className="absolute left-0 top-0.5 w-7 h-7 rounded-full bg-bg-elevated ring-2 ring-bg-secondary flex items-center justify-center text-text-muted z-10">
-        <Icon className="w-3.5 h-3.5 text-accent" />
+        <Icon className="w-3.5 h-3.5 text-accent-strong" />
       </span>
       <div className="flex items-baseline gap-1.5 flex-wrap text-sm text-text-secondary leading-6">
         <span className="font-medium text-text-primary">{actor}</span>

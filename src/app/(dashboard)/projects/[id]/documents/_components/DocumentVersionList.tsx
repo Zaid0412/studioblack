@@ -275,7 +275,7 @@ export function DocumentVersionList({
                       revertOf !== null
                         ? "bg-info/10 border-info/40 text-info"
                         : isLatest
-                          ? "bg-accent/10 border-accent/40 text-accent"
+                          ? "bg-accent/10 border-accent-strong/40 text-accent-strong"
                           : "bg-bg-elevated border-border-default text-text-muted"
                     )}
                   >
@@ -304,9 +304,9 @@ export function DocumentVersionList({
                       className={cn(
                         "inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border transition-all duration-500 ease-out",
                         isHighlighted
-                          ? "bg-accent/25 border-accent text-accent ring-2 ring-accent/40"
+                          ? "bg-accent/25 border-accent-strong text-accent-strong ring-2 ring-accent/40"
                           : isLatest
-                            ? "bg-accent/10 border-accent/40 text-accent"
+                            ? "bg-accent/10 border-accent-strong/40 text-accent-strong"
                             : "bg-bg-elevated border-border-default text-text-muted"
                       )}
                     >
@@ -322,7 +322,7 @@ export function DocumentVersionList({
                     className={cn(
                       "mt-2.5 flex items-center justify-between gap-2 rounded-lg border bg-bg-primary px-3 py-2.5 ring-1 ring-transparent transition-all duration-500 ease-out",
                       isHighlighted
-                        ? "border-accent/50 bg-accent/15 ring-accent/40"
+                        ? "border-accent-strong/50 bg-accent/15 ring-accent/40"
                         : "border-border-default"
                     )}
                   >
