@@ -86,6 +86,7 @@ export function DonutChart({
                 key={i}
                 fill={s.color}
                 fillOpacity={active === null || active === i ? 1 : 0.35}
+                className="[transition:fill-opacity_200ms_ease-out] motion-reduce:transition-none"
               />
             ))}
           </Pie>
