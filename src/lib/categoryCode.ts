@@ -125,6 +125,32 @@ export function suggestCodeSegment(name: string, maxLen: number): string {
 }
 
 /**
+ * The code segment a new category/service-area field should auto-fill to from
+ * its name, or `null` when it should be left as-is (auto-generate off, an
+ * existing node is picked, the user edited the code, or it already matches).
+ *
+ * Re-derives from the FULL name every call — the auto-fill must not lock the
+ * code to the first character typed (which happens if you only fill an empty
+ * segment: the first keystroke fills it, and every later keystroke then sees a
+ * non-empty segment and bails).
+ */
+export function nextAutoSegment(
+  field: {
+    name: string;
+    segment: string;
+    isNew: boolean;
+    codeTouched: boolean;
+  },
+  config: { auto_generate: boolean; code_max_length: number }
+): string | null {
+  if (!config.auto_generate || !field.isNew || field.codeTouched) return null;
+  const segment = field.name.trim()
+    ? suggestCodeSegment(field.name, config.code_max_length)
+    : "";
+  return field.segment === segment ? null : segment;
+}
+
+/**
  * Apply the org's `force_uppercase` option to a raw segment. Kept separate from
  * `normalizeCodeSegment` (which always uppercases and is relied on app-wide,
  * including element-code composition) so the lowercase-allowed path doesn't

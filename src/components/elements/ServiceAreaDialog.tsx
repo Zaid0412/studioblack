@@ -20,8 +20,8 @@ import { API } from "@/lib/api/routes";
 import {
   composeCategoryCode,
   maxSegmentLength,
+  nextAutoSegment,
   normalizeCodeSegment,
-  suggestCodeSegment,
 } from "@/lib/categoryCode";
 import { useCodeConfig } from "@/hooks/useCodeConfig";
 import { cn } from "@/lib/utils";
@@ -67,13 +67,21 @@ interface Rung {
   pick: string;
   name: string;
   segment: string;
+  /** True once the user edits the code segment — stops name-driven auto-fill. */
+  codeTouched: boolean;
 }
 
-const EMPTY_RUNG: Rung = { pick: NEW, name: "", segment: "" };
+const EMPTY_RUNG: Rung = {
+  pick: NEW,
+  name: "",
+  segment: "",
+  codeTouched: false,
+};
 
 /**
  * Fill a new rung's code segment from its name when the org auto-generates and
- * the user hasn't set one. Only fills an empty segment, so manual edits stick.
+ * the user hasn't edited the code — re-deriving from the full name on every
+ * keystroke (see `nextAutoSegment`).
  */
 function useAutoFillRung(
   rung: Rung,
@@ -81,14 +89,24 @@ function useAutoFillRung(
   config: CategoryCodeConfig
 ) {
   useEffect(() => {
-    if (!config.auto_generate) return;
-    if (rung.pick !== NEW || !rung.name.trim() || rung.segment) return;
-    setRung((r) => ({
-      ...r,
-      segment: suggestCodeSegment(r.name, config.code_max_length),
-    }));
+    const segment = nextAutoSegment(
+      {
+        name: rung.name,
+        segment: rung.segment,
+        isNew: rung.pick === NEW,
+        codeTouched: rung.codeTouched,
+      },
+      config
+    );
+    if (segment !== null) setRung((r) => ({ ...r, segment }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rung.name, rung.pick, config.auto_generate, config.code_max_length]);
+  }, [
+    rung.name,
+    rung.pick,
+    rung.codeTouched,
+    config.auto_generate,
+    config.code_max_length,
+  ]);
 }
 
 /**
@@ -437,6 +455,7 @@ function RungFields({
               onChange({
                 ...rung,
                 segment: normalizeCodeSegment(e.target.value),
+                codeTouched: true,
               })
             }
             maxLength={maxSegmentLength(parentPrefix)}
