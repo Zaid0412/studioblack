@@ -1813,7 +1813,7 @@
     "statusCaption_cancelled": "İptal edildi — mevcut BOQ anlık görüntüleri korunur, ancak yeni kalem fiyatlandıramaz."
   },
   "vendorPortal": {
-    "title": "Tedarikçi Paneli",
+    "title": "Kontrol Paneli",
     "subtitle": "Portalınıza hoş geldiniz — teklif talepleri, siparişler ve ilerleme raporları tek yerde.",
     "openRfqs": "Açık Teklif Talepleri",
     "dashboard": {

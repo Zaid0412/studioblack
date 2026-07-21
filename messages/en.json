@@ -1813,7 +1813,7 @@
     "statusCaption_cancelled": "Cancelled — existing BOQ snapshots are kept, but it can't price new items."
   },
   "vendorPortal": {
-    "title": "Vendor Dashboard",
+    "title": "Dashboard",
     "subtitle": "Welcome to your portal — RFQs, purchase orders, and progress reports in one place.",
     "openRfqs": "Open RFQs",
     "dashboard": {

@@ -562,8 +562,8 @@ function SectionList(props: SectionListProps) {
                     {/* Only label the loose items when sections are also present
                         in this division — else the band alone is unambiguous. */}
                     {block.sections.length > 0 && (
-                      <div className="flex items-center py-2 pl-8 text-[11px] font-medium uppercase tracking-wide text-text-muted border-b border-border-default">
-                        Not in a section
+                      <div className="flex items-center border-t border-border-default py-2 pl-8 text-xs font-medium text-text-muted">
+                        Other items
                       </div>
                     )}
                     {renderBody(block.loose)}
