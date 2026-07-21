@@ -7,7 +7,9 @@ import {
   AlertTriangle,
   BadgeCheck,
   FileText,
+  Folder,
   History,
+  Layers,
   Trash2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -640,11 +642,24 @@ export function BoqItemDrawer({
       <Sheet open={open} onOpenChange={handleSheetOpenChange}>
         <SheetContent>
           <SheetHeader>
-            <div className="flex items-center gap-2 text-xs font-mono text-text-muted">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-mono text-text-muted">
               {formatBoqLineRef(item.division_code, item.line_number)}
               {item.item_code && <span>· {item.item_code}</span>}
-              {item.division_name && <span>· {item.division_name}</span>}
-              {section && <span>· {section.title}</span>}
+              {item.division_name && (
+                <span className="inline-flex items-center gap-1">
+                  <Layers
+                    className="h-3 w-3 shrink-0 text-accent"
+                    aria-hidden
+                  />
+                  {item.division_name}
+                </span>
+              )}
+              {section && (
+                <span className="inline-flex items-center gap-1">
+                  <Folder className="h-3 w-3 shrink-0" aria-hidden />
+                  {section.title}
+                </span>
+              )}
             </div>
             <SheetTitle>{item.description}</SheetTitle>
             <SheetDescription>

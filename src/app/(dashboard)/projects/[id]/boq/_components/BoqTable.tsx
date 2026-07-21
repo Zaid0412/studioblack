@@ -460,7 +460,7 @@ interface SectionListProps {
 
 function SectionList(props: SectionListProps) {
   const { blocks, onReorderSections, sectionsEditable, currency } = props;
-  const { registerSectionRef } = props;
+  const { registerSectionRef, collapsed, setCollapsed } = props;
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
   );
@@ -498,46 +498,79 @@ function SectionList(props: SectionListProps) {
     <div className="flex flex-col">
       {blocks.map((block) => {
         const divKey = block.divisionId ?? "none";
+        const collapseKey = `division:${divKey}`;
+        const divCollapsed = collapsed[collapseKey] ?? false;
         const canReorder =
           sectionsEditable && !!onReorderSections && block.sections.length > 1;
         return (
           <div
             key={`division-${divKey}`}
-            ref={(el) => registerSectionRef(`division:${divKey}`, el)}
+            ref={(el) => registerSectionRef(collapseKey, el)}
           >
             <BoqDivisionHeader
               name={block.divisionName ?? "No division"}
               itemCount={block.itemCount}
               divisionTotal={block.total}
               currency={currency}
+              collapsed={divCollapsed}
+              onToggle={() =>
+                setCollapsed((prev) => ({
+                  ...prev,
+                  [collapseKey]: !divCollapsed,
+                }))
+              }
             />
-            {canReorder ? (
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={(event) => {
-                  const { active, over } = event;
-                  if (!over || active.id === over.id) return;
-                  reorderWithinBlock(block, String(active.id), String(over.id));
-                }}
-              >
-                <SortableContext
-                  items={block.sections.map((g) => g.id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  {block.sections.map((group) => (
-                    <SortableSection key={group.id} id={group.id}>
-                      {renderBody(group)}
-                    </SortableSection>
-                  ))}
-                </SortableContext>
-              </DndContext>
-            ) : (
-              block.sections.map((group) => (
-                <div key={group.id}>{renderBody(group)}</div>
-              ))
-            )}
-            {block.loose && renderBody(block.loose)}
+            <div
+              className={`grid transition-[grid-template-rows] duration-300 ease-out ${
+                divCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"
+              }`}
+              aria-hidden={divCollapsed}
+            >
+              <div className="overflow-hidden">
+                {canReorder ? (
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={(event) => {
+                      const { active, over } = event;
+                      if (!over || active.id === over.id) return;
+                      reorderWithinBlock(
+                        block,
+                        String(active.id),
+                        String(over.id)
+                      );
+                    }}
+                  >
+                    <SortableContext
+                      items={block.sections.map((g) => g.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      {block.sections.map((group) => (
+                        <SortableSection key={group.id} id={group.id}>
+                          {renderBody(group)}
+                        </SortableSection>
+                      ))}
+                    </SortableContext>
+                  </DndContext>
+                ) : (
+                  block.sections.map((group) => (
+                    <div key={group.id}>{renderBody(group)}</div>
+                  ))
+                )}
+                {block.loose && (
+                  <>
+                    {/* Only label the loose items when sections are also present
+                        in this division — else the band alone is unambiguous. */}
+                    {block.sections.length > 0 && (
+                      <div className="flex items-center py-2 pl-8 text-[11px] font-medium uppercase tracking-wide text-text-muted border-b border-border-default">
+                        Not in a section
+                      </div>
+                    )}
+                    {renderBody(block.loose)}
+                  </>
+                )}
+              </div>
+            </div>
           </div>
         );
       })}
