@@ -13,11 +13,6 @@ import {
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-} from "@/components/ui/tooltip";
 import { useDesignReview } from "@/hooks/useDesignReview";
 import { usePinComments } from "@/hooks/usePinComments";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -29,6 +24,10 @@ import { PinOverlay } from "@/components/review/PinOverlay";
 import { ShapeDrawingLayer } from "@/components/review/ShapeDrawingLayer";
 import { AnnotationRail } from "@/components/review/AnnotationRail";
 import { PinSidebar } from "@/components/review/PinSidebar";
+import {
+  ReviewPanelTabs,
+  type ReviewPanelKey,
+} from "@/components/review/ReviewPanelTabs";
 import { ReviewPanel } from "@/components/review/ReviewPanel";
 import { RevisionPanel, revLabel } from "@/components/review/RevisionPanel";
 import { IssueRevisionDialog } from "@/components/review/IssueRevisionDialog";
@@ -201,6 +200,29 @@ export default function DesignReviewPage({
   );
   const [uploadOpen, setUploadOpen] = useState(false);
   const [requestChangesMode, setRequestChangesMode] = useState(false);
+
+  // The three side panels are mutually exclusive — derive the active one and
+  // toggle through a single handler (click the active tab again to close it).
+  const activePanel: ReviewPanelKey | null = commentsOpen
+    ? "comments"
+    : reviewsOpen
+      ? "reviews"
+      : revisionsOpen
+        ? "revisions"
+        : null;
+  const togglePanel = useCallback(
+    (key: ReviewPanelKey) => {
+      const next = activePanel === key ? null : key;
+      setCommentsOpen(next === "comments");
+      setReviewsOpen(next === "reviews");
+      setRevisionsOpen(next === "revisions");
+      if (next !== "comments") {
+        setPendingPin(null);
+        setRequestChangesMode(false);
+      }
+    },
+    [activePanel]
+  );
 
   // Reset transient UI state when switching files
   useEffect(() => {
@@ -584,96 +606,38 @@ export default function DesignReviewPage({
               ) : undefined
             }
             rightSlot={
-              <>
-                {/* Comments sidebar toggle */}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => {
-                        const next = !commentsOpen;
-                        setCommentsOpen(next);
-                        if (next) {
-                          setReviewsOpen(false);
-                          setRevisionsOpen(false);
-                        }
-                      }}
-                      className={`cursor-pointer transition-colors flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium ${
-                        commentsOpen
-                          ? "bg-[#F5C518]/15 text-[#F5C518]"
-                          : pinState.pins.length > 0
-                            ? "bg-bg-elevated text-text-secondary hover:text-text-primary"
-                            : "text-text-secondary hover:text-text-primary"
-                      }`}
-                    >
-                      <MessageCircle className="w-3.5 h-3.5" />
-                      {pinState.unresolvedCount > 0 && (
-                        <span>{pinState.unresolvedCount}</span>
-                      )}
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>Pin comments</TooltipContent>
-                </Tooltip>
-                {/* PM: Reviews toggle */}
-                {!isClient && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        onClick={() => {
-                          const next = !reviewsOpen;
-                          setReviewsOpen(next);
-                          if (next) {
-                            setCommentsOpen(false);
-                            setRevisionsOpen(false);
-                          }
-                        }}
-                        className={`cursor-pointer transition-colors flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium ${
-                          reviewsOpen
-                            ? "bg-[#F5C518]/15 text-[#F5C518]"
-                            : (review.reviews ?? []).length > 0
-                              ? "bg-bg-elevated text-text-secondary hover:text-text-primary"
-                              : "text-text-secondary hover:text-text-primary"
-                        }`}
-                      >
-                        <ClipboardCheck className="w-3.5 h-3.5" />
-                        {(review.reviews ?? []).length > 0 && (
-                          <span>{(review.reviews ?? []).length}</span>
-                        )}
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent>Reviews</TooltipContent>
-                  </Tooltip>
-                )}
-                {/* PM: Revisions toggle (Document Control) */}
-                {!isClient && docControl && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        onClick={() => {
-                          const next = !revisionsOpen;
-                          setRevisionsOpen(next);
-                          if (next) {
-                            setCommentsOpen(false);
-                            setReviewsOpen(false);
-                          }
-                        }}
-                        className={`cursor-pointer transition-colors flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium ${
-                          revisionsOpen
-                            ? "bg-[#F5C518]/15 text-[#F5C518]"
-                            : revisions.length > 0
-                              ? "bg-bg-elevated text-text-secondary hover:text-text-primary"
-                              : "text-text-secondary hover:text-text-primary"
-                        }`}
-                      >
-                        <History className="w-3.5 h-3.5" />
-                        {revisions.length > 0 && (
-                          <span>{revisions.length}</span>
-                        )}
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent>Revisions</TooltipContent>
-                  </Tooltip>
-                )}
-              </>
+              <ReviewPanelTabs
+                active={activePanel}
+                onSelect={togglePanel}
+                tabs={[
+                  {
+                    key: "comments",
+                    label: "Comments",
+                    Icon: MessageCircle,
+                    count: pinState.unresolvedCount,
+                  },
+                  ...(!isClient
+                    ? [
+                        {
+                          key: "reviews" as const,
+                          label: "Reviews",
+                          Icon: ClipboardCheck,
+                          count: (review.reviews ?? []).length,
+                        },
+                      ]
+                    : []),
+                  ...(!isClient && docControl
+                    ? [
+                        {
+                          key: "revisions" as const,
+                          label: "Revisions",
+                          Icon: History,
+                          count: revisions.length,
+                        },
+                      ]
+                    : []),
+                ]}
+              />
             }
           />
 
@@ -839,7 +803,10 @@ export default function DesignReviewPage({
         <IssueRevisionDialog
           open={issueOpen}
           onOpenChange={setIssueOpen}
+          fileName={attachment.file_name}
           nextRevLabel={nextRevLabel}
+          isFirstIssue={revisions.length === 0}
+          currentRevLabel={currentRevLabel}
           submitting={issuing}
           onIssue={handleIssueRevision}
         />

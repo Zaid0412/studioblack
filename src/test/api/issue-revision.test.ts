@@ -31,7 +31,7 @@ const sampleRevision = {
   id: "rev-1",
   drawing_id: "draw-1",
   org_id: "org-1",
-  rev_number: 0,
+  rev_number: 1,
   attachment_id: ATTACHMENT_ID,
   issue_purpose: "for_review",
   issued_by: TEST_USER_ID,

@@ -8,10 +8,12 @@ import {
   Download,
   ExternalLink,
   Ellipsis,
+  History,
   Printer,
   Lock,
   Maximize,
   Send,
+  Stamp,
   Unlock,
   Upload,
 } from "lucide-react";
@@ -100,6 +102,13 @@ export function ReviewToolbar({
         <span className="text-text-primary text-[13px] font-medium truncate">
           {fileName}
         </span>
+        {/* Current revision — file metadata, shown by the name (not the action row) */}
+        {currentRevLabel && (
+          <span className="shrink-0 flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-bg-elevated border border-border-default text-[11px] font-semibold text-text-secondary">
+            <History className="w-3 h-3 text-accent" />
+            {currentRevLabel}
+          </span>
+        )}
         {leftSlot}
       </div>
 
@@ -172,20 +181,13 @@ export function ReviewToolbar({
           </Tooltip>
         )}
         {onIssueRevision && (
-          <div className="flex items-center gap-1.5">
-            {currentRevLabel && (
-              <span className="text-[11px] font-semibold text-accent bg-accent/15 px-1.5 py-0.5 rounded">
-                {currentRevLabel}
-              </span>
-            )}
-            <button
-              onClick={onIssueRevision}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-accent text-accent text-[12px] font-semibold cursor-pointer hover:bg-accent/10 transition-colors"
-            >
-              <Upload className="w-3.5 h-3.5" />
-              Issue Revision
-            </button>
-          </div>
+          <button
+            onClick={onIssueRevision}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-accent text-accent text-[12px] font-semibold cursor-pointer hover:bg-accent/10 transition-colors"
+          >
+            <Stamp className="w-3.5 h-3.5" />
+            Issue Revision
+          </button>
         )}
         {onSendToClient && (
           <button

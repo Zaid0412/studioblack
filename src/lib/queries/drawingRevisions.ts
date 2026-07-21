@@ -23,7 +23,7 @@ export type IssueRevisionResult =
 /**
  * Issue the next revision of the drawing that owns `attachmentId` — the version
  * being viewed in the review workspace. `rev_number` restarts per drawing
- * (Rev-00 = MAX+1 of none), same idiom as the per-group version counter. Runs
+ * (Rev-01 = the first issue), 1-based to match how the register reads. Runs
  * in one transaction that locks the drawing, snapshots the attachment as the
  * new revision, points the drawing at it, and flips its status to `issued`.
  * Audit is logged after commit (fire-and-forget).
@@ -67,7 +67,7 @@ export async function issueRevision(params: {
     }
 
     const { rows: nextRows } = await client.query<{ next: number }>(
-      `SELECT COALESCE(MAX(rev_number), -1) + 1 AS next
+      `SELECT COALESCE(MAX(rev_number), 0) + 1 AS next
          FROM drawing_revision WHERE drawing_id = $1`,
       [drawingId]
     );
