@@ -53,7 +53,6 @@ import { UnitSelect } from "@/components/ui/UnitSelect";
 import { isExternalViewer } from "@/lib/roles";
 import { formatBoqLineRef } from "@/lib/boq/lineRef";
 import {
-  BOQ_NO_SECTION_ID,
   formatCurrency,
   formatDimensions,
   formatLibraryName,
@@ -73,6 +72,10 @@ import { BoqSectionHeader } from "./BoqSectionHeader";
 import { BoqDivisionHeader } from "./BoqDivisionHeader";
 import { useDivisions } from "@/hooks/useDivisions";
 import { BoqSectionChips, type BoqChipDescriptor } from "./BoqSectionChips";
+import {
+  buildBoqGroups,
+  type BoqRenderGroup as SectionGroup,
+} from "../_lib/grouping";
 import { BoqEditableCell } from "./BoqEditableCell";
 import { BoqSourceBadge } from "./BoqSourceBadge";
 import { CurrentBadge } from "./BoqMoveTargetPopover";
@@ -146,18 +149,6 @@ export interface SelectionApi {
   toggleAll: () => void;
   toggleSection: (sectionId: string | null) => void;
   sectionState: (sectionId: string | null) => SectionSelectionState;
-}
-
-interface SectionGroup {
-  id: string;
-  title: string;
-  section: BoqSection | null;
-  visibleToClient?: boolean;
-  items: BoqItemWithComputed[];
-  total: number;
-  /** The section's division (null = unassigned / no division). Drives the banding. */
-  divisionId: string | null;
-  divisionName: string | null;
 }
 
 // The Source column is narrow on purpose — it carries a single short badge.
@@ -278,60 +269,20 @@ export function BoqTable({
   );
 
   const groups = useMemo<SectionGroup[]>(() => {
-    const bySection = new Map<string, BoqItemWithComputed[]>();
-    const unassigned: BoqItemWithComputed[] = [];
-    for (const item of visibleItems) {
-      if (item.section_id === null) {
-        unassigned.push(item);
-        continue;
-      }
-      const bucket = bySection.get(item.section_id);
-      if (bucket) bucket.push(item);
-      else bySection.set(item.section_id, [item]);
-    }
-
-    const sectionTotalFromSummary = (sectionId: string | null): number => {
+    const sectionTotal = (sectionId: string): number => {
       const match = summary.section_totals.find(
         (s) => s.section_id === sectionId
       );
       return match ? toNum(match.total_sell_price) : 0;
     };
-
-    const result: SectionGroup[] = [];
-    if (unassigned.length > 0) {
-      result.push({
-        id: BOQ_NO_SECTION_ID,
-        title: "(Unassigned)",
-        section: null,
-        items: unassigned,
-        total: sectionTotalFromSummary(null),
-        divisionId: null,
-        divisionName: null,
-      });
-    }
-    // Sections ordered by their division (matching the server's continuous
-    // line-number order: division rank, then the section's own sort_order),
-    // so the run-length division bands rendered below line up with the numbers.
-    const orderedSections = [...sections].sort(
-      (a, b) =>
-        divisionRank(a.division_id) - divisionRank(b.division_id) ||
-        a.sort_order - b.sort_order
-    );
-    for (const section of orderedSections) {
-      result.push({
-        id: section.id,
-        title: section.title,
-        section,
-        visibleToClient: section.is_visible_to_client,
-        items: bySection.get(section.id) ?? [],
-        total: sectionTotalFromSummary(section.id),
-        divisionId: section.division_id,
-        divisionName: section.division_id
-          ? (divisionById.get(section.division_id)?.name ?? null)
-          : null,
-      });
-    }
-    return result;
+    return buildBoqGroups({
+      items: visibleItems,
+      sections,
+      sectionTotal,
+      divisionName: (divId) =>
+        divId ? (divisionById.get(divId)?.name ?? null) : null,
+      divisionRank,
+    });
   }, [
     sections,
     visibleItems,
@@ -340,15 +291,30 @@ export function BoqTable({
     divisionById,
   ]);
 
-  const chips = useMemo<BoqChipDescriptor[]>(
-    () =>
-      groups.map((g) => ({
-        id: g.id,
-        title: g.title,
-        itemCount: g.items.length,
-      })),
-    [groups]
-  );
+  // Chips navigate by DIVISION (the top grouping level), not per section — one
+  // chip per division, counting all its items and scrolling to its band. Ids
+  // match the `division:<id>` refs registered on each band in `SectionList`.
+  const chips = useMemo<BoqChipDescriptor[]>(() => {
+    const byDivision = new Map<string, { title: string; count: number }>();
+    const order: string[] = [];
+    for (const g of groups) {
+      const id = `division:${g.divisionId ?? "none"}`;
+      const existing = byDivision.get(id);
+      if (existing) existing.count += g.items.length;
+      else {
+        byDivision.set(id, {
+          title: g.divisionName ?? "No division",
+          count: g.items.length,
+        });
+        order.push(id);
+      }
+    }
+    return order.map((id) => ({
+      id,
+      title: byDivision.get(id)!.title,
+      itemCount: byDivision.get(id)!.count,
+    }));
+  }, [groups]);
 
   const expandSection = useCallback((sectionId: string) => {
     setCollapsed((prev) =>
@@ -506,20 +472,22 @@ interface SectionListProps {
 
 function SectionList(props: SectionListProps) {
   const { groups, onReorderSections, sectionsEditable, currency } = props;
+  const { registerSectionRef } = props;
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
   );
 
-  const unassigned = groups.find((g) => g.section === null);
-  const realGroups = groups.filter((g) => g.section !== null);
+  // Only real sections are drag-reorderable; a division's section-less items
+  // (`section === null`) render header-less and stay put.
+  const sectionGroups = groups.filter((g) => g.section !== null);
   const canReorder =
-    sectionsEditable && onReorderSections && realGroups.length > 1;
+    sectionsEditable && onReorderSections && sectionGroups.length > 1;
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const activeGroup = realGroups.find((g) => g.id === String(active.id));
-    const overGroup = realGroups.find((g) => g.id === String(over.id));
+    const activeGroup = sectionGroups.find((g) => g.id === String(active.id));
+    const overGroup = sectionGroups.find((g) => g.id === String(over.id));
     if (!activeGroup || !overGroup) return;
     // Sections only reorder within their own division — moving across divisions
     // is done via the section's Edit dialog, not by dragging. A cross-division
@@ -528,7 +496,7 @@ function SectionList(props: SectionListProps) {
     // Indices come from the DISPLAYED (division-grouped) order; the full new
     // order is persisted, and same-division sections are contiguous, so the
     // moved section stays in its division block.
-    const ids = realGroups.map((g) => g.id);
+    const ids = sectionGroups.map((g) => g.id);
     const oldIndex = ids.indexOf(String(active.id));
     const newIndex = ids.indexOf(String(over.id));
     if (oldIndex < 0 || newIndex < 0) return;
@@ -539,35 +507,38 @@ function SectionList(props: SectionListProps) {
     <SectionBody group={group} {...props} />
   );
 
-  // Per-division section count + total, derived in one pass (not re-filtered per
-  // band). Keyed by divisionId ("none" for the no-division run).
+  // Per-division item count + total across ALL its groups (sections + loose),
+  // derived in one pass. Keyed by divisionId ("none" for the no-division run).
   const divisionAgg = new Map<string, { count: number; total: number }>();
-  for (const g of realGroups) {
+  for (const g of groups) {
     const key = g.divisionId ?? "none";
     const agg = divisionAgg.get(key) ?? { count: 0, total: 0 };
-    agg.count += 1;
+    agg.count += g.items.length;
     agg.total += g.total;
     divisionAgg.set(key, agg);
   }
 
-  // Emit a division band before the first section of each new division. Pure
-  // (index-based) so nothing is reassigned during render — the sections are
-  // already division-ordered, so a run-length comparison against the previous
-  // group is enough.
+  // Emit a division band before the first group of each new division. Pure
+  // (index-based) — groups are already division-ordered, so a run-length
+  // comparison against the previous group is enough.
   const withBand = (
     group: SectionGroup,
     index: number,
     node: ReactNode
   ): ReactNode => {
     const showBand =
-      index === 0 || realGroups[index - 1].divisionId !== group.divisionId;
+      index === 0 || groups[index - 1].divisionId !== group.divisionId;
     if (!showBand) return node;
     const agg = divisionAgg.get(group.divisionId ?? "none")!;
+    const divKey = `division:${group.divisionId ?? "none"}`;
     return (
-      <div key={`band-${group.divisionId ?? "none"}`}>
+      <div
+        key={`band-${group.divisionId ?? "none"}`}
+        ref={(el) => registerSectionRef(divKey, el)}
+      >
         <BoqDivisionHeader
           name={group.divisionName ?? "No division"}
-          sectionCount={agg.count}
+          itemCount={agg.count}
           divisionTotal={agg.total}
           currency={currency}
         />
@@ -576,9 +547,22 @@ function SectionList(props: SectionListProps) {
     );
   };
 
+  // A section is draggable; a loose (section-less) group renders as a plain
+  // wrapper. Both flow through `withBand` so the division header lands once per
+  // division run, over whichever group comes first.
+  const nodeFor = (group: SectionGroup): ReactNode =>
+    canReorder && group.section !== null ? (
+      <SortableSection key={group.id} id={group.id}>
+        {renderBody(group)}
+      </SortableSection>
+    ) : (
+      <div key={group.id}>{renderBody(group)}</div>
+    );
+
+  const body = groups.map((group, i) => withBand(group, i, nodeFor(group)));
+
   return (
     <div className="flex flex-col">
-      {unassigned && renderBody(unassigned)}
       {canReorder ? (
         <DndContext
           sensors={sensors}
@@ -586,24 +570,14 @@ function SectionList(props: SectionListProps) {
           onDragEnd={handleDragEnd}
         >
           <SortableContext
-            items={realGroups.map((g) => g.id)}
+            items={sectionGroups.map((g) => g.id)}
             strategy={verticalListSortingStrategy}
           >
-            {realGroups.map((group, i) =>
-              withBand(
-                group,
-                i,
-                <SortableSection key={group.id} id={group.id}>
-                  {renderBody(group)}
-                </SortableSection>
-              )
-            )}
+            {body}
           </SortableContext>
         </DndContext>
       ) : (
-        realGroups.map((group, i) =>
-          withBand(group, i, <div key={group.id}>{renderBody(group)}</div>)
-        )
+        body
       )}
     </div>
   );
@@ -694,6 +668,42 @@ function SectionBody({
     [registerSectionRef, group.id]
   );
 
+  const rows = group.items.map((item) => (
+    <BoqItemRow
+      key={item.id}
+      item={item}
+      currency={currency}
+      marginFloor={marginFloor}
+      editable={rowsEditable}
+      sections={sections}
+      role={role}
+      currentUserId={currentUserId}
+      boqCreatorId={boqCreatorId}
+      onUpdateItem={onUpdateItem}
+      onDeleteItem={onDeleteItem}
+      onApplyRate={onApplyRate}
+      onMoveItem={onMoveItem}
+      onInsertItem={onInsertItem}
+      onCreateAndMoveItem={onCreateAndMoveItem}
+      onSetItemPhase={onSetItemPhase}
+      onRequestChangeComment={onRequestChangeComment}
+      isSelected={selection ? selection.selected.has(item.id) : false}
+      onToggleSelected={selection?.toggle}
+      onOpen={onOpenItem}
+    />
+  ));
+
+  // A division's section-less items: no section header, no collapse — they sit
+  // directly under the division band. The ref is kept so the chip nav can still
+  // scroll to the block.
+  if (section === null) {
+    return (
+      <div ref={headerRefCallback} className="overflow-hidden">
+        {rows}
+      </div>
+    );
+  }
+
   return (
     <div>
       <div ref={headerRefCallback}>
@@ -713,36 +723,34 @@ function SectionBody({
           dragHandleProps={dragHandleProps}
           onAddCustomItem={
             sectionsEditable && onAddItemToSection
-              ? () => onAddItemToSection(section?.id ?? null)
+              ? () => onAddItemToSection(section.id)
               : undefined
           }
           onAddFromLibrary={
             sectionsEditable && onAddFromLibraryToSection
-              ? () => onAddFromLibraryToSection(section?.id ?? null)
+              ? () => onAddFromLibraryToSection(section.id)
               : undefined
           }
           onRename={
-            sectionsEditable && section && onRenameSection
+            sectionsEditable && onRenameSection
               ? () => onRenameSection(section)
               : undefined
           }
           onToggleVisibility={
-            sectionsEditable && section && onToggleSectionVisibility
+            sectionsEditable && onToggleSectionVisibility
               ? () => onToggleSectionVisibility(section)
               : undefined
           }
           onDelete={
-            sectionsEditable && section && onDeleteSection
+            sectionsEditable && onDeleteSection
               ? () => onDeleteSection(section)
               : undefined
           }
           selectionState={
-            selection ? selection.sectionState(section?.id ?? null) : undefined
+            selection ? selection.sectionState(section.id) : undefined
           }
           onToggleSelection={
-            selection
-              ? () => selection.toggleSection(section?.id ?? null)
-              : undefined
+            selection ? () => selection.toggleSection(section.id) : undefined
           }
         />
       </div>
@@ -752,32 +760,7 @@ function SectionBody({
         }`}
         aria-hidden={isCollapsed}
       >
-        <div className="overflow-hidden">
-          {group.items.map((item) => (
-            <BoqItemRow
-              key={item.id}
-              item={item}
-              currency={currency}
-              marginFloor={marginFloor}
-              editable={rowsEditable}
-              sections={sections}
-              role={role}
-              currentUserId={currentUserId}
-              boqCreatorId={boqCreatorId}
-              onUpdateItem={onUpdateItem}
-              onDeleteItem={onDeleteItem}
-              onApplyRate={onApplyRate}
-              onMoveItem={onMoveItem}
-              onInsertItem={onInsertItem}
-              onCreateAndMoveItem={onCreateAndMoveItem}
-              onSetItemPhase={onSetItemPhase}
-              onRequestChangeComment={onRequestChangeComment}
-              isSelected={selection ? selection.selected.has(item.id) : false}
-              onToggleSelected={selection?.toggle}
-              onOpen={onOpenItem}
-            />
-          ))}
-        </div>
+        <div className="overflow-hidden">{rows}</div>
       </div>
     </div>
   );

@@ -10,12 +10,12 @@ import { formatCurrency } from "../_lib/formatters";
  */
 export function BoqDivisionHeader({
   name,
-  sectionCount,
+  itemCount,
   divisionTotal,
   currency,
 }: {
   name: string;
-  sectionCount: number;
+  itemCount: number;
   divisionTotal: number;
   currency: string;
 }) {
@@ -26,7 +26,7 @@ export function BoqDivisionHeader({
         {name}
       </span>
       <span className="text-[11px] text-text-muted whitespace-nowrap">
-        {sectionCount === 1 ? "1 section" : `${sectionCount} sections`}
+        {itemCount === 1 ? "1 item" : `${itemCount} items`}
       </span>
       {/* Pinned to the visible right edge so it survives horizontal scroll. */}
       <span className="sticky right-0 ml-auto flex items-center bg-bg-elevated pl-4 pr-4 border-l border-border-default shadow-[-6px_0_6px_-6px_rgba(0,0,0,0.12)] text-xs font-semibold text-text-secondary tabular-nums whitespace-nowrap">
