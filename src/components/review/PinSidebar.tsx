@@ -19,6 +19,13 @@ interface PinSidebarProps {
   selectedPinId: string | null;
   onSelectPin: (pinId: string) => void;
   onResolvePin: (pinId: string, resolved: boolean) => void;
+  /** Set a pin's 3-state markup status (Document Control). */
+  onSetPinStatus?: (
+    pinId: string,
+    status: "open" | "resolved" | "closed"
+  ) => void;
+  /** When true, pin cards show the Open/Resolved/Closed dropdown. */
+  enableStatus?: boolean;
   onEditPin: (pinId: string, content: string) => void | Promise<void>;
   onDeletePin: (pinId: string) => void;
   currentUserId: string;
@@ -65,6 +72,8 @@ export function PinSidebar({
   selectedPinId,
   onSelectPin,
   onResolvePin,
+  onSetPinStatus,
+  enableStatus,
   onEditPin,
   onDeletePin,
   currentUserId,
@@ -207,6 +216,8 @@ export function PinSidebar({
                 isPm={isPm}
                 onSelect={() => onSelectPin(pin.id)}
                 onResolve={(resolved) => onResolvePin(pin.id, resolved)}
+                enableStatus={enableStatus}
+                onSetStatus={(status) => onSetPinStatus?.(pin.id, status)}
                 onEdit={(content) => onEditPin(pin.id, content)}
                 onDelete={() => onDeletePin(pin.id)}
                 replies={repliesMap?.get(pin.id)}

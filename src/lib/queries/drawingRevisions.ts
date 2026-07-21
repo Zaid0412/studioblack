@@ -1,6 +1,10 @@
 import { getPool } from "@/lib/db";
 import { logAuditSafe, AUDIT_ACTIONS } from "@/lib/queries/audit";
 import type { IssuePurpose } from "@/lib/validations";
+import type { DbDrawingRevision } from "@/types";
+
+/** Row shape returned by the revision queries (alias of the shared DB type). */
+export type DrawingRevision = DbDrawingRevision;
 
 /**
  * Drawing revisions (PRD "01.Design doc"), PR-3.
@@ -14,20 +18,6 @@ import type { IssuePurpose } from "@/lib/validations";
  * versions are read-only" rule is enforced by the `drawing_revision` reference
  * (see the delete / markup guards), leaving the upload freeze guard untouched.
  */
-
-export interface DrawingRevision {
-  id: string;
-  drawing_id: string;
-  org_id: string;
-  rev_number: number;
-  attachment_id: string;
-  issue_purpose: IssuePurpose;
-  issued_by: string;
-  issued_at: string;
-  created_at: string;
-  /** Present on reads (joined). */
-  issuer_name?: string;
-}
 
 export type IssueRevisionResult =
   | { revision: DrawingRevision }

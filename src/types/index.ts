@@ -359,6 +359,29 @@ export interface DbPinShape {
 }
 
 /** A pin comment placed on an attachment at a specific position. */
+/**
+ * An official drawing revision (Design → Document Control). A snapshot of one
+ * attachment version issued as Rev-NN with a purpose. `issuer_name` is joined
+ * on reads.
+ */
+export interface DbDrawingRevision {
+  id: string;
+  drawing_id: string;
+  org_id: string;
+  rev_number: number;
+  attachment_id: string;
+  issue_purpose:
+    | "for_review"
+    | "for_approval"
+    | "for_information"
+    | "for_construction"
+    | "as_built";
+  issued_by: string;
+  issued_at: string;
+  created_at: string;
+  issuer_name?: string;
+}
+
 export interface DbPinComment {
   id: string;
   attachment_id: string;

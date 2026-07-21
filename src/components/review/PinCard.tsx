@@ -4,6 +4,9 @@ import { useState, useRef, useEffect } from "react";
 import {
   Check,
   Circle,
+  CheckCircle2,
+  MinusCircle,
+  ChevronDown,
   Trash2,
   MessageCircle,
   CheckSquare,
@@ -15,9 +18,82 @@ import {
   Square,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/DropdownMenu";
 import { isPinned } from "@/lib/pinUtils";
 import { timeAgo } from "@/lib/formatTime";
 import type { DbPinComment } from "@/types";
+
+type PinStatus = "open" | "resolved" | "closed";
+
+/** Icon + accent per markup status, shared by the trigger and the menu items. */
+const PIN_STATUS_META: Record<
+  PinStatus,
+  { label: string; cls: string; Icon: typeof Circle }
+> = {
+  open: { label: "Open", cls: "text-text-secondary", Icon: Circle },
+  resolved: { label: "Resolved", cls: "text-emerald-400", Icon: CheckCircle2 },
+  closed: { label: "Closed", cls: "text-text-muted", Icon: MinusCircle },
+};
+
+/** Compact Open/Resolved/Closed dropdown shown in place of the resolve checkbox. */
+function PinStatusMenu({
+  status,
+  disabled,
+  onChange,
+}: {
+  status: PinStatus;
+  disabled?: boolean;
+  onChange: (status: PinStatus) => void;
+}) {
+  const meta = PIN_STATUS_META[status];
+  const Icon = meta.Icon;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild disabled={disabled}>
+        <button
+          aria-label="Change status"
+          className={`flex items-center gap-1.5 text-[11px] font-medium cursor-pointer transition-colors disabled:opacity-50 ${meta.cls}`}
+        >
+          <Icon className="w-3.5 h-3.5" />
+          {meta.label}
+          <ChevronDown className="w-3 h-3 opacity-70" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="min-w-[9rem]">
+        {(Object.keys(PIN_STATUS_META) as PinStatus[]).map((s) => {
+          const m = PIN_STATUS_META[s];
+          const MIcon = m.Icon;
+          return (
+            <DropdownMenuItem
+              key={s}
+              onSelect={() => onChange(s)}
+              className="gap-2"
+            >
+              <MIcon className={`w-3.5 h-3.5 ${m.cls}`} />
+              <span
+                className={
+                  s === status
+                    ? "text-text-primary font-medium"
+                    : "text-text-secondary"
+                }
+              >
+                {m.label}
+              </span>
+              {s === status && (
+                <Check className="w-3.5 h-3.5 ml-auto text-accent" />
+              )}
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 /** Individual comment card with edit, reply, and resolve functionality. */
 export function PinCard({
@@ -29,6 +105,8 @@ export function PinCard({
   isPm,
   onSelect,
   onResolve,
+  onSetStatus,
+  enableStatus,
   onEdit,
   onDelete,
   replies,
@@ -43,6 +121,10 @@ export function PinCard({
   isPm: boolean;
   onSelect: () => void;
   onResolve: (resolved: boolean) => void;
+  /** Set the 3-state markup status (Document Control). */
+  onSetStatus?: (status: PinStatus) => void;
+  /** When true, show the Open/Resolved/Closed dropdown instead of the checkbox. */
+  enableStatus?: boolean;
   onEdit: (content: string) => void | Promise<void>;
   onDelete: () => void;
   replies?: DbPinComment[];
@@ -53,6 +135,9 @@ export function PinCard({
   const canDelete = pin.user_id === currentUserId || isPm;
   const canEdit = pin.user_id === currentUserId;
   const isTemp = pin.id.startsWith("temp-");
+  // "Done" dims the card. With the 3-state model that's Resolved *or* Closed;
+  // otherwise it's the legacy resolved flag.
+  const isDone = enableStatus ? pin.status !== "open" : pin.resolved;
 
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState(pin.content);
@@ -130,7 +215,7 @@ export function PinCard({
         <div className="flex flex-col gap-0.5 min-w-0 flex-1">
           <span
             className={`text-[12px] font-semibold truncate ${
-              pin.resolved ? "text-text-secondary" : "text-text-primary"
+              isDone ? "text-text-secondary" : "text-text-primary"
             }`}
           >
             {pin.user_name}
@@ -181,12 +266,12 @@ export function PinCard({
             className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
               isSelected
                 ? "bg-accent text-text-on-accent"
-                : pin.resolved
+                : isDone
                   ? "bg-bg-elevated text-text-secondary"
                   : "bg-bg-elevated text-text-primary"
             }`}
           >
-            {pin.resolved ? <Check className="w-3 h-3" /> : pinIndex}
+            {isDone ? <Check className="w-3 h-3" /> : pinIndex}
           </span>
         ) : (
           <span
@@ -239,9 +324,7 @@ export function PinCard({
       ) : (
         <p
           className={`text-[13px] px-3.5 pb-2.5 leading-[1.55] ${
-            pin.resolved
-              ? "text-text-secondary line-through"
-              : "text-text-primary"
+            isDone ? "text-text-secondary line-through" : "text-text-primary"
           }`}
         >
           {pin.content}
@@ -254,13 +337,21 @@ export function PinCard({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3.5">
-          <Checkbox
-            checked={pin.resolved}
-            onCheckedChange={() => onResolve(!pin.resolved)}
-            label={pin.resolved ? "Resolved" : "Resolve"}
-            className="[&_span]:text-[11px] [&_span]:text-text-secondary"
-            disabled={isTemp}
-          />
+          {enableStatus && onSetStatus ? (
+            <PinStatusMenu
+              status={pin.status}
+              disabled={isTemp}
+              onChange={onSetStatus}
+            />
+          ) : (
+            <Checkbox
+              checked={pin.resolved}
+              onCheckedChange={() => onResolve(!pin.resolved)}
+              label={pin.resolved ? "Resolved" : "Resolve"}
+              className="[&_span]:text-[11px] [&_span]:text-text-secondary"
+              disabled={isTemp}
+            />
+          )}
           {/* Reply count / toggle */}
           {(pin.reply_count > 0 || onAddReply) && !isTemp && (
             <button

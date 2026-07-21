@@ -32,6 +32,10 @@ interface ReviewToolbarProps {
   onSendToClient?: () => void;
   frozen?: boolean;
   onToggleFreeze?: () => void;
+  /** PM issues the current version as the next revision (Document Control). */
+  onIssueRevision?: () => void;
+  /** Current revision tag, e.g. `Rev 02`. Shown next to the issue action. */
+  currentRevLabel?: string | null;
 }
 
 /**
@@ -48,6 +52,8 @@ export function ReviewToolbar({
   onSendToClient,
   frozen,
   onToggleFreeze,
+  onIssueRevision,
+  currentRevLabel,
 }: ReviewToolbarProps) {
   const router = useRouter();
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
@@ -132,6 +138,23 @@ export function ReviewToolbar({
               {frozen ? "Unfreeze file" : "Freeze file"}
             </TooltipContent>
           </Tooltip>
+        )}
+
+        {onIssueRevision && (
+          <div className="flex items-center gap-1.5">
+            {currentRevLabel && (
+              <span className="text-[11px] font-semibold text-accent bg-accent/15 px-1.5 py-0.5 rounded">
+                {currentRevLabel}
+              </span>
+            )}
+            <button
+              onClick={onIssueRevision}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-accent text-accent text-[12px] font-semibold cursor-pointer hover:bg-accent/10 transition-colors"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              Issue Revision
+            </button>
+          </div>
         )}
 
         {onSendToClient && (

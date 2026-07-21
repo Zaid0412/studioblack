@@ -55,6 +55,19 @@ export function resolve(
   );
 }
 
+/** Set a pin's 3-state markup status (Open / Resolved / Closed). */
+export function setStatus(
+  projectId: string,
+  attachmentId: string,
+  pinId: string,
+  status: "open" | "resolved" | "closed"
+) {
+  return apiPatch<DbPinComment>(
+    API.attachmentPin(projectId, attachmentId, pinId),
+    { status }
+  );
+}
+
 /** Update the text content of a pin comment. */
 export function editContent(
   projectId: string,

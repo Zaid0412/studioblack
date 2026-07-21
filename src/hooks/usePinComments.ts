@@ -239,6 +239,33 @@ export function usePinComments({
     [projectId, attachmentId, mutatePins]
   );
 
+  // ── Set 3-state status ────────────────────────────────────────────────
+
+  const setPinStatus = useCallback(
+    async (pinId: string, status: "open" | "resolved" | "closed") => {
+      mutatePins(
+        (prev) =>
+          (prev ?? []).map((p) =>
+            p.id === pinId
+              ? { ...p, status, resolved: status === "resolved" }
+              : p
+          ),
+        { revalidate: false }
+      );
+      try {
+        await pinComments.setStatus(projectId, attachmentId, pinId, status);
+      } catch {
+        mutatePins(); // revalidate from server
+        toast({
+          title: "Error",
+          description: "Failed to update status",
+          variant: "error",
+        });
+      }
+    },
+    [projectId, attachmentId, mutatePins]
+  );
+
   // ── Edit content ──────────────────────────────────────────────────────
 
   const editPin = useCallback(
@@ -380,8 +407,13 @@ export function usePinComments({
     [projectId, attachmentId, mutatePins]
   );
 
+  // "Open" = needs attention. Closed pins are dismissed, not open, so they
+  // don't count toward the badge (falls back to `resolved` for legacy rows).
   const unresolvedCount = useMemo(
-    () => pins.filter((p) => !p.resolved).length,
+    () =>
+      pins.filter(
+        (p) => (p.status ?? (p.resolved ? "resolved" : "open")) === "open"
+      ).length,
     [pins]
   );
 
@@ -404,6 +436,7 @@ export function usePinComments({
     setDrawFill,
     addPin,
     resolvePin,
+    setPinStatus,
     editPin,
     deletePin,
     repositionPin,

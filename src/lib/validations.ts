@@ -523,6 +523,15 @@ export const ISSUE_PURPOSES = [
 ] as const;
 export type IssuePurpose = (typeof ISSUE_PURPOSES)[number];
 
+/** Human labels for issue purposes (dropdowns, revision history). */
+export const ISSUE_PURPOSE_LABELS: Record<IssuePurpose, string> = {
+  for_review: "For Review",
+  for_approval: "For Approval",
+  for_information: "For Information",
+  for_construction: "For Construction",
+  as_built: "As Built",
+};
+
 export const issueRevisionSchema = z.object({
   issuePurpose: z.enum(ISSUE_PURPOSES),
 });
