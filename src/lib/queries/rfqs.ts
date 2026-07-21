@@ -349,6 +349,53 @@ const STUDIO_ONLY_ACTIONS = new Set<string>([
   AUDIT_ACTIONS.RFQ_COMMUNICATION_LOGGED,
 ]);
 
+/**
+ * Sanitise a studio event list for a vendor's eyes:
+ *  - drop studio-only notes (e.g. logged communications);
+ *  - keep only THIS vendor's own `quote.*` events (never a competitor's);
+ *  - strip competitor vendor identities from metadata (vendor_names/_ids);
+ *  - null the internal actor id, but **preserve the studio actor's name** so
+ *    the vendor sees who issued/awarded the RFQ.
+ * Pure — unit-tested without a DB.
+ */
+export function sanitizeRfqEventsForVendor(
+  studioEvents: RfqEvent[],
+  vendorId: string
+): RfqEvent[] {
+  return studioEvents
+    .filter((e) => {
+      // Studio-internal notes (e.g. logged communications) never go to vendors.
+      if (STUDIO_ONLY_ACTIONS.has(e.action)) return false;
+      if (
+        e.action === "quote.submitted" ||
+        e.action === "quote.revised" ||
+        e.action === "quote.declined" ||
+        e.action === "quote.awarded" ||
+        e.action === "quote.rejected" ||
+        e.action === "quote.under_review"
+      ) {
+        // Own-quote events only — never surface a competitor's submission or
+        // decline (identity + reason) to other invited vendors.
+        const meta = e.metadata as Record<string, unknown> | null;
+        return meta?.vendor_id === vendorId;
+      }
+      return true;
+    })
+    .map((e) => {
+      const metadata = e.metadata
+        ? Object.fromEntries(
+            Object.entries(e.metadata).filter(
+              ([key]) =>
+                key !== "vendor_names" &&
+                key !== "vendor_ids" &&
+                key !== "winning_vendor_names"
+            )
+          )
+        : null;
+      return { ...e, actorId: null, metadata };
+    });
+}
+
 async function getRfqEvents(rfqId: string): Promise<RfqEvent[]> {
   const pool = getPool();
   // Pulls rfq.* events targeting this RFQ AND quote.* events whose
@@ -612,45 +659,8 @@ export async function getRfqDetailForVendor(
   ]);
   const itemRows = itemRes.rows;
 
-  // Vendors get a sanitised event list:
-  //  - internal actor id stripped (actorId); the studio actor's display
-  //    name is preserved so the vendor sees who issued/awarded the RFQ
-  //  - other vendors' identities stripped from RFQ events (vendor_names /
-  //    vendor_ids on rfq.issued / rfq.vendors_added)
-  //  - quote.* events filtered to ONLY this vendor's own submissions, so
-  //    they don't see competitors' submission activity at all
-  const events: RfqEvent[] = studioEvents
-    .filter((e) => {
-      // Studio-internal notes (e.g. logged communications) never go to vendors.
-      if (STUDIO_ONLY_ACTIONS.has(e.action)) return false;
-      if (
-        e.action === "quote.submitted" ||
-        e.action === "quote.revised" ||
-        e.action === "quote.declined" ||
-        e.action === "quote.awarded" ||
-        e.action === "quote.rejected" ||
-        e.action === "quote.under_review"
-      ) {
-        // Own-quote events only — never surface a competitor's submission or
-        // decline (identity + reason) to other invited vendors.
-        const meta = e.metadata as Record<string, unknown> | null;
-        return meta?.vendor_id === vendorId;
-      }
-      return true;
-    })
-    .map((e) => {
-      const metadata = e.metadata
-        ? Object.fromEntries(
-            Object.entries(e.metadata).filter(
-              ([key]) =>
-                key !== "vendor_names" &&
-                key !== "vendor_ids" &&
-                key !== "winning_vendor_names"
-            )
-          )
-        : null;
-      return { ...e, actorId: null, metadata };
-    });
+  // Vendors get a sanitised event list — see sanitizeRfqEventsForVendor.
+  const events: RfqEvent[] = sanitizeRfqEventsForVendor(studioEvents, vendorId);
 
   return {
     ...rfq,

@@ -195,7 +195,6 @@ export function BarChart({
                 key={i}
                 fill={barColor}
                 fillOpacity={active === null || active === i ? 1 : 0.3}
-                className="[transition:fill-opacity_200ms_ease-out] motion-reduce:transition-none"
               />
             ))}
           </Bar>

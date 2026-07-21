@@ -498,6 +498,9 @@ function SectionList(props: SectionListProps) {
     <div className="flex flex-col">
       {blocks.map((block) => {
         const divKey = block.divisionId ?? "none";
+        // Division + section collapse share one `collapsed` map; division keys
+        // are namespaced `division:<id>` so they can't collide with the raw
+        // section-UUID keys `SectionBody` uses.
         const collapseKey = `division:${divKey}`;
         const divCollapsed = collapsed[collapseKey] ?? false;
         const canReorder =

@@ -552,6 +552,22 @@ body[data-scroll-locked]:not(:has([data-state="open"][role="dialog"])) {
   }
 }
 
+/* Smooth the hover-dim on recharts donut segments + bars. Only `fill-opacity`
+   transitions (it's what the chart flips on hover, via React state) — the
+   entrance is recharts' own shape animation, untouched. Targets recharts'
+   own classes, which only DonutChart / BarChart render, so this is scoped in
+   practice. Reliable regardless of whether <Cell> forwards className. */
+.recharts-sector,
+.recharts-rectangle {
+  transition: fill-opacity 200ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .recharts-sector,
+  .recharts-rectangle {
+    transition: none;
+  }
+}
+
 /* Notification panel exit. Clicking a notification closes the panel and
    navigates in the same beat, and at the popover default the panel just blinks
    away. Set here rather than with `duration-300` because tailwindcss-animate's
