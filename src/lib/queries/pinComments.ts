@@ -25,6 +25,7 @@ const PIN_SELECT = `pc.id,
         pc.page,
         pc.content,
         pc.resolved,
+        pc.status,
         pc.task_id,
         pc.request_approval,
         pc.request_changes,
@@ -180,13 +181,35 @@ export async function createPinComment(params: {
   }
 }
 
-/** Update resolved status of a pin comment. */
+/**
+ * Update the resolved flag of a pin comment. Keeps the 3-state `status` in sync
+ * (resolved ↔ 'resolved', not-resolved ↔ 'open') so the legacy boolean path and
+ * the new status path can't drift while both columns exist.
+ */
 export async function updatePinComment(pinId: string, resolved: boolean) {
   const pool = getPool();
-  await pool.query(`UPDATE pin_comment SET resolved = $1 WHERE id = $2`, [
-    resolved,
-    pinId,
-  ]);
+  await pool.query(
+    `UPDATE pin_comment
+        SET resolved = $1, status = CASE WHEN $1 THEN 'resolved' ELSE 'open' END
+      WHERE id = $2`,
+    [resolved, pinId]
+  );
+  return getPinCommentById(pinId);
+}
+
+/**
+ * Set a pin comment's 3-state markup status (Open / Resolved / Closed), keeping
+ * the legacy `resolved` boolean in sync (true only for 'resolved').
+ */
+export async function updatePinCommentStatus(
+  pinId: string,
+  status: "open" | "resolved" | "closed"
+) {
+  const pool = getPool();
+  await pool.query(
+    `UPDATE pin_comment SET status = $1, resolved = ($1 = 'resolved') WHERE id = $2`,
+    [status, pinId]
+  );
   return getPinCommentById(pinId);
 }
 

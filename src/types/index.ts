@@ -369,6 +369,8 @@ export interface DbPinComment {
   page: number | null;
   content: string;
   resolved: boolean;
+  /** 3-state markup lifecycle. Kept in sync with `resolved` while both exist. */
+  status: "open" | "resolved" | "closed";
   task_id: string | null;
   request_approval: boolean;
   request_changes: boolean;

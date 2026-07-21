@@ -68,6 +68,8 @@ export const AUDIT_ACTIONS = {
   TASK_PHASE_CHANGED: "task.phase_changed",
   TASK_TITLE_CHANGED: "task.title_changed",
   TASK_DESCRIPTION_CHANGED: "task.description_changed",
+  // ── Design → Document Control ───────────────────────────────────────────
+  DRAWING_REVISION_ISSUED: "drawing.revision.issued",
 } as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
 

@@ -161,6 +161,7 @@ export function usePinComments({
         page: data.page ?? null,
         content: data.content,
         resolved: false,
+        status: "open",
         task_id: null,
         request_approval: false,
         request_changes: data.requestChanges ?? false,
