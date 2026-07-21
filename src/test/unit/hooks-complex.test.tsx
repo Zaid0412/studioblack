@@ -124,6 +124,48 @@ describe("useProjectList", () => {
     expect(result.current.filtered[1].name).toBe("Alpha");
   });
 
+  it("column sort cycles unsorted → asc → desc → unsorted", () => {
+    const { result } = renderHook(() => useProjectList({ items: projects }));
+
+    act(() => result.current.toggleColumnSort("name"));
+    expect(result.current.filtered.map((p) => p.name)).toEqual([
+      "Alpha",
+      "Beta",
+      "Charlie",
+      "Delta",
+    ]);
+
+    act(() => result.current.toggleColumnSort("name"));
+    expect(result.current.filtered.map((p) => p.name)).toEqual([
+      "Delta",
+      "Charlie",
+      "Beta",
+      "Alpha",
+    ]);
+
+    act(() => result.current.toggleColumnSort("name"));
+    expect(result.current.columnSort).toBeNull();
+    // Back to the default dropdown sort (newest first).
+    expect(result.current.filtered[0].name).toBe("Delta");
+  });
+
+  it("column sort overrides the dropdown; changing the dropdown resets it", () => {
+    const { result } = renderHook(() => useProjectList({ items: projects }));
+
+    act(() => result.current.setSortBy("name")); // dropdown: name asc
+    act(() => result.current.toggleColumnSort("updated")); // header wins
+    expect(result.current.columnSort).toEqual({
+      key: "updated",
+      direction: "asc",
+    });
+    // updated asc: Beta (Mar 15) < Charlie (Mar 10 created) ... oldest-updated first
+    expect(result.current.filtered[0].name).toBe("Charlie");
+
+    act(() => result.current.setSortBy("oldest")); // dropdown change clears it
+    expect(result.current.columnSort).toBeNull();
+    expect(result.current.filtered[0].name).toBe("Alpha");
+  });
+
   it("paginates results (10 per page)", () => {
     // Create 15 items
     const manyProjects: ProjectListItem[] = Array.from(
