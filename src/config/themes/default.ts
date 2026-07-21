@@ -16,6 +16,8 @@ const defaultTheme: Theme = {
     // Accent
     accent: "#F5C518",
     "accent-hover": "#D4A90D",
+    // On dark surfaces the bright accent is already readable as ink → == accent.
+    "accent-strong": "#F5C518",
 
     // Text
     "text-primary": "#FFFFFF",
