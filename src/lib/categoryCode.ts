@@ -125,14 +125,16 @@ export function suggestCodeSegment(name: string, maxLen: number): string {
 }
 
 /**
- * The code segment a new category/service-area field should auto-fill to from
- * its name, or `null` when it should be left as-is (auto-generate off, an
- * existing node is picked, the user edited the code, or it already matches).
+ * The code segment a new rung in the inline `ServiceAreaDialog` should auto-fill
+ * to from its name, or `null` when it should be left as-is (auto-generate off,
+ * an existing node picked, the user edited the code, or it already matches).
+ * Caps at `code_max_length`; the taxonomy page's `CategoryForm` has its own
+ * parent-aware auto-fill (`segmentCap`) and doesn't use this.
  *
  * Re-derives from the FULL name every call — the auto-fill must not lock the
- * code to the first character typed (which happens if you only fill an empty
- * segment: the first keystroke fills it, and every later keystroke then sees a
- * non-empty segment and bails).
+ * code to the first character typed (which is what fill-only-when-empty does:
+ * the first keystroke fills it, then every later keystroke sees a non-empty
+ * segment and bails).
  */
 export function nextAutoSegment(
   field: {
