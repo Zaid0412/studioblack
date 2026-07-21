@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { FileText } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -37,7 +37,14 @@ export default function VendorPortalRfqsPage() {
   const tNav = useTranslations("nav");
   const router = useRouter();
 
-  const [status, setStatus] = useState<RfqStatus | null>(null);
+  // Seed the filter from `?status=` so the vendor-dashboard KPI cards can
+  // deep-link to a pre-filtered list (e.g. `/rfqs?status=awarded`).
+  const statusParam = useSearchParams().get("status");
+  const [status, setStatus] = useState<RfqStatus | null>(
+    statusParam && (RFQ_STATUSES as readonly string[]).includes(statusParam)
+      ? (statusParam as RfqStatus)
+      : null
+  );
   const [page, setPage] = useState(1);
 
   const { rows, total, isLoading, isValidating } = useVendorRfqs({

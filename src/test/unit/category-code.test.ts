@@ -6,6 +6,7 @@ import {
   composeCategoryCode,
   dedupeSegment,
   maxSegmentLength,
+  nextAutoSegment,
   normalizeCodeSegment,
   segmentCap,
   suggestCodeSegment,
@@ -157,5 +158,57 @@ describe("maxSegmentLength", () => {
 describe("UNCATEGORIZED_PREFIX", () => {
   it("is what an element with no category codes under", () => {
     expect(UNCATEGORIZED_PREFIX).toBe("GEN");
+  });
+});
+
+describe("nextAutoSegment", () => {
+  const config = { auto_generate: true, code_max_length: 4 };
+  const field = (
+    over: Partial<Parameters<typeof nextAutoSegment>[0]> = {}
+  ) => ({
+    name: "",
+    segment: "",
+    isNew: true,
+    codeTouched: false,
+    ...over,
+  });
+
+  it("re-derives from the FULL name, not the first char typed (bug #27)", () => {
+    // Simulate typing "Kitchen" one keystroke at a time, threading the result
+    // back into `segment` each time — the segment must track the full name, not
+    // lock to "K".
+    let segment = "";
+    for (const name of ["K", "Ki", "Kit", "Kitc", "Kitch", "Kitchen"]) {
+      const next = nextAutoSegment(field({ name, segment }), config);
+      if (next !== null) segment = next;
+    }
+    expect(segment).toBe("KITC");
+  });
+
+  it("stops once the user edits the code", () => {
+    expect(
+      nextAutoSegment(
+        field({ name: "Kitchen Sinks", segment: "KS", codeTouched: true }),
+        config
+      )
+    ).toBeNull();
+  });
+
+  it("returns null when auto-generate is off, or an existing node is picked", () => {
+    expect(
+      nextAutoSegment(field({ name: "Kitchen" }), {
+        auto_generate: false,
+        code_max_length: 4,
+      })
+    ).toBeNull();
+    expect(
+      nextAutoSegment(field({ name: "Kitchen", isNew: false }), config)
+    ).toBeNull();
+  });
+
+  it("returns null when the segment already matches (no needless update)", () => {
+    expect(
+      nextAutoSegment(field({ name: "Kitchen", segment: "KITC" }), config)
+    ).toBeNull();
   });
 });

@@ -19,7 +19,6 @@ import {
   closestCenter,
   useSensor,
   useSensors,
-  type DragEndEvent,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -53,7 +52,6 @@ import { UnitSelect } from "@/components/ui/UnitSelect";
 import { isExternalViewer } from "@/lib/roles";
 import { formatBoqLineRef } from "@/lib/boq/lineRef";
 import {
-  BOQ_NO_SECTION_ID,
   formatCurrency,
   formatDimensions,
   formatLibraryName,
@@ -73,6 +71,11 @@ import { BoqSectionHeader } from "./BoqSectionHeader";
 import { BoqDivisionHeader } from "./BoqDivisionHeader";
 import { useDivisions } from "@/hooks/useDivisions";
 import { BoqSectionChips, type BoqChipDescriptor } from "./BoqSectionChips";
+import {
+  buildDivisionBlocks,
+  type BoqDivisionBlock,
+  type BoqRenderGroup as SectionGroup,
+} from "../_lib/grouping";
 import { BoqEditableCell } from "./BoqEditableCell";
 import { BoqSourceBadge } from "./BoqSourceBadge";
 import { CurrentBadge } from "./BoqMoveTargetPopover";
@@ -146,18 +149,6 @@ export interface SelectionApi {
   toggleAll: () => void;
   toggleSection: (sectionId: string | null) => void;
   sectionState: (sectionId: string | null) => SectionSelectionState;
-}
-
-interface SectionGroup {
-  id: string;
-  title: string;
-  section: BoqSection | null;
-  visibleToClient?: boolean;
-  items: BoqItemWithComputed[];
-  total: number;
-  /** The section's division (null = unassigned / no division). Drives the banding. */
-  divisionId: string | null;
-  divisionName: string | null;
 }
 
 // The Source column is narrow on purpose — it carries a single short badge.
@@ -277,61 +268,21 @@ export function BoqTable({
     visibleItems.map((i) => i.id).join(",")
   );
 
-  const groups = useMemo<SectionGroup[]>(() => {
-    const bySection = new Map<string, BoqItemWithComputed[]>();
-    const unassigned: BoqItemWithComputed[] = [];
-    for (const item of visibleItems) {
-      if (item.section_id === null) {
-        unassigned.push(item);
-        continue;
-      }
-      const bucket = bySection.get(item.section_id);
-      if (bucket) bucket.push(item);
-      else bySection.set(item.section_id, [item]);
-    }
-
-    const sectionTotalFromSummary = (sectionId: string | null): number => {
+  const blocks = useMemo<BoqDivisionBlock[]>(() => {
+    const sectionTotal = (sectionId: string): number => {
       const match = summary.section_totals.find(
         (s) => s.section_id === sectionId
       );
       return match ? toNum(match.total_sell_price) : 0;
     };
-
-    const result: SectionGroup[] = [];
-    if (unassigned.length > 0) {
-      result.push({
-        id: BOQ_NO_SECTION_ID,
-        title: "(Unassigned)",
-        section: null,
-        items: unassigned,
-        total: sectionTotalFromSummary(null),
-        divisionId: null,
-        divisionName: null,
-      });
-    }
-    // Sections ordered by their division (matching the server's continuous
-    // line-number order: division rank, then the section's own sort_order),
-    // so the run-length division bands rendered below line up with the numbers.
-    const orderedSections = [...sections].sort(
-      (a, b) =>
-        divisionRank(a.division_id) - divisionRank(b.division_id) ||
-        a.sort_order - b.sort_order
-    );
-    for (const section of orderedSections) {
-      result.push({
-        id: section.id,
-        title: section.title,
-        section,
-        visibleToClient: section.is_visible_to_client,
-        items: bySection.get(section.id) ?? [],
-        total: sectionTotalFromSummary(section.id),
-        divisionId: section.division_id,
-        divisionName: section.division_id
-          ? (divisionById.get(section.division_id)?.name ?? null)
-          : null,
-      });
-    }
-    return result;
+    return buildDivisionBlocks({
+      items: visibleItems,
+      sections,
+      sectionTotal,
+      divisionName: (divId) =>
+        divId ? (divisionById.get(divId)?.name ?? null) : null,
+      divisionRank,
+    });
   }, [
     sections,
     visibleItems,
@@ -340,14 +291,17 @@ export function BoqTable({
     divisionById,
   ]);
 
+  // Chips navigate by DIVISION (the top grouping level) — one chip per block,
+  // scrolling to its band. Ids match the `division:<id>` refs registered on each
+  // band in `SectionList`.
   const chips = useMemo<BoqChipDescriptor[]>(
     () =>
-      groups.map((g) => ({
-        id: g.id,
-        title: g.title,
-        itemCount: g.items.length,
+      blocks.map((b) => ({
+        id: `division:${b.divisionId ?? "none"}`,
+        title: b.divisionName ?? "No division",
+        itemCount: b.itemCount,
       })),
-    [groups]
+    [blocks]
   );
 
   const expandSection = useCallback((sectionId: string) => {
@@ -420,7 +374,7 @@ export function BoqTable({
             </div>
 
             <SectionList
-              groups={groups}
+              blocks={blocks}
               sections={sections}
               currency={currency}
               marginFloor={marginFloor}
@@ -471,7 +425,7 @@ export function BoqTable({
 // ── Section list + sortable wrapper ────────────────────────────────────────
 
 interface SectionListProps {
-  groups: SectionGroup[];
+  blocks: BoqDivisionBlock[];
   sections: BoqSection[];
   currency: string;
   marginFloor?: number;
@@ -505,106 +459,124 @@ interface SectionListProps {
 }
 
 function SectionList(props: SectionListProps) {
-  const { groups, onReorderSections, sectionsEditable, currency } = props;
+  const { blocks, onReorderSections, sectionsEditable, currency } = props;
+  const { registerSectionRef, collapsed, setCollapsed } = props;
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
   );
-
-  const unassigned = groups.find((g) => g.section === null);
-  const realGroups = groups.filter((g) => g.section !== null);
-  const canReorder =
-    sectionsEditable && onReorderSections && realGroups.length > 1;
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const activeGroup = realGroups.find((g) => g.id === String(active.id));
-    const overGroup = realGroups.find((g) => g.id === String(over.id));
-    if (!activeGroup || !overGroup) return;
-    // Sections only reorder within their own division — moving across divisions
-    // is done via the section's Edit dialog, not by dragging. A cross-division
-    // drop is rejected (snaps back) rather than silently re-filed.
-    if (activeGroup.divisionId !== overGroup.divisionId) return;
-    // Indices come from the DISPLAYED (division-grouped) order; the full new
-    // order is persisted, and same-division sections are contiguous, so the
-    // moved section stays in its division block.
-    const ids = realGroups.map((g) => g.id);
-    const oldIndex = ids.indexOf(String(active.id));
-    const newIndex = ids.indexOf(String(over.id));
-    if (oldIndex < 0 || newIndex < 0) return;
-    onReorderSections?.(arrayMove(ids, oldIndex, newIndex));
-  };
 
   const renderBody = (group: SectionGroup): ReactNode => (
     <SectionBody group={group} {...props} />
   );
 
-  // Per-division section count + total, derived in one pass (not re-filtered per
-  // band). Keyed by divisionId ("none" for the no-division run).
-  const divisionAgg = new Map<string, { count: number; total: number }>();
-  for (const g of realGroups) {
-    const key = g.divisionId ?? "none";
-    const agg = divisionAgg.get(key) ?? { count: 0, total: 0 };
-    agg.count += 1;
-    agg.total += g.total;
-    divisionAgg.set(key, agg);
-  }
+  // Sections reorder ONLY within a division, so each block gets its OWN
+  // DndContext — the sortable list stays clean (no interspersed loose groups)
+  // and there's no cross-division drop to guard against.
+  //
+  // Full section order (division-ordered) so a within-division reorder can be
+  // spliced back into the global order the server renumbers from.
+  const allSectionIds = blocks.flatMap((b) => b.sections.map((g) => g.id));
 
-  // Emit a division band before the first section of each new division. Pure
-  // (index-based) so nothing is reassigned during render — the sections are
-  // already division-ordered, so a run-length comparison against the previous
-  // group is enough.
-  const withBand = (
-    group: SectionGroup,
-    index: number,
-    node: ReactNode
-  ): ReactNode => {
-    const showBand =
-      index === 0 || realGroups[index - 1].divisionId !== group.divisionId;
-    if (!showBand) return node;
-    const agg = divisionAgg.get(group.divisionId ?? "none")!;
-    return (
-      <div key={`band-${group.divisionId ?? "none"}`}>
-        <BoqDivisionHeader
-          name={group.divisionName ?? "No division"}
-          sectionCount={agg.count}
-          divisionTotal={agg.total}
-          currency={currency}
-        />
-        {node}
-      </div>
-    );
+  const reorderWithinBlock = (
+    block: BoqDivisionBlock,
+    activeId: string,
+    overId: string
+  ) => {
+    const ids = block.sections.map((g) => g.id);
+    const oldIndex = ids.indexOf(activeId);
+    const newIndex = ids.indexOf(overId);
+    if (oldIndex < 0 || newIndex < 0) return;
+    const reordered = arrayMove(ids, oldIndex, newIndex);
+    // The block's sections are contiguous in the global order — splice in place.
+    const start = allSectionIds.indexOf(ids[0]);
+    const next = [...allSectionIds];
+    next.splice(start, reordered.length, ...reordered);
+    onReorderSections?.(next);
   };
 
   return (
     <div className="flex flex-col">
-      {unassigned && renderBody(unassigned)}
-      {canReorder ? (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={realGroups.map((g) => g.id)}
-            strategy={verticalListSortingStrategy}
+      {blocks.map((block) => {
+        const divKey = block.divisionId ?? "none";
+        // Division + section collapse share one `collapsed` map; division keys
+        // are namespaced `division:<id>` so they can't collide with the raw
+        // section-UUID keys `SectionBody` uses.
+        const collapseKey = `division:${divKey}`;
+        const divCollapsed = collapsed[collapseKey] ?? false;
+        const canReorder =
+          sectionsEditable && !!onReorderSections && block.sections.length > 1;
+        return (
+          <div
+            key={`division-${divKey}`}
+            ref={(el) => registerSectionRef(collapseKey, el)}
           >
-            {realGroups.map((group, i) =>
-              withBand(
-                group,
-                i,
-                <SortableSection key={group.id} id={group.id}>
-                  {renderBody(group)}
-                </SortableSection>
-              )
-            )}
-          </SortableContext>
-        </DndContext>
-      ) : (
-        realGroups.map((group, i) =>
-          withBand(group, i, <div key={group.id}>{renderBody(group)}</div>)
-        )
-      )}
+            <BoqDivisionHeader
+              name={block.divisionName ?? "No division"}
+              itemCount={block.itemCount}
+              divisionTotal={block.total}
+              currency={currency}
+              collapsed={divCollapsed}
+              onToggle={() =>
+                setCollapsed((prev) => ({
+                  ...prev,
+                  [collapseKey]: !divCollapsed,
+                }))
+              }
+            />
+            <div
+              className={`grid transition-[grid-template-rows] duration-300 ease-out ${
+                divCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"
+              }`}
+              aria-hidden={divCollapsed}
+            >
+              <div className="overflow-hidden">
+                {canReorder ? (
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={(event) => {
+                      const { active, over } = event;
+                      if (!over || active.id === over.id) return;
+                      reorderWithinBlock(
+                        block,
+                        String(active.id),
+                        String(over.id)
+                      );
+                    }}
+                  >
+                    <SortableContext
+                      items={block.sections.map((g) => g.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      {block.sections.map((group) => (
+                        <SortableSection key={group.id} id={group.id}>
+                          {renderBody(group)}
+                        </SortableSection>
+                      ))}
+                    </SortableContext>
+                  </DndContext>
+                ) : (
+                  block.sections.map((group) => (
+                    <div key={group.id}>{renderBody(group)}</div>
+                  ))
+                )}
+                {block.loose && (
+                  <>
+                    {/* Only label the loose items when sections are also present
+                        in this division — else the band alone is unambiguous. */}
+                    {block.sections.length > 0 && (
+                      <div className="flex items-center border-t border-border-default py-2 pl-8 text-xs font-medium text-text-muted">
+                        Other items
+                      </div>
+                    )}
+                    {renderBody(block.loose)}
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -665,7 +637,6 @@ function SectionBody({
   role,
   currentUserId,
   boqCreatorId,
-  registerSectionRef,
   onUpdateItem,
   onDeleteItem,
   onApplyRate,
@@ -689,14 +660,40 @@ function SectionBody({
     ? { ...sortableCtx.attributes, ...(sortableCtx.listeners ?? {}) }
     : undefined;
 
-  const headerRefCallback = useCallback(
-    (el: HTMLDivElement | null) => registerSectionRef(group.id, el),
-    [registerSectionRef, group.id]
-  );
+  const rows = group.items.map((item) => (
+    <BoqItemRow
+      key={item.id}
+      item={item}
+      currency={currency}
+      marginFloor={marginFloor}
+      editable={rowsEditable}
+      sections={sections}
+      role={role}
+      currentUserId={currentUserId}
+      boqCreatorId={boqCreatorId}
+      onUpdateItem={onUpdateItem}
+      onDeleteItem={onDeleteItem}
+      onApplyRate={onApplyRate}
+      onMoveItem={onMoveItem}
+      onInsertItem={onInsertItem}
+      onCreateAndMoveItem={onCreateAndMoveItem}
+      onSetItemPhase={onSetItemPhase}
+      onRequestChangeComment={onRequestChangeComment}
+      isSelected={selection ? selection.selected.has(item.id) : false}
+      onToggleSelected={selection?.toggle}
+      onOpen={onOpenItem}
+    />
+  ));
+
+  // A division's section-less items: no section header, no collapse — they sit
+  // directly under the division band.
+  if (section === null) {
+    return <div className="overflow-hidden">{rows}</div>;
+  }
 
   return (
     <div>
-      <div ref={headerRefCallback}>
+      <div>
         <BoqSectionHeader
           title={group.title}
           itemCount={group.items.length}
@@ -713,36 +710,34 @@ function SectionBody({
           dragHandleProps={dragHandleProps}
           onAddCustomItem={
             sectionsEditable && onAddItemToSection
-              ? () => onAddItemToSection(section?.id ?? null)
+              ? () => onAddItemToSection(section.id)
               : undefined
           }
           onAddFromLibrary={
             sectionsEditable && onAddFromLibraryToSection
-              ? () => onAddFromLibraryToSection(section?.id ?? null)
+              ? () => onAddFromLibraryToSection(section.id)
               : undefined
           }
           onRename={
-            sectionsEditable && section && onRenameSection
+            sectionsEditable && onRenameSection
               ? () => onRenameSection(section)
               : undefined
           }
           onToggleVisibility={
-            sectionsEditable && section && onToggleSectionVisibility
+            sectionsEditable && onToggleSectionVisibility
               ? () => onToggleSectionVisibility(section)
               : undefined
           }
           onDelete={
-            sectionsEditable && section && onDeleteSection
+            sectionsEditable && onDeleteSection
               ? () => onDeleteSection(section)
               : undefined
           }
           selectionState={
-            selection ? selection.sectionState(section?.id ?? null) : undefined
+            selection ? selection.sectionState(section.id) : undefined
           }
           onToggleSelection={
-            selection
-              ? () => selection.toggleSection(section?.id ?? null)
-              : undefined
+            selection ? () => selection.toggleSection(section.id) : undefined
           }
         />
       </div>
@@ -752,32 +747,7 @@ function SectionBody({
         }`}
         aria-hidden={isCollapsed}
       >
-        <div className="overflow-hidden">
-          {group.items.map((item) => (
-            <BoqItemRow
-              key={item.id}
-              item={item}
-              currency={currency}
-              marginFloor={marginFloor}
-              editable={rowsEditable}
-              sections={sections}
-              role={role}
-              currentUserId={currentUserId}
-              boqCreatorId={boqCreatorId}
-              onUpdateItem={onUpdateItem}
-              onDeleteItem={onDeleteItem}
-              onApplyRate={onApplyRate}
-              onMoveItem={onMoveItem}
-              onInsertItem={onInsertItem}
-              onCreateAndMoveItem={onCreateAndMoveItem}
-              onSetItemPhase={onSetItemPhase}
-              onRequestChangeComment={onRequestChangeComment}
-              isSelected={selection ? selection.selected.has(item.id) : false}
-              onToggleSelected={selection?.toggle}
-              onOpen={onOpenItem}
-            />
-          ))}
-        </div>
+        <div className="overflow-hidden">{rows}</div>
       </div>
     </div>
   );

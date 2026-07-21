@@ -369,14 +369,20 @@ export function useBoqMutations(projectId: string) {
   const reorderSections = useCallback(
     async (boqId: string, orderedIds: string[]) => {
       try {
-        // Optimistic: re-sort `sections` by orderedIds so the UI updates instantly.
+        // Optimistic: reorder `sections` AND reassign each `sort_order` to its
+        // new position (0..N, matching the server). The table groups by
+        // division and sorts by `sort_order`, so only reordering the array
+        // would be undone by that sort — the row must carry the new order too.
         await globalMutate(
           key,
           (current: BoqWithDetails | null | undefined) => {
             if (!current) return current;
             const byId = new Map(current.sections.map((s) => [s.id, s]));
             const next = orderedIds
-              .map((id) => byId.get(id))
+              .map((id, pos) => {
+                const s = byId.get(id);
+                return s ? { ...s, sort_order: pos } : undefined;
+              })
               .filter((s): s is (typeof current.sections)[number] => !!s);
             return { ...current, sections: next };
           },

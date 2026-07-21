@@ -522,14 +522,19 @@ body[data-scroll-locked]:not(:has([data-state="open"][role="dialog"])) {
     transform: none;
   }
 }
+/* `backwards` (not `both`): the entrance holds the hidden `from` state during
+   the stagger delay, but must NOT retain the `to` state afterwards — a filled
+   `transform: none` would override an element's `:hover` lift and kill the
+   transition. The `to` state equals the natural resting state, so reverting to
+   it is seamless. */
 .an-rise {
-  animation: an-rise 0.7s ease both;
+  animation: an-rise 0.7s ease backwards;
   animation-delay: var(--an-delay, 0ms);
 }
 /* Cascade every direct child in, without tagging each one — pair with
    useLoadStagger on the container to set the per-child `--an-delay`. */
 .stagger-children > * {
-  animation: an-rise 0.55s ease both;
+  animation: an-rise 0.55s ease backwards;
   animation-delay: var(--an-delay, 0ms);
 }
 @media (prefers-reduced-motion: reduce) {
@@ -614,11 +619,25 @@ body[data-scroll-locked]:not(:has([data-state="open"][role="dialog"])) {
 }
 
 /* Chart focus/dim — the hovered segment/bar stays opaque and the others fade.
-   Fill-opacity is driven by recharts hover state in React (Donut/BarChart.tsx);
-   these rules just smooth the transition. */
+   Opacity (not fill-opacity) is driven by recharts hover state in React
+   (Donut/BarChart.tsx): element `opacity` transitions reliably on SVG shapes,
+   whereas the `fill-opacity` presentation attribute often won't animate. */
 .donut-chart .recharts-sector,
 .bar-chart .recharts-rectangle {
-  transition: fill-opacity 0.2s ease-out;
+  transition: opacity 0.2s ease-out;
+}
+/* Donut: a pure-CSS `:hover` fallback so the fade is GUARANTEED to animate —
+   native `:hover` triggers no React/recharts re-render, so the sector node is
+   stable and the transition always runs (a state-driven change can't be relied
+   on if recharts re-mounts the shape). The React `active` opacity still drives
+   legend↔chart coordination underneath; the direct-hover CSS wins over it. The
+   bar's hover is band-level (recharts `onMouseMove`), so it keeps the
+   state-driven opacity above. */
+.donut-chart:hover .recharts-sector {
+  opacity: 0.35;
+}
+.donut-chart .recharts-sector:hover {
+  opacity: 1;
 }
 @media (prefers-reduced-motion: reduce) {
   .donut-chart .recharts-sector,

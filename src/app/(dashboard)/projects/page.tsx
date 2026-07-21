@@ -29,11 +29,16 @@ import { toast } from "@/components/ui/useToast";
 import { projects as projectsApi } from "@/lib/api";
 import type { DbProjectRow } from "@/types";
 import { relativeTime } from "@/lib/formatTime";
-import { useProjectList, type FilterTab } from "@/hooks/useProjectList";
+import {
+  useProjectList,
+  clientLabel,
+  type FilterTab,
+} from "@/hooks/useProjectList";
 import { useUserRole } from "@/hooks/useUserRole";
 import { SkeletonRow } from "@/components/ui/Skeleton";
 import { useStaggerReveal } from "@/hooks/useStaggerReveal";
 import { SlidingIndicator } from "@/components/ui/SlidingIndicator";
+import { SortableHeaderButton } from "@/components/ui/SortableHeader";
 import { useSlidingIndicator } from "@/hooks/useSlidingIndicator";
 import { ProjectDropdown } from "./_components/ProjectDropdown";
 import { ProjectCard } from "./_components/ProjectCard";
@@ -80,6 +85,8 @@ export default function ProjectsPage() {
     setStatusFilter,
     sortBy,
     setSortBy,
+    columnSort,
+    toggleColumnSort,
     currentPage,
     setCurrentPage,
     filtered,
@@ -92,12 +99,11 @@ export default function ProjectsPage() {
     items: projects,
     searchFilter: (p, query) => {
       const q = query.toLowerCase();
-      const client =
-        (p as DbProjectRow).client_name ||
-        (p as DbProjectRow).client_email ||
-        "";
+      const row = p as DbProjectRow;
       return (
-        p.name.toLowerCase().includes(q) || client.toLowerCase().includes(q)
+        p.name.toLowerCase().includes(q) ||
+        clientLabel(row).toLowerCase().includes(q) ||
+        (row.project_number?.toLowerCase().includes(q) ?? false)
       );
     },
   });
@@ -308,27 +314,63 @@ export default function ProjectsPage() {
             >
               {/* Table header */}
               <div className="flex items-center h-11 px-4 bg-bg-elevated">
-                <div className="flex-1 text-xs font-bold text-text-muted">
-                  {t("projectName")}
+                <div className="flex-1">
+                  <SortableHeaderButton
+                    sortKey="name"
+                    config={columnSort}
+                    onSort={toggleColumnSort}
+                  >
+                    {t("projectName")}
+                  </SortableHeaderButton>
                 </div>
                 {isStaff && (
-                  <div className="w-[140px] text-xs font-bold text-text-muted">
-                    {t("client")}
+                  <div className="w-[140px]">
+                    <SortableHeaderButton
+                      sortKey="client"
+                      config={columnSort}
+                      onSort={toggleColumnSort}
+                    >
+                      {t("client")}
+                    </SortableHeaderButton>
                   </div>
                 )}
-                <div className="w-[100px] text-xs font-bold text-text-muted">
-                  {t("category")}
+                <div className="w-[100px]">
+                  <SortableHeaderButton
+                    sortKey="category"
+                    config={columnSort}
+                    onSort={toggleColumnSort}
+                  >
+                    {t("category")}
+                  </SortableHeaderButton>
                 </div>
-                <div className="w-[140px] text-xs font-bold text-text-muted">
-                  {t("stage")}
+                <div className="w-[140px]">
+                  <SortableHeaderButton
+                    sortKey="status"
+                    config={columnSort}
+                    onSort={toggleColumnSort}
+                  >
+                    {t("stage")}
+                  </SortableHeaderButton>
                 </div>
                 {isStaff && (
-                  <div className="w-[110px] text-xs font-bold text-text-muted">
-                    {t("estimate")}
+                  <div className="w-[110px]">
+                    <SortableHeaderButton
+                      sortKey="estimate"
+                      config={columnSort}
+                      onSort={toggleColumnSort}
+                    >
+                      {t("estimate")}
+                    </SortableHeaderButton>
                   </div>
                 )}
-                <div className="w-[80px] text-xs font-bold text-text-muted">
-                  {t("updated")}
+                <div className="w-[80px]">
+                  <SortableHeaderButton
+                    sortKey="updated"
+                    config={columnSort}
+                    onSort={toggleColumnSort}
+                  >
+                    {t("updated")}
+                  </SortableHeaderButton>
                 </div>
                 <div className="w-8" />
               </div>
@@ -343,6 +385,11 @@ export default function ProjectsPage() {
                     onClick={() => router.push(`/projects/${project.id}`)}
                   >
                     <div className="flex-1 min-w-0">
+                      {project.project_number && (
+                        <span className="font-mono text-[11px] text-text-muted truncate block">
+                          {project.project_number}
+                        </span>
+                      )}
                       <span className="text-sm font-semibold text-text-primary truncate block">
                         {project.name}
                       </span>

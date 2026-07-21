@@ -85,7 +85,7 @@ export function DonutChart({
               <Cell
                 key={i}
                 fill={s.color}
-                fillOpacity={active === null || active === i ? 1 : 0.35}
+                opacity={active === null || active === i ? 1 : 0.35}
               />
             ))}
           </Pie>

@@ -125,6 +125,34 @@ export function suggestCodeSegment(name: string, maxLen: number): string {
 }
 
 /**
+ * The code segment a new rung in the inline `ServiceAreaDialog` should auto-fill
+ * to from its name, or `null` when it should be left as-is (auto-generate off,
+ * an existing node picked, the user edited the code, or it already matches).
+ * Caps at `code_max_length`; the taxonomy page's `CategoryForm` has its own
+ * parent-aware auto-fill (`segmentCap`) and doesn't use this.
+ *
+ * Re-derives from the FULL name every call — the auto-fill must not lock the
+ * code to the first character typed (which is what fill-only-when-empty does:
+ * the first keystroke fills it, then every later keystroke sees a non-empty
+ * segment and bails).
+ */
+export function nextAutoSegment(
+  field: {
+    name: string;
+    segment: string;
+    isNew: boolean;
+    codeTouched: boolean;
+  },
+  config: { auto_generate: boolean; code_max_length: number }
+): string | null {
+  if (!config.auto_generate || !field.isNew || field.codeTouched) return null;
+  const segment = field.name.trim()
+    ? suggestCodeSegment(field.name, config.code_max_length)
+    : "";
+  return field.segment === segment ? null : segment;
+}
+
+/**
  * Apply the org's `force_uppercase` option to a raw segment. Kept separate from
  * `normalizeCodeSegment` (which always uppercases and is relied on app-wide,
  * including element-code composition) so the lowercase-allowed path doesn't

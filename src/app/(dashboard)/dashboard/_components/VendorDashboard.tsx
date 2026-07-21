@@ -82,8 +82,15 @@ export function VendorDashboard() {
       label: t("dashboard.quotesUnderReview"),
       value: String(kpis.quotesUnderReview),
       icon: Hourglass,
+      href: "/rfqs?status=under_review",
     },
-    { label: t("dashboard.awarded"), value: String(kpis.awarded), icon: Award },
+    {
+      label: t("dashboard.awarded"),
+      value: String(kpis.awarded),
+      icon: Award,
+      href: "/rfqs?status=awarded",
+    },
+    // Win rate is a derived ratio, not a navigable list — display only.
     { label: t("dashboard.winRate"), value: winRate, icon: TrendingUp },
   ];
 
