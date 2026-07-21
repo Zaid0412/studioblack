@@ -85,7 +85,7 @@ export function ReviewToolbar({
         {/* Current revision — file metadata, shown by the name (not the action row) */}
         {currentRevLabel && (
           <span className="shrink-0 flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-bg-elevated border border-border-default text-[11px] font-semibold text-text-secondary">
-            <History className="w-3 h-3 text-accent" />
+            <History className="w-3 h-3 text-accent-strong" />
             {currentRevLabel}
           </span>
         )}
@@ -163,7 +163,7 @@ export function ReviewToolbar({
         {onIssueRevision && (
           <button
             onClick={onIssueRevision}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-accent text-accent text-[12px] font-semibold cursor-pointer hover:bg-accent/10 transition-colors"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-accent-strong text-accent-strong text-[12px] font-semibold cursor-pointer hover:bg-accent/10 transition-colors"
           >
             <Stamp className="w-3.5 h-3.5" />
             Issue Revision

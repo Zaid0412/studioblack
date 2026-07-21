@@ -369,7 +369,7 @@ function DropZone({
       className={cn(
         "flex flex-col items-center justify-center gap-2 px-6 py-10 border-2 border-dashed rounded-lg transition-colors cursor-pointer",
         dragOver
-          ? "border-accent bg-accent/5"
+          ? "border-accent-strong bg-accent/5"
           : "border-border-light bg-bg-secondary hover:bg-bg-elevated"
       )}
     >
@@ -480,7 +480,7 @@ function FileTab<F>({
       className={cn(
         "group flex items-center gap-2 rounded-md px-2.5 py-2 cursor-pointer transition-colors",
         selected
-          ? "bg-accent/10 border border-accent/40"
+          ? "bg-accent/10 border border-accent-strong/40"
           : "border border-transparent hover:bg-bg-input"
       )}
     >
@@ -525,7 +525,7 @@ function StatusIcon({
 }) {
   if (status === "uploading")
     return (
-      <Loader2 className="w-3.5 h-3.5 text-accent animate-spin shrink-0" />
+      <Loader2 className="w-3.5 h-3.5 text-accent-strong animate-spin shrink-0" />
     );
   if (status === "done")
     return <Check className="w-3.5 h-3.5 text-success shrink-0" />;
@@ -535,7 +535,7 @@ function StatusIcon({
     <FileText
       className={cn(
         "w-3.5 h-3.5 shrink-0",
-        selected ? "text-accent" : "text-text-muted"
+        selected ? "text-accent-strong" : "text-text-muted"
       )}
     />
   );

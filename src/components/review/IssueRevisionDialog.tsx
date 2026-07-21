@@ -60,7 +60,7 @@ export function IssueRevisionDialog({
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-border-default px-5 py-4 pr-10">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/15">
-            <Stamp className="h-[18px] w-[18px] text-accent" />
+            <Stamp className="h-[18px] w-[18px] text-accent-strong" />
           </span>
           <div className="min-w-0">
             <DialogTitle className="text-[15px] font-bold">
@@ -75,7 +75,7 @@ export function IssueRevisionDialog({
         {/* Body */}
         <div className="flex flex-col gap-4 px-5 py-5">
           {/* What's being created */}
-          <div className="flex items-center justify-between rounded-[10px] border border-accent/25 bg-accent/10 px-4 py-3.5">
+          <div className="flex items-center justify-between rounded-[10px] border border-accent-strong/25 bg-accent/10 px-4 py-3.5">
             <div className="flex flex-col gap-0.5">
               <span className="text-[11px] font-medium text-text-secondary">
                 You&apos;re issuing

@@ -380,7 +380,7 @@ export function RateContractItemPicker({
                         }
                         aria-label={t("itemOptionalDetail")}
                         title={t("itemOptionalDetail")}
-                        className={hasDetail(d) ? "text-accent" : ""}
+                        className={hasDetail(d) ? "text-accent-strong" : ""}
                       >
                         <SlidersHorizontal className="w-4 h-4" />
                       </Button>

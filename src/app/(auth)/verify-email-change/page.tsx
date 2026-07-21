@@ -84,15 +84,15 @@ export default function VerifyEmailChangePage() {
         <ThemeToggle />
         <div className="w-full max-w-[440px] rounded-2xl border border-border-default bg-white shadow-[0_2px_20px_rgba(0,0,0,0.08)] dark:bg-bg-secondary dark:shadow-lg p-12 flex flex-col items-center gap-5">
           <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center">
-            <CheckCircle2 className="w-8 h-8 text-accent" />
+            <CheckCircle2 className="w-8 h-8 text-accent-strong" />
           </div>
           <h1 className="text-2xl font-bold text-text-primary text-center">
             {t("changeEmailSuccess")}
           </h1>
           {newEmail && (
-            <div className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent/10 border border-accent/20">
-              <Mail className="w-3.5 h-3.5 text-accent" />
-              <span className="text-sm font-semibold text-accent">
+            <div className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent/10 border border-accent-strong/20">
+              <Mail className="w-3.5 h-3.5 text-accent-strong" />
+              <span className="text-sm font-semibold text-accent-strong">
                 {newEmail}
               </span>
             </div>
@@ -128,13 +128,13 @@ export default function VerifyEmailChangePage() {
             )}
             {oldEmail && newEmail && (
               <div className="w-8 h-8 flex items-center justify-center">
-                <ArrowDown className="w-4 h-4 text-accent" />
+                <ArrowDown className="w-4 h-4 text-accent-strong" />
               </div>
             )}
             {newEmail && (
-              <div className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent/10 border border-accent/20">
-                <Mail className="w-3.5 h-3.5 text-accent" />
-                <span className="text-[13px] font-semibold text-accent">
+              <div className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent/10 border border-accent-strong/20">
+                <Mail className="w-3.5 h-3.5 text-accent-strong" />
+                <span className="text-[13px] font-semibold text-accent-strong">
                   {newEmail}
                 </span>
               </div>

@@ -48,7 +48,7 @@ export function PinCommentForm({
         onKeyDown={handleKeyDown}
         placeholder="Add a comment…"
         rows={3}
-        className="w-full resize-none rounded-md border border-border-default bg-bg-secondary px-2.5 py-2 text-[13px] text-text-primary placeholder:text-text-muted outline-none focus:border-[#F5C518]/50"
+        className="w-full resize-none rounded-md border border-border-default bg-bg-secondary px-2.5 py-2 text-[13px] text-text-primary placeholder:text-text-muted outline-none focus:border-accent-strong/50"
       />
       <div className="mt-2 flex items-center justify-end gap-2">
         <button
@@ -60,7 +60,7 @@ export function PinCommentForm({
         <button
           onClick={() => content.trim() && onSubmit(content.trim())}
           disabled={!content.trim()}
-          className="rounded-md bg-[#F5C518] px-3 py-1 text-[12px] font-semibold text-text-on-accent hover:bg-[#F5C518]/90 disabled:opacity-40 disabled:cursor-default transition-colors cursor-pointer"
+          className="rounded-md bg-accent px-3 py-1 text-[12px] font-semibold text-text-on-accent hover:bg-accent/90 disabled:opacity-40 disabled:cursor-default transition-colors cursor-pointer"
         >
           Submit
         </button>

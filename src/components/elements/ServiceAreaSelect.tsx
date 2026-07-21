@@ -166,7 +166,7 @@ export function ServiceAreaSelect({
                     close();
                     setCreateOpen(true);
                   }}
-                  className="flex items-center gap-2 px-3 py-2.5 text-sm text-accent hover:bg-accent/10 border-b border-border-default transition-colors"
+                  className="flex items-center gap-2 px-3 py-2.5 text-sm text-accent-strong hover:bg-accent/10 border-b border-border-default transition-colors"
                 >
                   <Plus className="h-4 w-4" />
                   {t("newServiceArea")}
@@ -197,7 +197,7 @@ export function ServiceAreaSelect({
                       <button
                         type="button"
                         onClick={() => setCursor(crumb.target)}
-                        className="rounded px-1 py-0.5 text-accent hover:bg-accent/10 transition-colors"
+                        className="rounded px-1 py-0.5 text-accent-strong hover:bg-accent/10 transition-colors"
                       >
                         {crumb.name}
                       </button>

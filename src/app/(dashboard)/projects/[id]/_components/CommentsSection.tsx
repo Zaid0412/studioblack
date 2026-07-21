@@ -60,7 +60,7 @@ export function CommentsSection({
               }
             }}
             placeholder={t("commentPlaceholder")}
-            className="flex-1 rounded-lg border border-border-default bg-bg-secondary px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted resize-none focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
+            className="flex-1 rounded-lg border border-border-default bg-bg-secondary px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted resize-none focus:outline-none focus:border-accent-strong focus:ring-1 focus:ring-accent/30"
             rows={2}
           />
           <Button

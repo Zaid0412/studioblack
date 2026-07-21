@@ -108,7 +108,7 @@ export function BoqMoveTargetPopover({
                       setPopoverOpen(false);
                       setCreateOpen(true);
                     }}
-                    className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left text-accent hover:bg-accent/10 transition-colors"
+                    className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left text-accent-strong hover:bg-accent/10 transition-colors"
                   >
                     <Plus className="h-4 w-4" />
                     Create new section…

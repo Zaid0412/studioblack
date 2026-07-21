@@ -98,7 +98,7 @@ export function ReviewSubmitBar({
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               placeholder="Add a comment about your approval..."
-              className="w-full rounded-lg border border-border-default bg-bg-primary px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted resize-none focus:outline-none focus:border-accent mb-3"
+              className="w-full rounded-lg border border-border-default bg-bg-primary px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted resize-none focus:outline-none focus:border-accent-strong mb-3"
               rows={3}
               autoFocus
             />

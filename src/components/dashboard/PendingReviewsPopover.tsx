@@ -100,12 +100,12 @@ export function PendingReviewsPopover({ count, label, audience }: Props) {
         >
           <div className="flex items-center justify-between">
             <span className="text-[13px] text-text-muted">{label}</span>
-            <ClipboardCheck className="w-4 h-4 text-accent" />
+            <ClipboardCheck className="w-4 h-4 text-accent-strong" />
           </div>
-          <span className="text-[32px] font-bold text-accent leading-none">
+          <span className="text-[32px] font-bold text-accent-strong leading-none">
             {count}
           </span>
-          <span className="self-end inline-flex items-center gap-1 text-[11px] font-semibold text-accent group-hover:gap-1.5 transition-all">
+          <span className="self-end inline-flex items-center gap-1 text-[11px] font-semibold text-accent-strong group-hover:gap-1.5 transition-all">
             View list
             <ChevronDown className="w-3 h-3" />
           </span>
@@ -170,7 +170,7 @@ function PopoverBody({
           Pending Reviews
         </span>
         {normalized && (
-          <span className="text-xs font-bold text-accent tabular-nums">
+          <span className="text-xs font-bold text-accent-strong tabular-nums">
             {truncated ? `${shown} of ${totalCount}` : shown}
           </span>
         )}
@@ -272,7 +272,7 @@ function FileReviewRow({ row }: { row: NormalizedFile }) {
         href={`/projects/${row.project_id}/review/${row.id}`}
         className="flex items-start gap-3 px-4 py-3 border-b border-border-default last:border-b-0 hover:bg-bg-elevated/50 transition-colors"
       >
-        <FileText className="w-4 h-4 text-accent shrink-0 mt-0.5" />
+        <FileText className="w-4 h-4 text-accent-strong shrink-0 mt-0.5" />
         <div className="flex flex-col gap-0.5 min-w-0 flex-1">
           <span className="text-[13px] font-semibold text-text-primary truncate">
             {row.file_name}
@@ -292,7 +292,7 @@ function BoqReviewRow({ row }: { row: NormalizedBoq }) {
         href={`/projects/${row.project_id}/boq/${DEFAULT_BOQ_SEGMENT}`}
         className="flex items-start gap-3 px-4 py-3 border-b border-border-default last:border-b-0 hover:bg-bg-elevated/50 transition-colors"
       >
-        <ScrollText className="w-4 h-4 text-accent shrink-0 mt-0.5" />
+        <ScrollText className="w-4 h-4 text-accent-strong shrink-0 mt-0.5" />
         <div className="flex flex-col gap-0.5 min-w-0 flex-1">
           <span className="text-[13px] font-semibold text-text-primary truncate">
             BOQ — {row.project_name}

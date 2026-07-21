@@ -82,7 +82,7 @@ export function BulkActions({
             </button>
             <button
               onClick={onFreeze}
-              className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-md text-xs font-medium text-accent bg-accent/[0.08] border border-accent/20 hover:bg-accent/[0.15] transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-md text-xs font-medium text-accent-strong bg-accent/[0.08] border border-accent-strong/20 hover:bg-accent/[0.15] transition-colors cursor-pointer"
             >
               <Lock className="w-3.5 h-3.5" />
               Freeze Design
@@ -139,7 +139,7 @@ export function BulkActions({
           </button>
           <button
             onClick={onFreeze}
-            className="p-2 rounded-md text-accent bg-accent/[0.08] border border-accent/20 hover:bg-accent/[0.15] transition-colors cursor-pointer"
+            className="p-2 rounded-md text-accent-strong bg-accent/[0.08] border border-accent-strong/20 hover:bg-accent/[0.15] transition-colors cursor-pointer"
             aria-label="Freeze design"
           >
             <Lock className="w-4 h-4" />

@@ -243,7 +243,7 @@ export function TaskRow({
             >
               <DropdownMenuItem onClick={() => onToggleStar(task)}>
                 <Star
-                  className={`w-4 h-4 ${task.is_starred ? "fill-accent text-accent" : ""}`}
+                  className={`w-4 h-4 ${task.is_starred ? "fill-accent text-accent-strong" : ""}`}
                 />
                 {task.is_starred ? t("unstar") : t("star")}
               </DropdownMenuItem>

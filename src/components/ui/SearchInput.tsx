@@ -67,7 +67,7 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
           ref={ref}
           className={cn(
             "w-full rounded-lg border border-border-default bg-bg-input pl-10 pr-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted transition-colors",
-            "focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30",
+            "focus:outline-none focus:border-accent-strong focus:ring-1 focus:ring-accent/30",
             className
           )}
           value={debounceMs ? localValue : value}

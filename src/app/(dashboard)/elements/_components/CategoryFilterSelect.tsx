@@ -63,7 +63,7 @@ export function CategoryFilterSelect({ value, onChange, tree }: Props) {
               onClick={() => pick(null)}
               className={cn(
                 "flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-bg-elevated",
-                value === null && "text-accent"
+                value === null && "text-accent-strong"
               )}
             >
               <span className="w-4">

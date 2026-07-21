@@ -42,7 +42,7 @@ export function RequestChangesDialog({
           value={comment}
           onChange={(e) => onCommentChange(e.target.value)}
           placeholder={t("requestChangesPlaceholder")}
-          className="w-full rounded-lg border border-border-default bg-bg-input px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted resize-none focus:outline-none focus:border-[#F5C518]"
+          className="w-full rounded-lg border border-border-default bg-bg-input px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted resize-none focus:outline-none focus:border-accent-strong"
           rows={4}
           autoFocus
         />
@@ -59,7 +59,7 @@ export function RequestChangesDialog({
           <button
             onClick={onSubmit}
             disabled={submitting}
-            className="bg-[#F5C518] text-text-on-accent rounded-lg px-4 py-2 text-[13px] font-semibold hover:bg-[#F5C518]/90 transition-colors cursor-pointer disabled:opacity-50"
+            className="bg-accent text-text-on-accent rounded-lg px-4 py-2 text-[13px] font-semibold hover:bg-accent/90 transition-colors cursor-pointer disabled:opacity-50"
           >
             {submitting ? t("submitting") : t("submit")}
           </button>

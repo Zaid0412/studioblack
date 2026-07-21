@@ -182,14 +182,14 @@ function BucketRow({ bucket, label, count, isActive, onSelect }: RowProps) {
       onClick={() => onSelect(bucket)}
       className={`flex w-full items-center gap-3 px-3 py-2 rounded-lg border-l-[3px] text-sm transition-colors cursor-pointer ${
         isActive
-          ? "bg-accent/10 text-accent font-semibold border-accent"
+          ? "bg-accent/10 text-accent-strong font-semibold border-accent-strong"
           : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated/50 border-transparent"
       }`}
     >
       <Icon className="w-4 h-4 shrink-0" />
       <span className="flex-1 text-left">{label}</span>
       <span
-        className={`text-xs tabular-nums ${isActive ? "text-accent" : "text-text-muted"}`}
+        className={`text-xs tabular-nums ${isActive ? "text-accent-strong" : "text-text-muted"}`}
       >
         {count}
       </span>
@@ -205,14 +205,14 @@ function BucketPill({ bucket, label, count, isActive, onSelect }: RowProps) {
       onClick={() => onSelect(bucket)}
       className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer shrink-0 ${
         isActive
-          ? "bg-accent/10 text-accent"
+          ? "bg-accent/10 text-accent-strong"
           : "text-text-secondary bg-bg-secondary hover:text-text-primary"
       }`}
     >
       <Icon className="w-3.5 h-3.5 shrink-0" />
       {label}
       <span
-        className={`text-[10px] tabular-nums ${isActive ? "text-accent" : "text-text-muted"}`}
+        className={`text-[10px] tabular-nums ${isActive ? "text-accent-strong" : "text-text-muted"}`}
       >
         {count}
       </span>

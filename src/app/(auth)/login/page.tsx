@@ -85,7 +85,7 @@ export default function LoginPage() {
           <div className="flex justify-end mt-1.5">
             <Link
               href={forgotPasswordHref}
-              className="text-xs text-text-muted hover:text-accent transition-colors"
+              className="text-xs text-text-muted hover:text-accent-strong transition-colors"
             >
               {t("forgotPassword")}
             </Link>
@@ -127,7 +127,7 @@ export default function LoginPage() {
               ? `/register?returnTo=${encodeURIComponent(returnTo)}`
               : "/register"
           }
-          className="text-accent hover:underline font-medium"
+          className="text-accent-strong hover:underline font-medium"
         >
           {t("signUpLink")}
         </Link>

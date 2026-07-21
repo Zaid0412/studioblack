@@ -156,7 +156,7 @@ export default function RegisterPage() {
               ? `/login?returnTo=${encodeURIComponent(returnTo)}`
               : "/login"
           }
-          className="text-accent hover:underline font-medium"
+          className="text-accent-strong hover:underline font-medium"
         >
           {t("signInLink")}
         </Link>

@@ -187,7 +187,7 @@ export function CategoryIconBrowseDialog({
                         key={s}
                         type="button"
                         onClick={() => setQuery(s)}
-                        className="cursor-pointer rounded-full border border-border-default bg-bg-secondary px-3 py-1 text-xs text-text-secondary transition-colors hover:border-accent/60 hover:text-text-primary"
+                        className="cursor-pointer rounded-full border border-border-default bg-bg-secondary px-3 py-1 text-xs text-text-secondary transition-colors hover:border-accent-strong/60 hover:text-text-primary"
                       >
                         {capitalize(s)}
                       </button>
@@ -220,7 +220,7 @@ export function CategoryIconBrowseDialog({
                         className={cn(
                           "flex aspect-square cursor-pointer items-center justify-center rounded-md transition-all duration-150",
                           selected
-                            ? "bg-accent/10 text-accent ring-2 ring-accent scale-105"
+                            ? "bg-accent/10 text-accent-strong ring-2 ring-accent scale-105"
                             : "ring-1 ring-transparent text-text-secondary hover:bg-accent/8 hover:ring-accent/60"
                         )}
                       >
@@ -258,7 +258,7 @@ export function CategoryIconBrowseDialog({
                 </code>
               </div>
               {pending === displayed && (
-                <span className="ml-auto shrink-0 rounded-full bg-accent/10 px-2 py-0.5 text-[11px] font-medium text-accent">
+                <span className="ml-auto shrink-0 rounded-full bg-accent/10 px-2 py-0.5 text-[11px] font-medium text-accent-strong">
                   Selected
                 </span>
               )}

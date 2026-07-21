@@ -921,7 +921,7 @@ const BoqItemRow = memo(function BoqItemRow({
         <button
           type="button"
           onClick={() => onOpen(item)}
-          className="text-xs text-text-muted font-mono truncate text-left hover:text-accent cursor-pointer focus:outline-none focus-visible:text-accent"
+          className="text-xs text-text-muted font-mono truncate text-left hover:text-accent-strong cursor-pointer focus:outline-none focus-visible:text-accent-strong"
           aria-label={`Open details for ${lineRef}`}
         >
           {lineDisplay}

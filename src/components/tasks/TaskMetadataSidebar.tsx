@@ -190,7 +190,7 @@ function EditableSidebar({
                   e.stopPropagation();
                   onChange({ assignedTo: currentUserId });
                 }}
-                className="block text-xs text-accent hover:underline"
+                className="block text-xs text-accent-strong hover:underline"
               >
                 Assign yourself
               </button>

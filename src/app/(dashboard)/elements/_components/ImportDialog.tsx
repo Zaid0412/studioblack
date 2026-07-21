@@ -287,7 +287,7 @@ export function ImportDialog({
               onKeyDown={handleDropzoneKeyDown}
               className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-8 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                 dragOver
-                  ? "border-accent bg-accent/10"
+                  ? "border-accent-strong bg-accent/10"
                   : "border-border-default hover:border-border-light"
               }`}
             >
@@ -336,7 +336,7 @@ export function ImportDialog({
                     /* toast handled at the API layer */
                   }
                 }}
-                className="text-accent hover:underline"
+                className="text-accent-strong hover:underline"
               >
                 {t("importDownloadTemplate")}
               </button>
@@ -518,7 +518,7 @@ export function ImportDialog({
                   key={s}
                   className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors ${
                     strategy === s
-                      ? "border-accent bg-accent/5"
+                      ? "border-accent-strong bg-accent/5"
                       : "border-border-default hover:border-border-light"
                   }`}
                 >

@@ -68,7 +68,7 @@ export default function OnboardingPage() {
           <div className="flex flex-col gap-6">
             <div className="flex flex-col items-center text-center gap-2">
               <div className="flex items-center justify-center w-12 h-12 rounded-full bg-accent/10 mb-2">
-                <Building2 className="w-6 h-6 text-accent" />
+                <Building2 className="w-6 h-6 text-accent-strong" />
               </div>
               <h2 className="text-xl font-bold text-text-primary">
                 {t("title")}

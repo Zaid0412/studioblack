@@ -52,7 +52,7 @@ export function ReviewPanelTabs({
             aria-pressed={isActive}
             className={`relative z-10 flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors cursor-pointer ${
               isActive
-                ? "text-accent"
+                ? "text-accent-strong"
                 : "text-text-secondary hover:text-text-primary"
             }`}
           >
@@ -62,7 +62,7 @@ export function ReviewPanelTabs({
               <span
                 className={`flex items-center justify-center min-w-4 h-4 px-1 rounded-full text-[10px] font-bold ${
                   isActive
-                    ? "bg-accent/20 text-accent"
+                    ? "bg-accent/20 text-accent-strong"
                     : "bg-bg-elevated text-text-secondary"
                 }`}
               >

@@ -74,7 +74,7 @@ export function VendorRow({
 
   const preferredBadge = vendor.preferred_vendor ? (
     <BadgeCheck
-      className="w-3.5 h-3.5 text-accent shrink-0"
+      className="w-3.5 h-3.5 text-accent-strong shrink-0"
       aria-label={t("preferredVendor")}
     />
   ) : null;

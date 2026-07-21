@@ -75,7 +75,7 @@ export function RevisionPanel({ revisions, onClose }: RevisionPanelProps) {
                   <span
                     className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center text-[11px] font-bold ${
                       isLatest
-                        ? "bg-accent/15 text-accent"
+                        ? "bg-accent/15 text-accent-strong"
                         : "bg-bg-elevated text-text-secondary"
                     }`}
                   >

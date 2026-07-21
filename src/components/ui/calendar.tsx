@@ -44,7 +44,7 @@ function Calendar({
         selected:
           "[&>button]:bg-accent [&>button]:text-text-on-accent [&>button]:font-semibold [&>button]:hover:bg-accent-hover",
         today:
-          "[&>button]:bg-[#F5C518]/20 [&>button]:text-[#F5C518] [&>button]:font-bold [&>button]:border [&>button]:border-[#F5C518]/60",
+          "[&>button]:bg-accent/20 [&>button]:text-accent-strong [&>button]:font-bold [&>button]:border [&>button]:border-accent-strong/60",
         outside: "[&>button]:text-text-muted/40",
         disabled: "[&>button]:text-text-muted/30 [&>button]:cursor-not-allowed",
         hidden: "invisible",

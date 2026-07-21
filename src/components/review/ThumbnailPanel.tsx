@@ -86,12 +86,14 @@ export function ThumbnailPanel({
                 onClick={() => onSelectFile(file.id)}
                 className={`w-full text-left px-3 py-2 flex items-center gap-2.5 transition-colors cursor-pointer ${
                   isActive
-                    ? "bg-bg-secondary border-l-2 border-accent"
+                    ? "bg-bg-secondary border-l-2 border-accent-strong"
                     : "border-l-2 border-transparent hover:bg-bg-secondary"
                 }`}
               >
                 <div
-                  className={isActive ? "text-accent" : "text-text-secondary"}
+                  className={
+                    isActive ? "text-accent-strong" : "text-text-secondary"
+                  }
                 >
                   <FileTypeIcon name={file.file_name} />
                 </div>
@@ -106,7 +108,7 @@ export function ThumbnailPanel({
                     {file.file_name}
                   </p>
                   {file.version && file.version > 1 && (
-                    <span className="text-[10px] text-accent">
+                    <span className="text-[10px] text-accent-strong">
                       V{file.version}
                     </span>
                   )}

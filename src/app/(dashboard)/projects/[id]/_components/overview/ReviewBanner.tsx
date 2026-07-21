@@ -16,10 +16,10 @@ export function ReviewBanner({ count, href }: ReviewBannerProps) {
   if (count <= 0) return null;
 
   return (
-    <div className="flex items-center justify-between gap-4 rounded-xl border border-accent/25 bg-accent/10 px-5 py-4">
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-accent-strong/25 bg-accent/10 px-5 py-4">
       <div className="flex items-center gap-3">
         <Hourglass
-          className="h-5 w-5 shrink-0 text-accent"
+          className="h-5 w-5 shrink-0 text-accent-strong"
           aria-hidden="true"
         />
         <p className="text-sm font-medium text-text-primary">

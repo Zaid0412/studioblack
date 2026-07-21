@@ -161,11 +161,11 @@ export function NewPinForm({
         </div>
 
         {/* Textarea area */}
-        <div className="mx-3.5 rounded-lg border border-border-default bg-bg-elevated transition-colors duration-200 focus-within:border-accent/30">
+        <div className="mx-3.5 rounded-lg border border-border-default bg-bg-elevated transition-colors duration-200 focus-within:border-accent-strong/30">
           {/* Pin badge row */}
           {pinAttached && pendingPin && (
             <div className="px-2.5 pt-2 flex items-center gap-1.5">
-              <MapPin className="w-3.5 h-3.5 text-accent" />
+              <MapPin className="w-3.5 h-3.5 text-accent-strong" />
               <button
                 onClick={() => {
                   setPinAttached(false);
@@ -180,7 +180,7 @@ export function NewPinForm({
           {pendingShapes && pendingShapes.length > 0 && (
             <div className="px-2.5 pt-2 flex items-center gap-1.5 text-[11px] text-text-secondary">
               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-bg-secondary border border-border-default">
-                <Shapes className="w-3.5 h-3.5 text-accent" />
+                <Shapes className="w-3.5 h-3.5 text-accent-strong" />
                 <span>Shape</span>
                 <button
                   type="button"
@@ -220,7 +220,7 @@ export function NewPinForm({
                   }}
                   className={`p-1.5 rounded-md transition-colors cursor-pointer ${
                     pinAttached && pendingPin
-                      ? "text-accent bg-accent/10"
+                      ? "text-accent-strong bg-accent/10"
                       : "text-text-secondary hover:text-text-primary"
                   }`}
                 >

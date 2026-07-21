@@ -98,7 +98,7 @@ export function ProfileSection(props: ProfileSectionProps) {
             <button
               onClick={openFilePicker}
               disabled={isUploading}
-              className="text-xs text-accent hover:text-accent-hover transition-colors cursor-pointer text-left"
+              className="text-xs text-accent-strong hover:text-accent-hover transition-colors cursor-pointer text-left"
             >
               {isUploading ? t("uploading") : t("changeAvatar")}
             </button>
@@ -122,8 +122,8 @@ export function ProfileSection(props: ProfileSectionProps) {
 
           {/* Change email input */}
           {emailChangeRequested ? (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-accent/10 border border-accent/20">
-              <Mail className="w-4 h-4 text-accent shrink-0" />
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-accent/10 border border-accent-strong/20">
+              <Mail className="w-4 h-4 text-accent-strong shrink-0" />
               <p className="text-sm text-text-secondary">
                 {t("changeEmailSentTo", { email: newEmail })}
               </p>

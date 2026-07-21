@@ -182,7 +182,7 @@ export function BoqEditableCell({
         "transition-colors duration-150 ease-out",
         "focus:outline-none",
         editing
-          ? "border-accent bg-bg-input focus:ring-1 focus:ring-accent/40"
+          ? "border-accent-strong bg-bg-input focus:ring-1 focus:ring-accent/40"
           : cn(
               "border-transparent bg-transparent",
               disabled

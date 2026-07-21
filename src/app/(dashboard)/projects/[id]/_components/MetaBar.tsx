@@ -88,7 +88,7 @@ export function MetaBar({
         )}
         {deadline && (
           <div className="flex items-center gap-1.5 text-text-primary font-medium">
-            <Calendar className="w-3.5 h-3.5 text-accent" />
+            <Calendar className="w-3.5 h-3.5 text-accent-strong" />
             {t("duePrefix")} {formatDate(deadline)}
           </div>
         )}

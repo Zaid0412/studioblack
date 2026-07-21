@@ -360,7 +360,7 @@ export function TaskMarkdownEditor({
             }`}
           />
           {dragOver && (
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-accent/5 text-accent text-sm font-medium">
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-accent/5 text-accent-strong text-sm font-medium">
               Drop to upload
             </div>
           )}
@@ -382,7 +382,7 @@ export function TaskMarkdownEditor({
       <div
         className={`flex items-center gap-2 px-3 py-2 border-t border-border-default text-[11px] transition-colors ${
           uploading > 0
-            ? "bg-accent/10 text-accent"
+            ? "bg-accent/10 text-accent-strong"
             : "bg-bg-primary/40 text-text-muted"
         }`}
       >

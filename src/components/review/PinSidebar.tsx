@@ -136,7 +136,7 @@ export function PinSidebar({
             <TooltipTrigger asChild>
               <button
                 onClick={() => setShowNewForm(true)}
-                className="text-text-muted hover:text-[#F5C518] transition-colors cursor-pointer p-0.5"
+                className="text-text-muted hover:text-accent-strong transition-colors cursor-pointer p-0.5"
               >
                 <Plus className="w-4 h-4" />
               </button>

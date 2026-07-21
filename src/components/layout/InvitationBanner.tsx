@@ -145,7 +145,7 @@ export function InvitationBanner() {
           className="flex items-center gap-4 px-4 py-3.5 lg:px-6 rounded-lg bg-accent border border-accent dark:bg-bg-secondary dark:border-border-default"
         >
           <div className="w-10 h-10 rounded-full bg-black/10 dark:bg-accent/10 flex items-center justify-center shrink-0">
-            <Building2 className="w-5 h-5 text-black/70 dark:text-accent" />
+            <Building2 className="w-5 h-5 text-black/70 dark:text-accent-strong" />
           </div>
 
           <div className="flex-1 min-w-0">
