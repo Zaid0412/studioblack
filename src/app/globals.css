@@ -10,6 +10,10 @@
 
   --accent: #c9a30c;
   --accent-hover: #b08e0a;
+  /* Foreground-safe accent for ink on light surfaces (text / thin borders).
+     The bright accent is ~2.4:1 on white — fails WCAG; this darker gold clears
+     AA (~4.8:1). Use `--accent` for fills, `--accent-strong` for accent text. */
+  --accent-strong: #8a6d00;
 
   --text-primary: #111111;
   --text-secondary: #444444;
@@ -69,6 +73,10 @@
 
   --accent: #f5c518;
   --accent-hover: #d4a90d;
+  /* On dark surfaces the bright accent is already high-contrast as ink, so
+     accent-strong == accent here. Swapping text-accent → text-accent-strong is
+     therefore a no-op in dark mode and a fix in light mode. */
+  --accent-strong: #f5c518;
 
   --text-primary: #ffffff;
   --text-secondary: #b0b0b0;
@@ -136,6 +144,7 @@
   /* Accent */
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
+  --color-accent-strong: var(--accent-strong);
   --color-accent-foreground: var(--text-on-accent);
 
   /* Text */

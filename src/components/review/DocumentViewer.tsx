@@ -196,7 +196,7 @@ export function DocumentViewer({
               </p>
               <button
                 onClick={() => window.location.reload()}
-                className="text-[13px] text-[#F5C518] hover:underline cursor-pointer"
+                className="text-[13px] text-accent-strong hover:underline cursor-pointer"
               >
                 Reload page
               </button>
@@ -261,7 +261,7 @@ export function DocumentViewer({
           <a
             href={fileUrl}
             download
-            className="inline-flex items-center gap-2 bg-[#F5C518] text-text-on-accent rounded-lg px-4 py-2 text-sm font-semibold hover:bg-[#F5C518]/90 transition-colors"
+            className="inline-flex items-center gap-2 bg-accent text-text-on-accent rounded-lg px-4 py-2 text-sm font-semibold hover:bg-accent/90 transition-colors"
           >
             <Download className="w-4 h-4" />
             Download
@@ -278,11 +278,11 @@ export function DocumentViewer({
         }`}
       >
         <div className="flex items-center gap-2 bg-bg-primary/90 border border-border-default backdrop-blur-sm rounded-lg px-4 py-2 shadow-lg">
-          <MapPin className="w-3.5 h-3.5 text-[#F5C518] shrink-0" />
+          <MapPin className="w-3.5 h-3.5 text-accent-strong shrink-0" />
           <span className="text-[12px] text-text-secondary whitespace-nowrap">
             Click anywhere to place a pin · Press{" "}
-            <kbd className="text-[#F5C518] font-medium">P</kbd> or{" "}
-            <kbd className="text-[#F5C518] font-medium">Esc</kbd> to exit
+            <kbd className="text-accent-strong font-medium">P</kbd> or{" "}
+            <kbd className="text-accent-strong font-medium">Esc</kbd> to exit
           </span>
         </div>
       </div>

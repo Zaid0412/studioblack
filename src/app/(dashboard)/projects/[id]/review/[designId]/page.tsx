@@ -1,6 +1,7 @@
 "use client";
 
-import { use, useState, useCallback, useEffect, useMemo } from "react";
+import { use, useState, useRef, useCallback, useEffect, useMemo } from "react";
+import useSWR from "swr";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
@@ -8,14 +9,10 @@ import {
   FileText,
   ClipboardCheck,
   MessageCircle,
+  History,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-} from "@/components/ui/tooltip";
 import { useDesignReview } from "@/hooks/useDesignReview";
 import { usePinComments } from "@/hooks/usePinComments";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -27,15 +24,24 @@ import { PinOverlay } from "@/components/review/PinOverlay";
 import { ShapeDrawingLayer } from "@/components/review/ShapeDrawingLayer";
 import { AnnotationRail } from "@/components/review/AnnotationRail";
 import { PinSidebar } from "@/components/review/PinSidebar";
+import { ReviewSidePanel } from "@/components/review/ReviewSidePanel";
+import {
+  ReviewPanelTabs,
+  type ReviewPanelKey,
+} from "@/components/review/ReviewPanelTabs";
 import { ReviewPanel } from "@/components/review/ReviewPanel";
+import { RevisionPanel, revLabel } from "@/components/review/RevisionPanel";
+import { IssueRevisionDialog } from "@/components/review/IssueRevisionDialog";
 import { ReviewSubmitBar } from "@/components/review/ReviewSubmitBar";
 import { UploadDesignDialog } from "../../_components/UploadDesignDialog";
 import { toast } from "@/components/ui/useToast";
 import { attachments as attachmentsApi, upload, ApiError } from "@/lib/api";
+import { API } from "@/lib/api/routes";
 import { authClient } from "@/lib/authClient";
+import { useFlag } from "@/hooks/useFlag";
 import { isPdf, isSpreadsheet } from "@/lib/fileUtils";
-import { MAX_SHAPES_PER_PIN } from "@/lib/validations";
-import type { PinShape } from "@/types";
+import { MAX_SHAPES_PER_PIN, type IssuePurpose } from "@/lib/validations";
+import type { PinShape, DbDrawingRevision } from "@/types";
 import { useSidebar } from "@/components/layout/SidebarContext";
 
 /**
@@ -104,12 +110,56 @@ export default function DesignReviewPage({
     setDrawFill,
     addPin,
     resolvePin,
+    setPinStatus,
     editPin,
     deletePin,
     repositionPin,
     fetchReplies,
     addReply,
   } = pinState;
+
+  // Design → Document Control: pin 3-state status + drawing revisions.
+  const docControl = useFlag("designDocumentControl");
+  const { data: revData, mutate: mutateRevisions } = useSWR<{
+    revisions: DbDrawingRevision[];
+  }>(
+    docControl && activeFileId
+      ? API.attachmentRevisions(id, activeFileId)
+      : null
+  );
+  const revisions = revData?.revisions ?? [];
+  const currentRevLabel =
+    revisions.length > 0 ? revLabel(revisions[0].rev_number) : null;
+  const nextRevLabel = revLabel((revisions[0]?.rev_number ?? -1) + 1);
+  const [issueOpen, setIssueOpen] = useState(false);
+  const [issuing, setIssuing] = useState(false);
+  const [revisionsOpen, setRevisionsOpen] = useState(false);
+
+  const handleIssueRevision = useCallback(
+    async (purpose: IssuePurpose) => {
+      setIssuing(true);
+      try {
+        await attachmentsApi.issueRevision(id, activeFileId, purpose);
+        toast({
+          title: "Revision issued",
+          description: `${nextRevLabel} is now the current revision. This version is read-only.`,
+          variant: "success",
+        });
+        setIssueOpen(false);
+        await Promise.all([refreshAttachment(), mutateRevisions()]);
+      } catch (err) {
+        toast({
+          title: "Error",
+          description:
+            err instanceof ApiError ? err.message : "Failed to issue revision.",
+          variant: "error",
+        });
+      } finally {
+        setIssuing(false);
+      }
+    },
+    [id, activeFileId, nextRevLabel, refreshAttachment, mutateRevisions]
+  );
 
   // Org members for assignee dropdown (same source as tasks page)
   const { members: orgMembers } = useOrgMembers({ assignableOnly: true });
@@ -151,6 +201,41 @@ export default function DesignReviewPage({
   );
   const [uploadOpen, setUploadOpen] = useState(false);
   const [requestChangesMode, setRequestChangesMode] = useState(false);
+
+  // The three side panels are mutually exclusive — derive the active one and
+  // toggle through a single handler (click the active tab again to close it).
+  const activePanel: ReviewPanelKey | null = commentsOpen
+    ? "comments"
+    : reviewsOpen
+      ? "reviews"
+      : revisionsOpen
+        ? "revisions"
+        : null;
+  const togglePanel = useCallback(
+    (key: ReviewPanelKey) => {
+      const next = activePanel === key ? null : key;
+      setCommentsOpen(next === "comments");
+      setReviewsOpen(next === "reviews");
+      setRevisionsOpen(next === "revisions");
+      if (next !== "comments") {
+        setPendingPin(null);
+        setRequestChangesMode(false);
+      }
+    },
+    [activePanel]
+  );
+  const closePanel = useCallback(() => {
+    setCommentsOpen(false);
+    setReviewsOpen(false);
+    setRevisionsOpen(false);
+    setPendingPin(null);
+    setRequestChangesMode(false);
+  }, []);
+  // Which body the shared drawer renders. During the close animation `activePanel`
+  // is already null, so fall back to the last one to keep it visible while it slides out.
+  const lastPanelRef = useRef<ReviewPanelKey>("comments");
+  if (activePanel) lastPanelRef.current = activePanel;
+  const panelToShow = activePanel ?? lastPanelRef.current;
 
   // Reset transient UI state when switching files
   useEffect(() => {
@@ -510,6 +595,12 @@ export default function DesignReviewPage({
             }
             frozen={!isClient ? !!attachment?.frozen_at : undefined}
             onToggleFreeze={!isClient ? handleToggleFreeze : undefined}
+            onIssueRevision={
+              !isClient && isPm && docControl && !!attachment?.version_group
+                ? () => setIssueOpen(true)
+                : undefined
+            }
+            currentRevLabel={currentRevLabel}
             leftSlot={
               isClient &&
               attachment.review_status &&
@@ -528,60 +619,38 @@ export default function DesignReviewPage({
               ) : undefined
             }
             rightSlot={
-              <>
-                {/* Comments sidebar toggle */}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => {
-                        const next = !commentsOpen;
-                        setCommentsOpen(next);
-                        if (next) setReviewsOpen(false);
-                      }}
-                      className={`cursor-pointer transition-colors flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium ${
-                        commentsOpen
-                          ? "bg-[#F5C518]/15 text-[#F5C518]"
-                          : pinState.pins.length > 0
-                            ? "bg-bg-elevated text-text-secondary hover:text-text-primary"
-                            : "text-text-secondary hover:text-text-primary"
-                      }`}
-                    >
-                      <MessageCircle className="w-3.5 h-3.5" />
-                      {pinState.unresolvedCount > 0 && (
-                        <span>{pinState.unresolvedCount}</span>
-                      )}
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>Pin comments</TooltipContent>
-                </Tooltip>
-                {/* PM: Reviews toggle */}
-                {!isClient && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        onClick={() => {
-                          const next = !reviewsOpen;
-                          setReviewsOpen(next);
-                          if (next) setCommentsOpen(false);
-                        }}
-                        className={`cursor-pointer transition-colors flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium ${
-                          reviewsOpen
-                            ? "bg-[#F5C518]/15 text-[#F5C518]"
-                            : (review.reviews ?? []).length > 0
-                              ? "bg-bg-elevated text-text-secondary hover:text-text-primary"
-                              : "text-text-secondary hover:text-text-primary"
-                        }`}
-                      >
-                        <ClipboardCheck className="w-3.5 h-3.5" />
-                        {(review.reviews ?? []).length > 0 && (
-                          <span>{(review.reviews ?? []).length}</span>
-                        )}
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent>Reviews</TooltipContent>
-                  </Tooltip>
-                )}
-              </>
+              <ReviewPanelTabs
+                active={activePanel}
+                onSelect={togglePanel}
+                tabs={[
+                  {
+                    key: "comments",
+                    label: "Comments",
+                    Icon: MessageCircle,
+                    count: pinState.unresolvedCount,
+                  },
+                  ...(!isClient
+                    ? [
+                        {
+                          key: "reviews" as const,
+                          label: "Reviews",
+                          Icon: ClipboardCheck,
+                          count: (review.reviews ?? []).length,
+                        },
+                      ]
+                    : []),
+                  ...(!isClient && docControl
+                    ? [
+                        {
+                          key: "revisions" as const,
+                          label: "Revisions",
+                          Icon: History,
+                          count: revisions.length,
+                        },
+                      ]
+                    : []),
+                ]}
+              />
             }
           />
 
@@ -679,45 +748,47 @@ export default function DesignReviewPage({
           )}
         </div>
 
-        {/* PM: Reviews Panel — flex sibling, pushes document viewer */}
-        {!isClient && reviewsOpen && (
-          <ReviewPanel
-            reviews={review.reviews ?? []}
-            onClose={() => setReviewsOpen(false)}
-          />
-        )}
-
-        {/* Pin comments sidebar — flex sibling, pushes document viewer */}
-        <PinSidebar
-          pins={pinState.pins}
-          selectedPinId={pinState.selectedPinId}
-          onSelectPin={setSelectedPinId}
-          onResolvePin={resolvePin}
-          onEditPin={editPin}
-          onDeletePin={deletePin}
-          currentUserId={session?.user?.id ?? ""}
-          isPm={isPm}
-          role={role}
-          open={commentsOpen}
-          onClose={() => {
-            setCommentsOpen(false);
-            setPendingPin(null);
-            setRequestChangesMode(false);
-          }}
-          pendingPin={pendingPin}
-          pendingShapes={pendingShapes?.shapes.map((item) => item.shape) ?? []}
-          onClearShapes={handleClearShapes}
-          onSubmitComment={handlePinFormSubmit}
-          onCancelPending={handlePinFormCancel}
-          onClearPendingPin={handleClearPendingPin}
-          onRequestPin={handleRequestPin}
-          requestChangesMode={requestChangesMode}
-          members={members}
-          defaultAssignee={defaultAssignee}
-          repliesMap={pinState.repliesMap}
-          onFetchReplies={fetchReplies}
-          onAddReply={addReply}
-        />
+        {/* One shared drawer for all three panels — switching swaps the body
+            without a close/reopen; only opening from / closing to nothing slides. */}
+        <ReviewSidePanel open={activePanel !== null}>
+          {panelToShow === "comments" && (
+            <PinSidebar
+              pins={pinState.pins}
+              selectedPinId={pinState.selectedPinId}
+              onSelectPin={setSelectedPinId}
+              onResolvePin={resolvePin}
+              onSetPinStatus={setPinStatus}
+              enableStatus={docControl}
+              onEditPin={editPin}
+              onDeletePin={deletePin}
+              currentUserId={session?.user?.id ?? ""}
+              isPm={isPm}
+              role={role}
+              onClose={closePanel}
+              pendingPin={pendingPin}
+              pendingShapes={
+                pendingShapes?.shapes.map((item) => item.shape) ?? []
+              }
+              onClearShapes={handleClearShapes}
+              onSubmitComment={handlePinFormSubmit}
+              onCancelPending={handlePinFormCancel}
+              onClearPendingPin={handleClearPendingPin}
+              onRequestPin={handleRequestPin}
+              requestChangesMode={requestChangesMode}
+              members={members}
+              defaultAssignee={defaultAssignee}
+              repliesMap={pinState.repliesMap}
+              onFetchReplies={fetchReplies}
+              onAddReply={addReply}
+            />
+          )}
+          {panelToShow === "reviews" && (
+            <ReviewPanel reviews={review.reviews ?? []} onClose={closePanel} />
+          )}
+          {panelToShow === "revisions" && (
+            <RevisionPanel revisions={revisions} onClose={closePanel} />
+          )}
+        </ReviewSidePanel>
       </div>
 
       {/* PM: Upload New Version Dialog */}
@@ -729,6 +800,20 @@ export default function DesignReviewPage({
           phaseId={attachment.phase_id}
           versionGroup={attachment.version_group}
           onSuccess={handleUploadSuccess}
+        />
+      )}
+
+      {/* PM: Issue Revision Dialog (Document Control) */}
+      {!isClient && isPm && docControl && (
+        <IssueRevisionDialog
+          open={issueOpen}
+          onOpenChange={setIssueOpen}
+          fileName={attachment.file_name}
+          nextRevLabel={nextRevLabel}
+          isFirstIssue={revisions.length === 0}
+          currentRevLabel={currentRevLabel}
+          submitting={issuing}
+          onIssue={handleIssueRevision}
         />
       )}
     </div>

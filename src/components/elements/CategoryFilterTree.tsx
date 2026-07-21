@@ -43,7 +43,7 @@ export function CategoryFilterTree({
         className={cn(
           "shrink-0 w-full text-left px-2 py-1.5 rounded-md text-sm transition-colors",
           selectedId === null
-            ? "bg-accent/10 text-accent font-medium"
+            ? "bg-accent/10 text-accent-strong font-medium"
             : "text-text-primary hover:bg-bg-elevated"
         )}
       >
@@ -92,7 +92,7 @@ function TreeNode({ node, depth, selectedId, onSelect }: NodeProps) {
         className={cn(
           "flex items-center gap-1 px-2 py-1.5 rounded-md text-sm cursor-pointer transition-colors",
           isSelected
-            ? "bg-accent/10 text-accent font-medium"
+            ? "bg-accent/10 text-accent-strong font-medium"
             : "text-text-primary hover:bg-bg-elevated"
         )}
         style={{ paddingLeft: `${8 + depth * 14}px` }}

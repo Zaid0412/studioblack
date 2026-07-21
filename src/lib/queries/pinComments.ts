@@ -1,5 +1,6 @@
 import { getPool } from "@/lib/db";
 import type { PinShape } from "@/types";
+import type { PinStatus } from "@/lib/validations";
 import { geometryOf } from "@/lib/shapeUtils";
 
 // ── Pin Comments ─────────────────────────────────
@@ -25,6 +26,7 @@ const PIN_SELECT = `pc.id,
         pc.page,
         pc.content,
         pc.resolved,
+        pc.status,
         pc.task_id,
         pc.request_approval,
         pc.request_changes,
@@ -180,13 +182,35 @@ export async function createPinComment(params: {
   }
 }
 
-/** Update resolved status of a pin comment. */
+/**
+ * Update the resolved flag of a pin comment. Keeps the 3-state `status` in sync
+ * (resolved ↔ 'resolved', not-resolved ↔ 'open') so the legacy boolean path and
+ * the new status path can't drift while both columns exist.
+ */
 export async function updatePinComment(pinId: string, resolved: boolean) {
   const pool = getPool();
-  await pool.query(`UPDATE pin_comment SET resolved = $1 WHERE id = $2`, [
-    resolved,
-    pinId,
-  ]);
+  await pool.query(
+    `UPDATE pin_comment
+        SET resolved = $1, status = CASE WHEN $1 THEN 'resolved' ELSE 'open' END
+      WHERE id = $2`,
+    [resolved, pinId]
+  );
+  return getPinCommentById(pinId);
+}
+
+/**
+ * Set a pin comment's 3-state markup status (Open / Resolved / Closed), keeping
+ * the legacy `resolved` boolean in sync (true only for 'resolved').
+ */
+export async function updatePinCommentStatus(pinId: string, status: PinStatus) {
+  const pool = getPool();
+  // `resolved` is computed in JS and passed as its own param — reusing $1 in
+  // both `status = $1` and a `$1 = 'resolved'` comparison makes Postgres deduce
+  // conflicting types for the parameter ("inconsistent types deduced for $1").
+  await pool.query(
+    `UPDATE pin_comment SET status = $1, resolved = $2 WHERE id = $3`,
+    [status, status === "resolved", pinId]
+  );
   return getPinCommentById(pinId);
 }
 

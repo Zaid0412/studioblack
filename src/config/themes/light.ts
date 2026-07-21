@@ -13,6 +13,8 @@ const lightTheme: Theme = {
     // Accent
     accent: "#C9A30C",
     "accent-hover": "#B08E0A",
+    // Foreground-safe accent for ink on light surfaces (AA ~4.8:1 on white).
+    "accent-strong": "#8A6D00",
 
     // Text
     "text-primary": "#111111",

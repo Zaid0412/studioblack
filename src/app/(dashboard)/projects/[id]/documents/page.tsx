@@ -614,12 +614,12 @@ export default function DocumentsPage({
           <div
             className={`pointer-events-none absolute inset-2 z-20 flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed backdrop-blur-sm ${
               canDrop
-                ? "border-accent bg-accent/10"
+                ? "border-accent-strong bg-accent/10"
                 : "border-error bg-error/10"
             }`}
           >
             <UploadCloud
-              className={`w-10 h-10 ${canDrop ? "text-accent" : "text-error"}`}
+              className={`w-10 h-10 ${canDrop ? "text-accent-strong" : "text-error"}`}
             />
             <p
               className={`text-sm font-semibold ${
@@ -687,7 +687,7 @@ export default function DocumentsPage({
                     />
                   );
                 })()}
-                <span className="text-[13px] font-semibold text-accent">
+                <span className="text-[13px] font-semibold text-accent-strong">
                   {selectedIds.size} selected
                 </span>
                 <button
@@ -834,9 +834,9 @@ export default function DocumentsPage({
               <button
                 type="button"
                 onClick={() => setUploadOpen(true)}
-                className="group flex flex-col items-center justify-center gap-3 py-20 border-2 border-dashed border-border-default rounded-xl bg-bg-primary hover:border-accent/60 hover:bg-bg-elevated/40 transition-colors cursor-pointer text-center"
+                className="group flex flex-col items-center justify-center gap-3 py-20 border-2 border-dashed border-border-default rounded-xl bg-bg-primary hover:border-accent-strong/60 hover:bg-bg-elevated/40 transition-colors cursor-pointer text-center"
               >
-                <UploadCloud className="w-12 h-12 text-text-muted group-hover:text-accent transition-colors" />
+                <UploadCloud className="w-12 h-12 text-text-muted group-hover:text-accent-strong transition-colors" />
                 <div className="flex flex-col gap-1">
                   <p className="text-base font-semibold text-text-primary">
                     Drop files here or click to upload

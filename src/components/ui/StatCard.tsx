@@ -62,7 +62,7 @@ export function StatCard({
         {display}
       </span>
       {interactive && (
-        <ArrowRight className="self-end w-3.5 h-3.5 text-text-muted group-hover:text-accent group-hover:translate-x-0.5 transition-all duration-200 ease-out" />
+        <ArrowRight className="self-end w-3.5 h-3.5 text-text-muted group-hover:text-accent-strong group-hover:translate-x-0.5 transition-all duration-200 ease-out" />
       )}
     </>
   );

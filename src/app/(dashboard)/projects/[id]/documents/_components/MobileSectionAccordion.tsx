@@ -88,12 +88,12 @@ export function MobileSectionAccordion({
           {activeSection ? (
             <SectionIcon
               icon={activeSection.icon}
-              className="w-4 h-4 text-accent shrink-0"
+              className="w-4 h-4 text-accent-strong shrink-0"
             />
           ) : (
-            <LayoutGrid className="w-4 h-4 text-accent shrink-0" />
+            <LayoutGrid className="w-4 h-4 text-accent-strong shrink-0" />
           )}
-          <span className="text-sm font-semibold text-accent truncate">
+          <span className="text-sm font-semibold text-accent-strong truncate">
             {headerLabel}
           </span>
         </div>

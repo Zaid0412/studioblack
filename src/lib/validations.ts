@@ -500,12 +500,40 @@ export const createPinSchema = z.object({
   shapes: z.array(pinShapeSchema).max(MAX_SHAPES_PER_PIN).optional(),
 });
 
+/** Markup pin lifecycle — Open → Resolved → Closed (backfilled from `resolved`). */
+export const PIN_STATUSES = ["open", "resolved", "closed"] as const;
+export type PinStatus = (typeof PIN_STATUSES)[number];
+
 export const updatePinSchema = z.object({
   resolved: z.boolean().optional(),
+  status: z.enum(PIN_STATUSES).optional(),
   content: z.string().trim().min(1).max(MAX_CONTENT_LENGTH).optional(),
   x_percent: pct.optional(),
   y_percent: pct.optional(),
   page: z.number().int().min(1).optional(),
+});
+
+/** Issue purposes for an official drawing revision (Design → Document Control). */
+export const ISSUE_PURPOSES = [
+  "for_review",
+  "for_approval",
+  "for_information",
+  "for_construction",
+  "as_built",
+] as const;
+export type IssuePurpose = (typeof ISSUE_PURPOSES)[number];
+
+/** Human labels for issue purposes (dropdowns, revision history). */
+export const ISSUE_PURPOSE_LABELS: Record<IssuePurpose, string> = {
+  for_review: "For Review",
+  for_approval: "For Approval",
+  for_information: "For Information",
+  for_construction: "For Construction",
+  as_built: "As Built",
+};
+
+export const issueRevisionSchema = z.object({
+  issuePurpose: z.enum(ISSUE_PURPOSES),
 });
 
 // ─── Approvals (/api/projects/[id]/approvals) ───────────────────────────────

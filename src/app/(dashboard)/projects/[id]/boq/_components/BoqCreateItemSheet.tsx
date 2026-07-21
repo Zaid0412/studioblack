@@ -714,7 +714,7 @@ export function BoqCreateItemSheet({
                 rows={3}
                 required
                 maxLength={500}
-                className="w-full rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
+                className="w-full rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-strong focus:ring-1 focus:ring-accent/30"
                 placeholder="e.g. Concrete footing M25"
               />
             </label>
@@ -722,7 +722,7 @@ export function BoqCreateItemSheet({
             {/* Master-data (PRD 2.2): reuse a matching library element instead of
                 auto-creating a duplicate. Chip when linked; suggestions otherwise. */}
             {linkedElement ? (
-              <div className="flex items-center justify-between gap-2 rounded-lg border border-accent/30 bg-accent/5 px-3 py-2">
+              <div className="flex items-center justify-between gap-2 rounded-lg border border-accent-strong/30 bg-accent/5 px-3 py-2">
                 <span className="text-xs text-text-secondary min-w-0 truncate">
                   Linked to{" "}
                   <span className="font-mono text-text-primary">
@@ -758,7 +758,7 @@ export function BoqCreateItemSheet({
                       <span className="min-w-0 flex-1 truncate text-text-primary">
                         {el.description || el.name}
                       </span>
-                      <span className="flex-shrink-0 text-xs text-accent">
+                      <span className="flex-shrink-0 text-xs text-accent-strong">
                         Use this
                       </span>
                     </button>
@@ -826,7 +826,7 @@ export function BoqCreateItemSheet({
                 <span className={labelCls}>
                   Qty
                   {qtyAutoFilled && (
-                    <span className="ml-1.5 text-[10px] font-medium italic text-accent">
+                    <span className="ml-1.5 text-[10px] font-medium italic text-accent-strong">
                       (auto from L × B × H)
                     </span>
                   )}
@@ -1061,7 +1061,7 @@ export function BoqCreateItemSheet({
                 value={v.notes}
                 onChange={(e) => set("notes", e.target.value)}
                 rows={3}
-                className="w-full rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
+                className="w-full rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-strong focus:ring-1 focus:ring-accent/30"
                 placeholder="Internal note (not shown to client)…"
               />
             </label>

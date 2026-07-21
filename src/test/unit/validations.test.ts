@@ -13,6 +13,7 @@ import {
   submitReviewSchema,
   createPinSchema,
   updatePinSchema,
+  issueRevisionSchema,
   createApprovalSchema,
   createCommentSchema,
   createPhaseTaskSchema,
@@ -900,8 +901,32 @@ describe("updatePinSchema", () => {
     expectPass(updatePinSchema, { x_percent: 10, y_percent: 20, page: 1 });
   });
 
+  it("accepts a 3-state status", () => {
+    expectPass(updatePinSchema, { status: "closed" });
+  });
+
+  it("rejects an unknown status", () => {
+    expectFail(updatePinSchema, { status: "archived" });
+  });
+
   it("rejects content over MAX_CONTENT_LENGTH", () => {
     expectFail(updatePinSchema, { content: "a".repeat(5001) });
+  });
+});
+
+// ── issueRevisionSchema ──────────────────────────────────────────────────────
+
+describe("issueRevisionSchema", () => {
+  it("accepts a valid issue purpose", () => {
+    expectPass(issueRevisionSchema, { issuePurpose: "for_construction" });
+  });
+
+  it("rejects an unknown issue purpose", () => {
+    expectFail(issueRevisionSchema, { issuePurpose: "for_fun" });
+  });
+
+  it("requires issuePurpose", () => {
+    expectFail(issueRevisionSchema, {});
   });
 });
 

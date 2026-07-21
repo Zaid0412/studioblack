@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   updatePinComment,
+  updatePinCommentStatus,
   updatePinCommentContent,
   updatePinCommentPosition,
   deletePinComment,
@@ -8,6 +9,7 @@ import {
 import { withAuth } from "@/lib/withAuth";
 import { parseRequest, updatePinSchema } from "@/lib/validations";
 import { findPinOrFail } from "../helpers";
+import { failIfIssued } from "../../../helpers";
 
 /**
  * PATCH /api/projects/[id]/attachments/[attachmentId]/pins/[pinId]
@@ -37,12 +39,23 @@ export const PATCH = withAuth(
       return NextResponse.json(updated);
     }
 
+    // --- Set 3-state markup status (Open / Resolved / Closed) ---
+    if (parsed.data.status !== undefined) {
+      if (pin.user_id !== user.id && !isStaff) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      const updated = await updatePinCommentStatus(pin.id, parsed.data.status);
+      return NextResponse.json(updated);
+    }
+
     // --- Edit content ---
     if (parsed.data.content !== undefined) {
       // Only the author can edit content
       if (pin.user_id !== user.id) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
+      const issuedError = await failIfIssued(params.attachmentId);
+      if (issuedError) return issuedError;
       const updated = await updatePinCommentContent(
         pin.id,
         parsed.data.content
@@ -67,6 +80,8 @@ export const PATCH = withAuth(
           { status: 400 }
         );
       }
+      const issuedError = await failIfIssued(params.attachmentId);
+      if (issuedError) return issuedError;
       const updated = await updatePinCommentPosition(
         pin.id,
         x_percent,
@@ -96,6 +111,10 @@ export const DELETE = withAuth(
     if (pin.user_id !== user.id && !isPm) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+
+    // Deleting markup on an issued version is blocked — it's read-only.
+    const issuedError = await failIfIssued(params.attachmentId);
+    if (issuedError) return issuedError;
 
     await deletePinComment(pin.id);
     return NextResponse.json({ ok: true });

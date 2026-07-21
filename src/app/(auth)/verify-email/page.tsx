@@ -71,9 +71,9 @@ export default function VerifyEmailPage() {
       headerExtra={
         <>
           {email && (
-            <div className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent/10 border border-accent/20">
-              <Mail className="w-3.5 h-3.5 text-accent" />
-              <span className="text-[13px] font-semibold text-accent">
+            <div className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent/10 border border-accent-strong/20">
+              <Mail className="w-3.5 h-3.5 text-accent-strong" />
+              <span className="text-[13px] font-semibold text-accent-strong">
                 {email}
               </span>
             </div>

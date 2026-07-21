@@ -98,7 +98,7 @@ export const CategoryTrigger = forwardRef<HTMLButtonElement, TriggerProps>(
       className={cn(
         "flex items-center justify-between w-full rounded-lg border border-border-default bg-bg-input text-sm text-text-primary",
         compact ? "px-3 py-2" : "px-4 py-3",
-        "focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30",
+        "focus:outline-none focus:border-accent-strong focus:ring-1 focus:ring-accent/30",
         disabled && "opacity-60 cursor-not-allowed"
       )}
       {...props}
@@ -158,7 +158,7 @@ export function CategoryRow({
       onClick={onClick}
       className={cn(
         "flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-bg-elevated",
-        selected && "text-accent"
+        selected && "text-accent-strong"
       )}
       style={indent ? { paddingLeft: `${12 + indent * 12}px` } : undefined}
     >

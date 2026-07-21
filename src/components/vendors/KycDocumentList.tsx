@@ -209,7 +209,7 @@ function AddDocumentForm({
   };
 
   return (
-    <div className="rounded-lg border border-accent/40 bg-bg-input p-4 flex flex-col gap-3">
+    <div className="rounded-lg border border-accent-strong/40 bg-bg-input p-4 flex flex-col gap-3">
       <div className="flex flex-col gap-1.5">
         <label className="text-[13px] font-medium text-text-secondary">
           {t("kycDocType")}

@@ -128,7 +128,7 @@ function phaseActionLabel(
 }
 
 const NOTES_TEXTAREA_CLS =
-  "rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 resize-y disabled:opacity-60";
+  "rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-strong focus:ring-1 focus:ring-accent/30 resize-y disabled:opacity-60";
 
 /**
  * Editable buffer for the drawer's Details tab. Every value is held as a string
@@ -648,7 +648,7 @@ export function BoqItemDrawer({
               {item.division_name && (
                 <span className="inline-flex items-center gap-1">
                   <Layers
-                    className="h-3 w-3 shrink-0 text-accent"
+                    className="h-3 w-3 shrink-0 text-accent-strong"
                     aria-hidden
                   />
                   {item.division_name}
@@ -1200,7 +1200,7 @@ function DrawerTab({
       className={cn(
         "inline-flex items-center gap-2 px-5 py-3.5 text-sm font-semibold border-b-[3px] -mb-px transition-colors cursor-pointer",
         active
-          ? "border-accent text-text-primary"
+          ? "border-accent-strong text-text-primary"
           : "border-transparent text-text-muted hover:text-text-secondary"
       )}
     >

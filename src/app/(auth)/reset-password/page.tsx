@@ -64,7 +64,7 @@ export default function ResetPasswordPage() {
           <p className="text-sm text-text-secondary">{t("resetSuccess")}</p>
           <Link
             href="/login"
-            className="text-sm text-accent hover:underline font-medium"
+            className="text-sm text-accent-strong hover:underline font-medium"
           >
             {t("backToLogin")}
           </Link>
@@ -79,7 +79,7 @@ export default function ResetPasswordPage() {
           </p>
           <Link
             href="/forgot-password"
-            className="text-sm text-accent hover:underline font-medium"
+            className="text-sm text-accent-strong hover:underline font-medium"
           >
             {t("requestNewLink")}
           </Link>

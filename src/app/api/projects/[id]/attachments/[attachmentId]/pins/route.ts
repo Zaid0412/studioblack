@@ -18,6 +18,7 @@ import {
 } from "@/lib/notifications";
 import { parseRequest, createPinSchema } from "@/lib/validations";
 import { centroidOf } from "@/lib/shapeUtils";
+import { failIfIssued } from "../../helpers";
 
 /** GET /api/projects/[id]/attachments/[attachmentId]/pins — list pin comments. */
 export const GET = withAuth(
@@ -77,6 +78,11 @@ export const POST = withAuth(
       });
       return NextResponse.json(reply, { status: 201 });
     }
+
+    // New markup on an issued version is blocked — it's read-only (replies above
+    // are conversation, not markup, so they're allowed).
+    const issuedError = await failIfIssued(attachmentId);
+    if (issuedError) return issuedError;
 
     // Shape annotations own their anchor (centroid of the first shape). For
     // plain pins, x/y/page are all-or-nothing.

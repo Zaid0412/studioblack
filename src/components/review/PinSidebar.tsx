@@ -10,7 +10,7 @@ import {
 import { sortPinsByDate, buildPinIndexMap } from "@/lib/pinUtils";
 import { useStaggerReveal } from "@/hooks/useStaggerReveal";
 import type { DbPinComment, PinShape, UserRole } from "@/types";
-import { useSlide } from "./useSlide";
+import type { PinStatus } from "@/lib/validations";
 import { PinCard } from "./PinCard";
 import { NewPinForm } from "./NewPinForm";
 
@@ -19,6 +19,10 @@ interface PinSidebarProps {
   selectedPinId: string | null;
   onSelectPin: (pinId: string) => void;
   onResolvePin: (pinId: string, resolved: boolean) => void;
+  /** Set a pin's 3-state markup status (Document Control). */
+  onSetPinStatus?: (pinId: string, status: PinStatus) => void;
+  /** When true, pin cards show the Open/Resolved/Closed dropdown. */
+  enableStatus?: boolean;
   onEditPin: (pinId: string, content: string) => void | Promise<void>;
   onDeletePin: (pinId: string) => void;
   currentUserId: string;
@@ -26,7 +30,6 @@ interface PinSidebarProps {
   isPm: boolean;
   /** Current user role — used to gate comment form options. */
   role?: UserRole | null;
-  open: boolean;
   onClose: () => void;
   /** When set, the form for a new pin is shown at the top of the sidebar. */
   pendingPin?: { xPercent: number; yPercent: number; page: number } | null;
@@ -65,12 +68,13 @@ export function PinSidebar({
   selectedPinId,
   onSelectPin,
   onResolvePin,
+  onSetPinStatus,
+  enableStatus,
   onEditPin,
   onDeletePin,
   currentUserId,
   isPm,
   role,
-  open,
   onClose,
   pendingPin,
   pendingShapes,
@@ -86,7 +90,6 @@ export function PinSidebar({
   onFetchReplies,
   onAddReply,
 }: PinSidebarProps) {
-  const { shouldRender, stage } = useSlide(open);
   const [showNewForm, setShowNewForm] = useState(false);
   const selectedRef = useRef<HTMLDivElement>(null);
 
@@ -113,16 +116,8 @@ export function PinSidebar({
     sorted.map((p) => p.id).join(",")
   );
 
-  if (!shouldRender) return null;
-
   return (
-    <div
-      className="w-72 shrink-0 bg-bg-primary border-l border-border-default flex flex-col overflow-hidden transition-[width,opacity] duration-200 ease-out"
-      style={{
-        width: stage === "in" ? undefined : 0,
-        opacity: stage === "in" ? 1 : 0,
-      }}
-    >
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {/* Header */}
       <div className="h-10 shrink-0 px-3 flex items-center justify-between border-b border-border-default">
         <div className="flex items-center gap-2">
@@ -141,7 +136,7 @@ export function PinSidebar({
             <TooltipTrigger asChild>
               <button
                 onClick={() => setShowNewForm(true)}
-                className="text-text-muted hover:text-[#F5C518] transition-colors cursor-pointer p-0.5"
+                className="text-text-muted hover:text-accent-strong transition-colors cursor-pointer p-0.5"
               >
                 <Plus className="w-4 h-4" />
               </button>
@@ -207,6 +202,8 @@ export function PinSidebar({
                 isPm={isPm}
                 onSelect={() => onSelectPin(pin.id)}
                 onResolve={(resolved) => onResolvePin(pin.id, resolved)}
+                enableStatus={enableStatus}
+                onSetStatus={(status) => onSetPinStatus?.(pin.id, status)}
                 onEdit={(content) => onEditPin(pin.id, content)}
                 onDelete={() => onDeletePin(pin.id)}
                 replies={repliesMap?.get(pin.id)}

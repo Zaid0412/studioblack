@@ -9,6 +9,7 @@ import { SWRConfig } from "swr";
 const mockPinList = vi.fn();
 const mockPinCreate = vi.fn();
 const mockPinResolve = vi.fn();
+const mockPinSetStatus = vi.fn();
 const mockPinEditContent = vi.fn();
 const mockPinRemove = vi.fn();
 const mockPinReposition = vi.fn();
@@ -26,6 +27,7 @@ vi.mock("@/lib/api", () => ({
     list: (...args: unknown[]) => mockPinList(...args),
     create: (...args: unknown[]) => mockPinCreate(...args),
     resolve: (...args: unknown[]) => mockPinResolve(...args),
+    setStatus: (...args: unknown[]) => mockPinSetStatus(...args),
     editContent: (...args: unknown[]) => mockPinEditContent(...args),
     remove: (...args: unknown[]) => mockPinRemove(...args),
     reposition: (...args: unknown[]) => mockPinReposition(...args),
@@ -65,6 +67,8 @@ import { usePinComments } from "@/hooks/usePinComments";
 import type { DbPinComment, DbAttachment } from "@/types";
 
 function makePin(overrides: Partial<DbPinComment> = {}): DbPinComment {
+  // Keep the DB invariant: status tracks `resolved` unless set explicitly.
+  const resolved = overrides.resolved ?? false;
   return {
     id: "pin-1",
     attachment_id: "att-1",
@@ -74,7 +78,8 @@ function makePin(overrides: Partial<DbPinComment> = {}): DbPinComment {
     y_percent: 50,
     page: 1,
     content: "Test comment",
-    resolved: false,
+    resolved,
+    status: overrides.status ?? (resolved ? "resolved" : "open"),
     task_id: null,
     request_approval: false,
     request_changes: false,
@@ -240,6 +245,38 @@ describe("usePinComments", () => {
     });
 
     expect(result.current.pins[0].resolved).toBe(true);
+  });
+
+  it("setPinStatus: optimistically sets status + keeps resolved in sync", async () => {
+    mockPinList.mockResolvedValue([
+      makePin({ id: "pin-1", status: "open", resolved: false }),
+    ]);
+    mockPinSetStatus.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => usePinComments(params), {
+      wrapper: pinSwrWrapper,
+    });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.setPinStatus("pin-1", "resolved");
+    });
+
+    expect(result.current.pins[0].status).toBe("resolved");
+    expect(result.current.pins[0].resolved).toBe(true);
+    expect(mockPinSetStatus).toHaveBeenCalledWith(
+      "proj-1",
+      "att-1",
+      "pin-1",
+      "resolved"
+    );
+
+    // Closing a pin drops it from the open (unresolved) count.
+    await act(async () => {
+      await result.current.setPinStatus("pin-1", "closed");
+    });
+    expect(result.current.pins[0].resolved).toBe(false);
+    expect(result.current.unresolvedCount).toBe(0);
   });
 
   it("editPin: optimistically updates content", async () => {

@@ -464,7 +464,7 @@ export function VendorFormDialog({
               {t("notes")}
             </label>
             <textarea
-              className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-3 text-sm text-text-primary min-h-[70px] focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
+              className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-3 text-sm text-text-primary min-h-[70px] focus:outline-none focus:border-accent-strong focus:ring-1 focus:ring-accent/30"
               value={values.notes}
               onChange={(e) => setField("notes", e.target.value)}
               maxLength={2000}

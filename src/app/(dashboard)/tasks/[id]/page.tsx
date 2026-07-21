@@ -126,7 +126,7 @@ export default function TaskDetailPage({
         >
           <Link
             href="/tasks"
-            className="text-accent underline underline-offset-2 hover:text-accent-hover"
+            className="text-accent-strong underline underline-offset-2 hover:text-accent-hover"
           >
             Tasks
           </Link>
@@ -135,7 +135,7 @@ export default function TaskDetailPage({
               <ChevronRight className="w-3 h-3" />
               <Link
                 href={`/projects/${task.project_id}`}
-                className="text-accent underline underline-offset-2 hover:text-accent-hover"
+                className="text-accent-strong underline underline-offset-2 hover:text-accent-hover"
               >
                 {task.project_name}
               </Link>
@@ -267,7 +267,7 @@ function TitleField({ title, canEdit, onSave }: TitleFieldProps) {
           }}
           rows={2}
           autoFocus
-          className="flex-1 text-2xl font-bold leading-tight bg-bg-secondary border border-accent rounded-md px-3 py-2 text-text-primary focus:outline-none resize-none"
+          className="flex-1 text-2xl font-bold leading-tight bg-bg-secondary border border-accent-strong rounded-md px-3 py-2 text-text-primary focus:outline-none resize-none"
         />
         <div className="flex flex-col gap-1.5 pt-1">
           <Button size="sm" onClick={commit} disabled={saving}>

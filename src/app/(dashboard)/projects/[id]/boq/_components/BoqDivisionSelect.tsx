@@ -59,7 +59,7 @@ export function BoqDivisionSelect({
           type="button"
           className={cn(
             "flex w-full items-center justify-between rounded-lg border border-border-default bg-bg-input px-3 py-2.5 text-sm text-text-primary",
-            "focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30"
+            "focus:border-accent-strong focus:outline-none focus:ring-1 focus:ring-accent/30"
           )}
         >
           <span className="truncate">{selectedLabel}</span>
@@ -87,7 +87,7 @@ export function BoqDivisionSelect({
                 }}
                 className={cn(
                   "flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-bg-elevated",
-                  value === null && "text-accent"
+                  value === null && "text-accent-strong"
                 )}
               >
                 <span className="w-4 shrink-0">
@@ -113,7 +113,7 @@ export function BoqDivisionSelect({
                     }}
                     className={cn(
                       "flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-bg-elevated",
-                      isSelected && "text-accent"
+                      isSelected && "text-accent-strong"
                     )}
                   >
                     <span className="w-4 shrink-0">

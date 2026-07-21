@@ -42,8 +42,8 @@ export function CategoryIconPicker({
         className={cn(
           "flex h-9 w-9 cursor-pointer items-center justify-center rounded-md border transition-colors",
           selected
-            ? "border-2 border-accent bg-accent/10"
-            : "border-border-default bg-bg-input hover:border-accent/60"
+            ? "border-2 border-accent-strong bg-accent/10"
+            : "border-border-default bg-bg-input hover:border-accent-strong/60"
         )}
       >
         <CategoryIcon icon={name} color={color ?? null} size={18} />
@@ -66,7 +66,7 @@ export function CategoryIconPicker({
           onClick={() => setBrowseOpen(true)}
           className={cn(
             "flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-dashed border-border-default bg-transparent px-3 text-[12px] text-text-secondary",
-            "hover:border-accent/60 hover:text-text-primary"
+            "hover:border-accent-strong/60 hover:text-text-primary"
           )}
         >
           <Search className="h-3.5 w-3.5" aria-hidden />

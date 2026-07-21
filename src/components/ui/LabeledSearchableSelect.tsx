@@ -130,7 +130,7 @@ export function LabeledSearchableSelect<T extends string>(
             disabled={disabled}
             className={cn(
               "flex items-center justify-between w-full rounded-lg border border-border-default bg-bg-input text-sm text-text-primary cursor-pointer",
-              "focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30",
+              "focus:outline-none focus:border-accent-strong focus:ring-1 focus:ring-accent/30",
               triggerSizeClass,
               disabled && "opacity-60 pointer-events-none",
               triggerClassName
@@ -184,7 +184,7 @@ export function LabeledSearchableSelect<T extends string>(
                   }}
                   className={cn(
                     "flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-bg-elevated cursor-pointer",
-                    value === "" && "text-accent"
+                    value === "" && "text-accent-strong"
                   )}
                 >
                   <span className="w-4 shrink-0">
@@ -210,7 +210,7 @@ export function LabeledSearchableSelect<T extends string>(
                       }}
                       className={cn(
                         "flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-bg-elevated cursor-pointer",
-                        selected && "text-accent"
+                        selected && "text-accent-strong"
                       )}
                     >
                       <span className="w-4 shrink-0">

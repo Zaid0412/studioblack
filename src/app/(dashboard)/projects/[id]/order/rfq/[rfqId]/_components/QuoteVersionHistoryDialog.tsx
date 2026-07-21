@@ -62,7 +62,7 @@ export function QuoteVersionHistoryDialog({
                     key={v.id}
                     className={`rounded-lg border px-3 py-2.5 ${
                       v.is_current
-                        ? "border-accent/40 bg-accent/5"
+                        ? "border-accent-strong/40 bg-accent/5"
                         : "border-border-default"
                     }`}
                   >
@@ -72,7 +72,7 @@ export function QuoteVersionHistoryDialog({
                           v{v.version}
                         </span>
                         {v.is_current ? (
-                          <span className="text-[10px] font-medium text-accent bg-accent/10 px-1.5 py-0.5 rounded">
+                          <span className="text-[10px] font-medium text-accent-strong bg-accent/10 px-1.5 py-0.5 rounded">
                             Current
                           </span>
                         ) : (

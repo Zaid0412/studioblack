@@ -75,13 +75,13 @@ export default function OrderRfqPage({
       {canManage && readyNotInRfq > 0 && (
         <Link
           href={`/projects/${projectId}/order/rfq/new`}
-          className="flex items-center gap-3 rounded-xl border border-accent/40 bg-accent/10 px-4 py-3 text-sm text-text-primary hover:border-accent/60 transition-colors"
+          className="flex items-center gap-3 rounded-xl border border-accent-strong/40 bg-accent/10 px-4 py-3 text-sm text-text-primary hover:border-accent-strong/60 transition-colors"
         >
-          <PackageCheck className="w-5 h-5 text-accent shrink-0" />
+          <PackageCheck className="w-5 h-5 text-accent-strong shrink-0" />
           <span className="flex-1 min-w-0">
             {t("readyNotInRfq", { count: readyNotInRfq })}
           </span>
-          <span className="text-accent font-medium shrink-0">
+          <span className="text-accent-strong font-medium shrink-0">
             {t("newRfq")}
           </span>
         </Link>

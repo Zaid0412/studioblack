@@ -215,7 +215,7 @@ function NotificationCard({
       data-anim-item
       className={cn(
         "rounded-xl border border-border-default transition-colors",
-        interactive && "cursor-pointer hover:border-accent/60"
+        interactive && "cursor-pointer hover:border-accent-strong/60"
       )}
       {...buttonProps}
     >
@@ -223,7 +223,7 @@ function NotificationCard({
         <div className="flex items-start gap-3">
           {/* Icon */}
           <div className="w-[34px] h-[34px] rounded-lg flex items-center justify-center shrink-0 bg-accent/10">
-            <Icon className="w-4 h-4 text-accent" />
+            <Icon className="w-4 h-4 text-accent-strong" />
           </div>
 
           {/* Content — every card here is unread, so no read/unread variants */}

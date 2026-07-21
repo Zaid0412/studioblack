@@ -7,6 +7,7 @@ import {
   deleteAttachment,
   getOrgRole,
   hasProjectAccess,
+  isAttachmentIssued,
 } from "@/lib/queries";
 import { getServerFeatureFlag } from "@/lib/posthog-server";
 import { GET, POST } from "@/app/api/projects/[id]/attachments/route";
@@ -377,5 +378,25 @@ describe("DELETE /api/projects/[id]/attachments/[attachmentId]", () => {
     const { status } = await parseResponse(res);
 
     expect(status).toBe(403);
+  });
+
+  it("blocks deleting an issued (read-only) version (409)", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(getOrgRole).mockResolvedValue("owner");
+    vi.mocked(getAttachmentById).mockResolvedValue(sampleAttachment as never);
+    vi.mocked(isAttachmentIssued).mockResolvedValueOnce(true);
+
+    const req = buildRequest(
+      `/api/projects/${PROJECT_ID}/attachments/${ATTACHMENT_ID}`,
+      { method: "DELETE" }
+    );
+    const res = await DELETE(
+      req,
+      buildParams({ id: PROJECT_ID, attachmentId: ATTACHMENT_ID })
+    );
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(409);
+    expect(deleteAttachment).not.toHaveBeenCalled();
   });
 });

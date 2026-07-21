@@ -579,7 +579,7 @@ function DropZone({
       className={cn(
         "flex flex-col items-center justify-center gap-2 px-6 py-10 border-2 border-dashed rounded-lg transition-colors cursor-pointer",
         dragOver
-          ? "border-accent bg-accent/5"
+          ? "border-accent-strong bg-accent/5"
           : "border-border-light bg-bg-secondary hover:bg-bg-elevated"
       )}
     >
@@ -686,7 +686,7 @@ function FileTab({
       className={cn(
         "group flex items-center gap-2 rounded-md px-2.5 py-2 cursor-pointer transition-colors",
         selected
-          ? "bg-accent/10 border border-accent/40"
+          ? "bg-accent/10 border border-accent-strong/40"
           : "border border-transparent hover:bg-bg-input"
       )}
     >
@@ -731,7 +731,7 @@ function StatusIcon({
 }) {
   if (status === "uploading")
     return (
-      <Loader2 className="w-3.5 h-3.5 text-accent animate-spin shrink-0" />
+      <Loader2 className="w-3.5 h-3.5 text-accent-strong animate-spin shrink-0" />
     );
   if (status === "done")
     return <Check className="w-3.5 h-3.5 text-success shrink-0" />;
@@ -741,7 +741,7 @@ function StatusIcon({
     <FileText
       className={cn(
         "w-3.5 h-3.5 shrink-0",
-        selected ? "text-accent" : "text-text-muted"
+        selected ? "text-accent-strong" : "text-text-muted"
       )}
     />
   );
@@ -802,7 +802,7 @@ function FileDetailPane({
           rows={6}
           maxLength={2000}
           disabled={disabled || entry.status === "done"}
-          className="w-full rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary placeholder:text-text-muted resize-none focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
+          className="w-full rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary placeholder:text-text-muted resize-none focus:outline-none focus:border-accent-strong focus:ring-1 focus:ring-accent/30"
         />
       </div>
 

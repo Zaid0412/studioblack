@@ -116,7 +116,7 @@ export function VersionHistoryDialog({
                     data-anim-item
                     className={`flex items-center gap-3 rounded-lg border px-4 py-3 transition-colors cursor-pointer hover:bg-bg-elevated/50 ${
                       isCurrent
-                        ? "border-[#F5C518]/30 bg-[#F5C518]/5"
+                        ? "border-accent-strong/30 bg-accent/5"
                         : "border-border-default bg-bg-secondary"
                     }`}
                     onClick={() => {
@@ -146,7 +146,7 @@ export function VersionHistoryDialog({
                           </span>
                         )}
                         {v.frozen_at && (
-                          <Lock className="w-3 h-3 text-[#F5C518]" />
+                          <Lock className="w-3 h-3 text-accent-strong" />
                         )}
                       </div>
                       <div className="flex items-center gap-3 mt-0.5">

@@ -359,6 +359,24 @@ export interface DbPinShape {
 }
 
 /** A pin comment placed on an attachment at a specific position. */
+/**
+ * An official drawing revision (Design → Document Control). A snapshot of one
+ * attachment version issued as Rev-NN with a purpose. `issuer_name` is joined
+ * on reads.
+ */
+export interface DbDrawingRevision {
+  id: string;
+  drawing_id: string;
+  org_id: string;
+  rev_number: number;
+  attachment_id: string;
+  issue_purpose: import("@/lib/validations").IssuePurpose;
+  issued_by: string;
+  issued_at: string;
+  created_at: string;
+  issuer_name?: string;
+}
+
 export interface DbPinComment {
   id: string;
   attachment_id: string;
@@ -369,6 +387,8 @@ export interface DbPinComment {
   page: number | null;
   content: string;
   resolved: boolean;
+  /** 3-state markup lifecycle. Kept in sync with `resolved` while both exist. */
+  status: import("@/lib/validations").PinStatus;
   task_id: string | null;
   request_approval: boolean;
   request_changes: boolean;

@@ -7,7 +7,7 @@ export type KpiTone = "muted" | "success" | "accent" | "danger";
 const TONE_CLASS: Record<KpiTone, string> = {
   muted: "text-text-muted",
   success: "text-success",
-  accent: "text-accent",
+  accent: "text-accent-strong",
   danger: "text-error",
 };
 
@@ -34,7 +34,7 @@ export function KpiCard({
   const className = cn(
     "flex flex-col gap-2 rounded-xl border border-border-default bg-bg-secondary p-4",
     href &&
-      "cursor-pointer outline-none transition-[transform,border-color,background-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-accent/50 hover:bg-bg-elevated/40 focus-visible:ring-2 focus-visible:ring-accent motion-reduce:hover:translate-y-0"
+      "cursor-pointer outline-none transition-[transform,border-color,background-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-accent-strong/50 hover:bg-bg-elevated/40 focus-visible:ring-2 focus-visible:ring-accent motion-reduce:hover:translate-y-0"
   );
   const content = (
     <>

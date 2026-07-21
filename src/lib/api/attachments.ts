@@ -1,6 +1,11 @@
 import { apiGet, apiPatch, apiPost, apiDelete } from "./client";
 import { API } from "./routes";
-import type { DbAttachment, DbAttachmentReview } from "@/types";
+import type {
+  DbAttachment,
+  DbAttachmentReview,
+  DbDrawingRevision,
+} from "@/types";
+import type { IssuePurpose } from "@/lib/validations";
 
 /** A single per-phase attachment count (latest version per group). */
 export interface PhaseAttachmentCount {
@@ -92,6 +97,24 @@ export function markReviewed(projectId: string, fileId: string) {
 /** Send an attachment to the client for approval. */
 export function sendToClient(projectId: string, fileId: string) {
   return apiPost(API.attachmentSendToClient(projectId, fileId));
+}
+
+/** Issue this version as the next official revision of its drawing (PM only). */
+export function issueRevision(
+  projectId: string,
+  fileId: string,
+  issuePurpose: IssuePurpose
+) {
+  return apiPost<DbDrawingRevision>(API.attachmentIssue(projectId, fileId), {
+    issuePurpose,
+  });
+}
+
+/** Revision history for the drawing this version belongs to (newest first). */
+export function getRevisions(projectId: string, fileId: string) {
+  return apiGet<{ revisions: DbDrawingRevision[] }>(
+    API.attachmentRevisions(projectId, fileId)
+  );
 }
 
 /** Delete an attachment. */

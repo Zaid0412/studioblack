@@ -116,7 +116,7 @@ export function FileUploadSlot(props: Props) {
       {props.variant === "image" ? (
         <>
           <div
-            className="relative flex items-center justify-center overflow-hidden rounded-lg border border-dashed border-border-default bg-bg-input transition-colors hover:border-accent"
+            className="relative flex items-center justify-center overflow-hidden rounded-lg border border-dashed border-border-default bg-bg-input transition-colors hover:border-accent-strong"
             style={{ width: size, height: size }}
           >
             {props.url ? (
@@ -144,7 +144,7 @@ export function FileUploadSlot(props: Props) {
                 type="button"
                 onClick={onPick}
                 disabled={uploading}
-                className="flex h-full w-full flex-col items-center justify-center gap-1 text-text-muted hover:text-accent disabled:opacity-50"
+                className="flex h-full w-full flex-col items-center justify-center gap-1 text-text-muted hover:text-accent-strong disabled:opacity-50"
               >
                 {uploading ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
@@ -162,7 +162,7 @@ export function FileUploadSlot(props: Props) {
               type="button"
               onClick={onPick}
               disabled={uploading}
-              className="self-start text-[11px] text-text-muted hover:text-accent disabled:opacity-50"
+              className="self-start text-[11px] text-text-muted hover:text-accent-strong disabled:opacity-50"
             >
               {uploading ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -179,7 +179,7 @@ export function FileUploadSlot(props: Props) {
             href={props.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 truncate text-text-primary hover:text-accent"
+            className="flex-1 truncate text-text-primary hover:text-accent-strong"
           >
             {props.fileName ?? props.url}
           </a>
@@ -187,7 +187,7 @@ export function FileUploadSlot(props: Props) {
             type="button"
             onClick={onPick}
             disabled={uploading}
-            className="text-[11px] text-text-muted hover:text-accent disabled:opacity-50"
+            className="text-[11px] text-text-muted hover:text-accent-strong disabled:opacity-50"
           >
             {uploading ? (
               <Loader2 className="h-3 w-3 animate-spin" />
@@ -209,7 +209,7 @@ export function FileUploadSlot(props: Props) {
           type="button"
           onClick={onPick}
           disabled={uploading}
-          className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-border-default bg-bg-input px-3 py-3 text-sm text-text-muted transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+          className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-border-default bg-bg-input px-3 py-3 text-sm text-text-muted transition-colors hover:border-accent-strong hover:text-accent-strong disabled:opacity-50"
         >
           {uploading ? (
             <Loader2 className="h-4 w-4 animate-spin" />

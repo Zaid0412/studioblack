@@ -85,7 +85,7 @@ export default function ForgotPasswordPage() {
                 ? `/login?returnTo=${encodeURIComponent(returnTo)}`
                 : "/login"
             }
-            className="text-sm text-accent hover:underline font-medium text-center"
+            className="text-sm text-accent-strong hover:underline font-medium text-center"
           >
             {t("backToLogin")}
           </Link>
@@ -122,7 +122,7 @@ export default function ForgotPasswordPage() {
                   ? `/login?returnTo=${encodeURIComponent(returnTo)}`
                   : "/login"
               }
-              className="text-accent hover:underline font-medium"
+              className="text-accent-strong hover:underline font-medium"
             >
               {t("signInLink")}
             </Link>

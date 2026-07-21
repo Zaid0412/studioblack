@@ -80,11 +80,11 @@ export function BoqBulkActionBar({
       role="region"
       aria-label="Bulk actions"
       aria-busy={pending || undefined}
-      className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 rounded-xl border border-accent/40 bg-bg-elevated px-4 py-3 shadow-2xl shadow-black/40 ring-1 ring-accent/30 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-4 duration-200"
+      className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 rounded-xl border border-accent-strong/40 bg-bg-elevated px-4 py-3 shadow-2xl shadow-black/40 ring-1 ring-accent/30 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-4 duration-200"
     >
       <span className="flex items-center gap-2 text-sm font-semibold text-text-primary px-1">
         {pending && (
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-accent" />
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-accent-strong" />
         )}
         {pending
           ? `Updating ${count} item${plural}…`

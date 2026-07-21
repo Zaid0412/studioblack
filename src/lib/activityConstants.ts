@@ -25,7 +25,7 @@ export const activityColors: Record<string, string> = {
   upload: "bg-status-submitted/10 text-status-submitted",
   review: "bg-info/10 text-info",
   approval: "bg-success/10 text-success",
-  comment: "bg-accent/10 text-accent",
+  comment: "bg-accent/10 text-accent-strong",
   create: "bg-warning/10 text-warning",
   edit: "bg-status-draft/10 text-text-secondary",
 };

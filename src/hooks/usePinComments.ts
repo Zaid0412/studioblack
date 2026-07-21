@@ -4,6 +4,7 @@ import { pinComments } from "@/lib/api";
 import { toast } from "@/components/ui/useToast";
 import { API } from "@/lib/api/routes";
 import type { DbPinComment, DbPinShape, PinShape, PinShapeType } from "@/types";
+import type { PinStatus } from "@/lib/validations";
 import { centroidOf, geometryOf } from "@/lib/shapeUtils";
 
 /** Shape drawing tool currently selected in the review toolbar. */
@@ -161,6 +162,7 @@ export function usePinComments({
         page: data.page ?? null,
         content: data.content,
         resolved: false,
+        status: "open",
         task_id: null,
         request_approval: false,
         request_changes: data.requestChanges ?? false,
@@ -231,6 +233,33 @@ export function usePinComments({
         toast({
           title: "Error",
           description: "Failed to update comment",
+          variant: "error",
+        });
+      }
+    },
+    [projectId, attachmentId, mutatePins]
+  );
+
+  // ── Set 3-state status ────────────────────────────────────────────────
+
+  const setPinStatus = useCallback(
+    async (pinId: string, status: PinStatus) => {
+      mutatePins(
+        (prev) =>
+          (prev ?? []).map((p) =>
+            p.id === pinId
+              ? { ...p, status, resolved: status === "resolved" }
+              : p
+          ),
+        { revalidate: false }
+      );
+      try {
+        await pinComments.setStatus(projectId, attachmentId, pinId, status);
+      } catch {
+        mutatePins(); // revalidate from server
+        toast({
+          title: "Error",
+          description: "Failed to update status",
           variant: "error",
         });
       }
@@ -379,8 +408,10 @@ export function usePinComments({
     [projectId, attachmentId, mutatePins]
   );
 
+  // "Open" = needs attention. Closed pins are dismissed, not open, so they
+  // don't count toward the badge.
   const unresolvedCount = useMemo(
-    () => pins.filter((p) => !p.resolved).length,
+    () => pins.filter((p) => p.status === "open").length,
     [pins]
   );
 
@@ -403,6 +434,7 @@ export function usePinComments({
     setDrawFill,
     addPin,
     resolvePin,
+    setPinStatus,
     editPin,
     deletePin,
     repositionPin,

@@ -153,7 +153,7 @@ export default function NewTaskPage() {
       >
         {/* Main column */}
         <div ref={revealRef} className="stagger-children space-y-4 min-w-0">
-          <div className="rounded-lg bg-bg-secondary border border-border-default focus-within:border-accent transition-colors px-4 py-2.5 flex items-center gap-3">
+          <div className="rounded-lg bg-bg-secondary border border-border-default focus-within:border-accent-strong transition-colors px-4 py-2.5 flex items-center gap-3">
             <input
               type="text"
               value={title}

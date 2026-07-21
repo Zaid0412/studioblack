@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import {
@@ -8,10 +7,12 @@ import {
   Download,
   ExternalLink,
   Ellipsis,
+  History,
   Printer,
   Lock,
   Maximize,
   Send,
+  Stamp,
   Unlock,
   Upload,
 } from "lucide-react";
@@ -20,6 +21,12 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/DropdownMenu";
 
 interface ReviewToolbarProps {
   backPath: string;
@@ -32,6 +39,10 @@ interface ReviewToolbarProps {
   onSendToClient?: () => void;
   frozen?: boolean;
   onToggleFreeze?: () => void;
+  /** PM issues the current version as the next revision (Document Control). */
+  onIssueRevision?: () => void;
+  /** Current revision tag, e.g. `Rev 02`. Shown next to the issue action. */
+  currentRevLabel?: string | null;
 }
 
 /**
@@ -48,33 +59,10 @@ export function ReviewToolbar({
   onSendToClient,
   frozen,
   onToggleFreeze,
+  onIssueRevision,
+  currentRevLabel,
 }: ReviewToolbarProps) {
   const router = useRouter();
-  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
-  const moreMenuRef = useRef<HTMLDivElement>(null);
-
-  // Close more menu on click outside or Escape — matches the keyboard
-  // behaviour of the popovers in ShapeSettingsPopover.
-  useEffect(() => {
-    if (!moreMenuOpen) return;
-    function handleClick(e: MouseEvent) {
-      if (
-        moreMenuRef.current &&
-        !moreMenuRef.current.contains(e.target as Node)
-      ) {
-        setMoreMenuOpen(false);
-      }
-    }
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setMoreMenuOpen(false);
-    }
-    document.addEventListener("mousedown", handleClick);
-    document.addEventListener("keydown", handleKey);
-    return () => {
-      document.removeEventListener("mousedown", handleClick);
-      document.removeEventListener("keydown", handleKey);
-    };
-  }, [moreMenuOpen]);
 
   return (
     <div className="h-10 shrink-0 bg-bg-secondary px-3 flex items-center justify-between gap-2">
@@ -94,14 +82,25 @@ export function ReviewToolbar({
         <span className="text-text-primary text-[13px] font-medium truncate">
           {fileName}
         </span>
+        {/* Current revision — file metadata, shown by the name (not the action row) */}
+        {currentRevLabel && (
+          <span className="shrink-0 flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-bg-elevated border border-border-default text-[11px] font-semibold text-text-secondary">
+            <History className="w-3 h-3 text-accent-strong" />
+            {currentRevLabel}
+          </span>
+        )}
         {leftSlot}
       </div>
 
-      {/* Right: Utility icons */}
+      {/* Right: grouped utilities — panels │ file │ workflow │ overflow.
+          Each group is divided so related controls read together instead of a
+          flat row of mixed icons and buttons. */}
       <div className="flex items-center gap-2 shrink-0">
+        {/* Group 1 — info panels (Comments · Reviews · Revisions) */}
         {rightSlot}
-        {rightSlot && <div className="w-px h-4 bg-border-default" />}
 
+        {/* Group 2 — file utilities (view / get the file) */}
+        {rightSlot && <div className="w-px h-4 bg-border-default" />}
         <Tooltip>
           <TooltipTrigger asChild>
             <button
@@ -113,7 +112,35 @@ export function ReviewToolbar({
           </TooltipTrigger>
           <TooltipContent side="bottom">Fullscreen</TooltipContent>
         </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={onDownload}
+              className="text-text-secondary hover:text-text-primary cursor-pointer"
+            >
+              <Download className="w-4 h-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Download file</TooltipContent>
+        </Tooltip>
+        {onUploadNewVersion && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={onUploadNewVersion}
+                className="text-text-secondary hover:text-text-primary cursor-pointer"
+              >
+                <Upload className="w-4 h-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Upload new version</TooltipContent>
+          </Tooltip>
+        )}
 
+        {/* Group 3 — workflow actions (act on the file), primary CTA last */}
+        {(onToggleFreeze || onIssueRevision || onSendToClient) && (
+          <div className="w-px h-4 bg-border-default" />
+        )}
         {onToggleFreeze && (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -133,7 +160,15 @@ export function ReviewToolbar({
             </TooltipContent>
           </Tooltip>
         )}
-
+        {onIssueRevision && (
+          <button
+            onClick={onIssueRevision}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-accent-strong text-accent-strong text-[12px] font-semibold cursor-pointer hover:bg-accent/10 transition-colors"
+          >
+            <Stamp className="w-3.5 h-3.5" />
+            Issue Revision
+          </button>
+        )}
         {onSendToClient && (
           <button
             onClick={onSendToClient}
@@ -144,70 +179,38 @@ export function ReviewToolbar({
           </button>
         )}
 
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={onDownload}
-              className="text-text-secondary hover:text-text-primary cursor-pointer"
-            >
-              <Download className="w-4 h-4" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">Download file</TooltipContent>
-        </Tooltip>
-
-        {onUploadNewVersion && (
+        {/* Overflow — Print / Open in new tab */}
+        <DropdownMenu>
           <Tooltip>
             <TooltipTrigger asChild>
-              <button
-                onClick={onUploadNewVersion}
-                className="text-text-secondary hover:text-text-primary cursor-pointer"
-              >
-                <Upload className="w-4 h-4" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">Upload new version</TooltipContent>
-          </Tooltip>
-        )}
-
-        {/* More options dropdown */}
-        <div className="relative" ref={moreMenuRef}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                className="text-text-secondary hover:text-text-primary cursor-pointer"
-                onClick={() => setMoreMenuOpen(!moreMenuOpen)}
-              >
-                <Ellipsis className="w-4 h-4" />
-              </button>
+              <DropdownMenuTrigger asChild>
+                <button
+                  aria-label="More options"
+                  className="text-text-secondary hover:text-text-primary cursor-pointer"
+                >
+                  <Ellipsis className="w-4 h-4" />
+                </button>
+              </DropdownMenuTrigger>
             </TooltipTrigger>
             <TooltipContent side="bottom">More options</TooltipContent>
           </Tooltip>
-          {moreMenuOpen && (
-            <div className="absolute right-0 top-full mt-1 w-44 bg-bg-elevated border border-border-default rounded-lg shadow-xl py-1 z-50">
-              <button
-                onClick={() => {
-                  window.print();
-                  setMoreMenuOpen(false);
-                }}
-                className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-text-secondary hover:text-text-primary hover:bg-bg-input transition-colors cursor-pointer"
-              >
-                <Printer className="w-4 h-4" />
-                Print
-              </button>
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuItem onSelect={() => window.print()}>
+              <Printer />
+              Print
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
               <a
                 href={`/api/proxy-file?url=${encodeURIComponent(fileUrl)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={() => setMoreMenuOpen(false)}
-                className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-text-secondary hover:text-text-primary hover:bg-bg-input transition-colors"
               >
-                <ExternalLink className="w-4 h-4" />
+                <ExternalLink />
                 Open in new tab
               </a>
-            </div>
-          )}
-        </div>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );
