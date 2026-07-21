@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState, useCallback, useEffect, useMemo } from "react";
+import { use, useState, useRef, useCallback, useEffect, useMemo } from "react";
 import useSWR from "swr";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -24,6 +24,7 @@ import { PinOverlay } from "@/components/review/PinOverlay";
 import { ShapeDrawingLayer } from "@/components/review/ShapeDrawingLayer";
 import { AnnotationRail } from "@/components/review/AnnotationRail";
 import { PinSidebar } from "@/components/review/PinSidebar";
+import { ReviewSidePanel } from "@/components/review/ReviewSidePanel";
 import {
   ReviewPanelTabs,
   type ReviewPanelKey,
@@ -223,6 +224,18 @@ export default function DesignReviewPage({
     },
     [activePanel]
   );
+  const closePanel = useCallback(() => {
+    setCommentsOpen(false);
+    setReviewsOpen(false);
+    setRevisionsOpen(false);
+    setPendingPin(null);
+    setRequestChangesMode(false);
+  }, []);
+  // Which body the shared drawer renders. During the close animation `activePanel`
+  // is already null, so fall back to the last one to keep it visible while it slides out.
+  const lastPanelRef = useRef<ReviewPanelKey>("comments");
+  if (activePanel) lastPanelRef.current = activePanel;
+  const panelToShow = activePanel ?? lastPanelRef.current;
 
   // Reset transient UI state when switching files
   useEffect(() => {
@@ -735,55 +748,47 @@ export default function DesignReviewPage({
           )}
         </div>
 
-        {/* PM: Reviews Panel — flex sibling, pushes document viewer */}
-        {!isClient && reviewsOpen && (
-          <ReviewPanel
-            reviews={review.reviews ?? []}
-            onClose={() => setReviewsOpen(false)}
-          />
-        )}
-
-        {/* PM: Revisions Panel (Document Control) — flex sibling */}
-        {!isClient && docControl && revisionsOpen && (
-          <RevisionPanel
-            revisions={revisions}
-            onClose={() => setRevisionsOpen(false)}
-          />
-        )}
-
-        {/* Pin comments sidebar — flex sibling, pushes document viewer */}
-        <PinSidebar
-          pins={pinState.pins}
-          selectedPinId={pinState.selectedPinId}
-          onSelectPin={setSelectedPinId}
-          onResolvePin={resolvePin}
-          onSetPinStatus={setPinStatus}
-          enableStatus={docControl}
-          onEditPin={editPin}
-          onDeletePin={deletePin}
-          currentUserId={session?.user?.id ?? ""}
-          isPm={isPm}
-          role={role}
-          open={commentsOpen}
-          onClose={() => {
-            setCommentsOpen(false);
-            setPendingPin(null);
-            setRequestChangesMode(false);
-          }}
-          pendingPin={pendingPin}
-          pendingShapes={pendingShapes?.shapes.map((item) => item.shape) ?? []}
-          onClearShapes={handleClearShapes}
-          onSubmitComment={handlePinFormSubmit}
-          onCancelPending={handlePinFormCancel}
-          onClearPendingPin={handleClearPendingPin}
-          onRequestPin={handleRequestPin}
-          requestChangesMode={requestChangesMode}
-          members={members}
-          defaultAssignee={defaultAssignee}
-          repliesMap={pinState.repliesMap}
-          onFetchReplies={fetchReplies}
-          onAddReply={addReply}
-        />
+        {/* One shared drawer for all three panels — switching swaps the body
+            without a close/reopen; only opening from / closing to nothing slides. */}
+        <ReviewSidePanel open={activePanel !== null}>
+          {panelToShow === "comments" && (
+            <PinSidebar
+              pins={pinState.pins}
+              selectedPinId={pinState.selectedPinId}
+              onSelectPin={setSelectedPinId}
+              onResolvePin={resolvePin}
+              onSetPinStatus={setPinStatus}
+              enableStatus={docControl}
+              onEditPin={editPin}
+              onDeletePin={deletePin}
+              currentUserId={session?.user?.id ?? ""}
+              isPm={isPm}
+              role={role}
+              onClose={closePanel}
+              pendingPin={pendingPin}
+              pendingShapes={
+                pendingShapes?.shapes.map((item) => item.shape) ?? []
+              }
+              onClearShapes={handleClearShapes}
+              onSubmitComment={handlePinFormSubmit}
+              onCancelPending={handlePinFormCancel}
+              onClearPendingPin={handleClearPendingPin}
+              onRequestPin={handleRequestPin}
+              requestChangesMode={requestChangesMode}
+              members={members}
+              defaultAssignee={defaultAssignee}
+              repliesMap={pinState.repliesMap}
+              onFetchReplies={fetchReplies}
+              onAddReply={addReply}
+            />
+          )}
+          {panelToShow === "reviews" && (
+            <ReviewPanel reviews={review.reviews ?? []} onClose={closePanel} />
+          )}
+          {panelToShow === "revisions" && (
+            <RevisionPanel revisions={revisions} onClose={closePanel} />
+          )}
+        </ReviewSidePanel>
       </div>
 
       {/* PM: Upload New Version Dialog */}

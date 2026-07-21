@@ -27,7 +27,7 @@ export function RevisionPanel({ revisions, onClose }: RevisionPanelProps) {
   );
 
   return (
-    <div className="w-72 shrink-0 bg-bg-primary border-l border-border-default flex flex-col overflow-hidden">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {/* Header */}
       <div className="h-10 shrink-0 px-3 flex items-center justify-between border-b border-border-default">
         <div className="flex items-center gap-2">
