@@ -27,8 +27,7 @@ import {
 import { isPinned } from "@/lib/pinUtils";
 import { timeAgo } from "@/lib/formatTime";
 import type { DbPinComment } from "@/types";
-
-type PinStatus = "open" | "resolved" | "closed";
+import type { PinStatus } from "@/lib/validations";
 
 /** Icon + accent per markup status, shared by the trigger and the menu items. */
 const PIN_STATUS_META: Record<

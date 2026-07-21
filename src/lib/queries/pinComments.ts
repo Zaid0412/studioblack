@@ -1,5 +1,6 @@
 import { getPool } from "@/lib/db";
 import type { PinShape } from "@/types";
+import type { PinStatus } from "@/lib/validations";
 import { geometryOf } from "@/lib/shapeUtils";
 
 // ── Pin Comments ─────────────────────────────────
@@ -201,10 +202,7 @@ export async function updatePinComment(pinId: string, resolved: boolean) {
  * Set a pin comment's 3-state markup status (Open / Resolved / Closed), keeping
  * the legacy `resolved` boolean in sync (true only for 'resolved').
  */
-export async function updatePinCommentStatus(
-  pinId: string,
-  status: "open" | "resolved" | "closed"
-) {
+export async function updatePinCommentStatus(pinId: string, status: PinStatus) {
   const pool = getPool();
   await pool.query(
     `UPDATE pin_comment SET status = $1, resolved = ($1 = 'resolved') WHERE id = $2`,

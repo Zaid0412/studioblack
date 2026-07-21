@@ -565,7 +565,7 @@ export default function DesignReviewPage({
                 ? () => setIssueOpen(true)
                 : undefined
             }
-            currentRevLabel={docControl ? currentRevLabel : undefined}
+            currentRevLabel={currentRevLabel}
             leftSlot={
               isClient &&
               attachment.review_status &&

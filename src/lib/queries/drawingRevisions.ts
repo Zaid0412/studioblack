@@ -3,9 +3,6 @@ import { logAuditSafe, AUDIT_ACTIONS } from "@/lib/queries/audit";
 import type { IssuePurpose } from "@/lib/validations";
 import type { DbDrawingRevision } from "@/types";
 
-/** Row shape returned by the revision queries (alias of the shared DB type). */
-export type DrawingRevision = DbDrawingRevision;
-
 /**
  * Drawing revisions (PRD "01.Design doc"), PR-3.
  *
@@ -20,7 +17,7 @@ export type DrawingRevision = DbDrawingRevision;
  */
 
 export type IssueRevisionResult =
-  | { revision: DrawingRevision }
+  | { revision: DbDrawingRevision }
   | { revision: null; reason: "not_found" | "no_drawing" };
 
 /**
@@ -78,7 +75,7 @@ export async function issueRevision(params: {
 
     const {
       rows: [revision],
-    } = await client.query<DrawingRevision>(
+    } = await client.query<DbDrawingRevision>(
       `INSERT INTO drawing_revision
          (drawing_id, org_id, rev_number, attachment_id, issue_purpose, issued_by)
        VALUES ($1, $2, $3, $4, $5, $6)
@@ -127,9 +124,9 @@ export async function issueRevision(params: {
 /** Every revision of a drawing, newest first, with the issuer's name. */
 export async function getDrawingRevisions(
   drawingId: string
-): Promise<DrawingRevision[]> {
+): Promise<DbDrawingRevision[]> {
   const pool = getPool();
-  const { rows } = await pool.query<DrawingRevision>(
+  const { rows } = await pool.query<DbDrawingRevision>(
     `SELECT dr.*, u.name AS issuer_name
        FROM drawing_revision dr
        JOIN "user" u ON u.id = dr.issued_by
@@ -148,9 +145,9 @@ export async function getDrawingRevisions(
 export async function getRevisionsForAttachment(
   attachmentId: string,
   projectId: string
-): Promise<DrawingRevision[]> {
+): Promise<DbDrawingRevision[]> {
   const pool = getPool();
-  const { rows } = await pool.query<DrawingRevision>(
+  const { rows } = await pool.query<DbDrawingRevision>(
     `SELECT dr.*, u.name AS issuer_name
        FROM attachment a
        JOIN drawing_revision dr ON dr.drawing_id = a.drawing_id

@@ -1,6 +1,7 @@
 import { apiGet, apiPost, apiPatch, apiDelete } from "./client";
 import { API } from "./routes";
 import type { DbPinComment, PinShape } from "@/types";
+import type { PinStatus } from "@/lib/validations";
 
 /** Fetch all top-level pin comments for an attachment. */
 export function list(projectId: string, attachmentId: string) {
@@ -60,7 +61,7 @@ export function setStatus(
   projectId: string,
   attachmentId: string,
   pinId: string,
-  status: "open" | "resolved" | "closed"
+  status: PinStatus
 ) {
   return apiPatch<DbPinComment>(
     API.attachmentPin(projectId, attachmentId, pinId),

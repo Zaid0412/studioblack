@@ -10,6 +10,7 @@ import {
 import { sortPinsByDate, buildPinIndexMap } from "@/lib/pinUtils";
 import { useStaggerReveal } from "@/hooks/useStaggerReveal";
 import type { DbPinComment, PinShape, UserRole } from "@/types";
+import type { PinStatus } from "@/lib/validations";
 import { useSlide } from "./useSlide";
 import { PinCard } from "./PinCard";
 import { NewPinForm } from "./NewPinForm";
@@ -20,10 +21,7 @@ interface PinSidebarProps {
   onSelectPin: (pinId: string) => void;
   onResolvePin: (pinId: string, resolved: boolean) => void;
   /** Set a pin's 3-state markup status (Document Control). */
-  onSetPinStatus?: (
-    pinId: string,
-    status: "open" | "resolved" | "closed"
-  ) => void;
+  onSetPinStatus?: (pinId: string, status: PinStatus) => void;
   /** When true, pin cards show the Open/Resolved/Closed dropdown. */
   enableStatus?: boolean;
   onEditPin: (pinId: string, content: string) => void | Promise<void>;

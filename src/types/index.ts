@@ -370,12 +370,7 @@ export interface DbDrawingRevision {
   org_id: string;
   rev_number: number;
   attachment_id: string;
-  issue_purpose:
-    | "for_review"
-    | "for_approval"
-    | "for_information"
-    | "for_construction"
-    | "as_built";
+  issue_purpose: import("@/lib/validations").IssuePurpose;
   issued_by: string;
   issued_at: string;
   created_at: string;
@@ -393,7 +388,7 @@ export interface DbPinComment {
   content: string;
   resolved: boolean;
   /** 3-state markup lifecycle. Kept in sync with `resolved` while both exist. */
-  status: "open" | "resolved" | "closed";
+  status: import("@/lib/validations").PinStatus;
   task_id: string | null;
   request_approval: boolean;
   request_changes: boolean;

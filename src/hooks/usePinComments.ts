@@ -4,6 +4,7 @@ import { pinComments } from "@/lib/api";
 import { toast } from "@/components/ui/useToast";
 import { API } from "@/lib/api/routes";
 import type { DbPinComment, DbPinShape, PinShape, PinShapeType } from "@/types";
+import type { PinStatus } from "@/lib/validations";
 import { centroidOf, geometryOf } from "@/lib/shapeUtils";
 
 /** Shape drawing tool currently selected in the review toolbar. */
@@ -242,7 +243,7 @@ export function usePinComments({
   // ── Set 3-state status ────────────────────────────────────────────────
 
   const setPinStatus = useCallback(
-    async (pinId: string, status: "open" | "resolved" | "closed") => {
+    async (pinId: string, status: PinStatus) => {
       mutatePins(
         (prev) =>
           (prev ?? []).map((p) =>
@@ -408,12 +409,9 @@ export function usePinComments({
   );
 
   // "Open" = needs attention. Closed pins are dismissed, not open, so they
-  // don't count toward the badge (falls back to `resolved` for legacy rows).
+  // don't count toward the badge.
   const unresolvedCount = useMemo(
-    () =>
-      pins.filter(
-        (p) => (p.status ?? (p.resolved ? "resolved" : "open")) === "open"
-      ).length,
+    () => pins.filter((p) => p.status === "open").length,
     [pins]
   );
 
