@@ -92,12 +92,12 @@ export default function ProjectsPage() {
     items: projects,
     searchFilter: (p, query) => {
       const q = query.toLowerCase();
-      const client =
-        (p as DbProjectRow).client_name ||
-        (p as DbProjectRow).client_email ||
-        "";
+      const row = p as DbProjectRow;
+      const client = row.client_name || row.client_email || "";
       return (
-        p.name.toLowerCase().includes(q) || client.toLowerCase().includes(q)
+        p.name.toLowerCase().includes(q) ||
+        client.toLowerCase().includes(q) ||
+        (row.project_number?.toLowerCase().includes(q) ?? false)
       );
     },
   });
@@ -343,6 +343,11 @@ export default function ProjectsPage() {
                     onClick={() => router.push(`/projects/${project.id}`)}
                   >
                     <div className="flex-1 min-w-0">
+                      {project.project_number && (
+                        <span className="font-mono text-[11px] text-text-muted truncate block">
+                          {project.project_number}
+                        </span>
+                      )}
                       <span className="text-sm font-semibold text-text-primary truncate block">
                         {project.name}
                       </span>
