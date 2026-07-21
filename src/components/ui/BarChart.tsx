@@ -194,7 +194,7 @@ export function BarChart({
               <Cell
                 key={i}
                 fill={barColor}
-                fillOpacity={active === null || active === i ? 1 : 0.3}
+                opacity={active === null || active === i ? 1 : 0.3}
               />
             ))}
           </Bar>

@@ -619,11 +619,12 @@ body[data-scroll-locked]:not(:has([data-state="open"][role="dialog"])) {
 }
 
 /* Chart focus/dim — the hovered segment/bar stays opaque and the others fade.
-   Fill-opacity is driven by recharts hover state in React (Donut/BarChart.tsx);
-   these rules just smooth the transition. */
+   Opacity (not fill-opacity) is driven by recharts hover state in React
+   (Donut/BarChart.tsx): element `opacity` transitions reliably on SVG shapes,
+   whereas the `fill-opacity` presentation attribute often won't animate. */
 .donut-chart .recharts-sector,
 .bar-chart .recharts-rectangle {
-  transition: fill-opacity 0.2s ease-out;
+  transition: opacity 0.2s ease-out;
 }
 @media (prefers-reduced-motion: reduce) {
   .donut-chart .recharts-sector,
