@@ -43,7 +43,7 @@ export function StatCard({
   const baseClass = cn(
     "flex flex-col gap-2 rounded-xl bg-bg-elevated p-5",
     interactive &&
-      "group cursor-pointer ring-1 ring-transparent hover:ring-accent/40 hover:bg-bg-elevated/70 hover:-translate-y-0.5 motion-reduce:hover:translate-y-0 transition-[color,background-color,border-color,box-shadow,transform] outline-none focus-visible:ring-2 focus-visible:ring-accent",
+      "group cursor-pointer ring-1 ring-transparent hover:ring-accent/40 hover:bg-bg-elevated/70 hover:-translate-y-0.5 motion-reduce:hover:translate-y-0 transition-[color,background-color,border-color,box-shadow,transform] duration-200 ease-out outline-none focus-visible:ring-2 focus-visible:ring-accent",
     className
   );
 
@@ -62,7 +62,7 @@ export function StatCard({
         {display}
       </span>
       {interactive && (
-        <ArrowRight className="self-end w-3.5 h-3.5 text-text-muted group-hover:text-accent group-hover:translate-x-0.5 transition-all" />
+        <ArrowRight className="self-end w-3.5 h-3.5 text-text-muted group-hover:text-accent group-hover:translate-x-0.5 transition-all duration-200 ease-out" />
       )}
     </>
   );
