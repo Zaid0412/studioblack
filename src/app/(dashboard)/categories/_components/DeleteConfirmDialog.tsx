@@ -49,15 +49,14 @@ export function DeleteConfirmDialog({
   // Blocked only when something in the subtree is still referenced. Prefer the
   // element message (the common, actionable case) and fall back to the generic
   // "referenced elsewhere" copy when it's BOQ/vendor/rate-contract data.
-  const blocked = subtreeReferenced;
-  const blockedByElements = blocked && subtreeElementCount > 0;
+  const blockedByElements = subtreeReferenced && subtreeElementCount > 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {blocked
+            {subtreeReferenced
               ? t("categoryDeleteBlockedTitle")
               : target?.level === 2
                 ? t("subcategoryDeleteConfirm")
@@ -66,7 +65,7 @@ export function DeleteConfirmDialog({
                   : t("categoryDeleteConfirm")}
           </DialogTitle>
           <DialogDescription>
-            {blocked ? (
+            {subtreeReferenced ? (
               <span className="flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
                 <span>
@@ -97,7 +96,7 @@ export function DeleteConfirmDialog({
               {tCommon("cancel")}
             </Button>
           </DialogClose>
-          {!blocked && (
+          {!subtreeReferenced && (
             <Button
               type="button"
               variant="danger"

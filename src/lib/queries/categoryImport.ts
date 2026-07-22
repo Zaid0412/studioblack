@@ -133,11 +133,7 @@ export async function isCategoryReferenced(
   db: Querier,
   id: string
 ): Promise<boolean> {
-  const { rows } = await db.query<{ referenced: boolean }>(
-    `SELECT EXISTS (${categoryRefExistsSql("$1")} LIMIT 1) AS referenced`,
-    [id]
-  );
-  return rows[0]?.referenced ?? false;
+  return areCategoriesReferenced(db, [id]);
 }
 
 /**
