@@ -8,6 +8,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 
 export interface ContactDraft {
+  /** Set for an existing contact (round-tripped so the server updates in place). */
+  id?: string;
   name: string;
   title: string;
   email: string;
