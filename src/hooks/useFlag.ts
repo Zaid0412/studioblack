@@ -10,8 +10,8 @@ import { useFeatureFlagEnabled } from "posthog-js/react";
 const FLAG_FALLBACKS = {
   elementLibrary: true,
   boq: true,
-  vendorManagement: false,
-  rateContracts: false,
+  vendorManagement: true,
+  rateContracts: true,
   vendorPortal: false,
   designDocumentControl: false,
   overviewTab: true,
