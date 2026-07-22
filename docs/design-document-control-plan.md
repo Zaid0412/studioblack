@@ -3,7 +3,7 @@
 Phased plan for evolving StudioBlack's design-review feature into the full AEC document-control
 system specified in **PRD tab "01.Design doc"** (Design Management & Document Control Module).
 
-> **Source PRD tab:** [01.Design doc — Design Management & Document Control (PDS)](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.sw56y13u47f3)
+> **Source PRD tab:** [01.Design doc — Design Management & Document Control (PDS) — updated revision (2026-07-22)](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.ovg5x0856f8g) · supersedes the [original tab](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.sw56y13u47f3) this plan was first written from. See **[PRD update](#prd-update-2026-07-22-revision)** below for the deltas.
 
 ## Context
 
@@ -21,6 +21,49 @@ in-browser viewer + markup (pins/shapes/freehand, threads, resolve), version con
 notifications. Reusable infrastructure also exists: `audit_event` + `logAudit`, `sequence_counter`
 numbering, the declarative rate-contract state-machine pattern, and per-project roles. So this is a
 **thin register layer on top of the existing `attachment` engine**, not a rebuild.
+
+## PRD update (2026-07-22 revision)
+
+The source PRD tab was revised (new tab `t.ovg5x0856f8g`). Deltas vs the version this plan was
+written from, and how they map to the roadmap:
+
+**New classification dimensions on a drawing** — both optional and filter-only, so they're additive
+nullable columns and don't change the `drawing`-over-`version_group` model:
+
+- **Representation** — `2D / 3D / REN / VR` ("how the design is presented — _not_ a drawing type").
+  Replaces hard-coded 2D/3D tabs with metadata. → new `drawing.representation` column.
+- **Location** — optional spatial reference; free-text with an optional lookup (Ground Floor, Kitchen,
+  Villa Block, …), used for filtering only, never in the document number. → `drawing.location`
+  (nullable text) now, per-org lookup later if needed.
+
+  Land both as one small additive migration + the cascading-filter UI — fits alongside PR-4 or a
+  dedicated PR-4a; not blocking. Numbering stays `<Project>-<Discipline>-<Type>-<Seq>`.
+
+**Enum changes — two diverge from already-shipped code:**
+
+- ⚠️ **Discipline codes changed.** PRD is now `AR, ID, ST, PLB, ELC, MEC, HVAC, LND, FUR, VIS`;
+  **PR-1 seeded** `AR, ID, ST, EL, PL, ME, HVAC, LS, FF, 3D`. Reconcile the seed (disciplines are
+  per-org data → a seed/data update, not schema).
+- ⚠️ **Issue Purpose expanded to 8:** Internal Review, Client Review, For Approval, For Tender, For
+  Construction, As-Built, Record Copy, Information Only. **PR-3 shipped 5** (`for_review,
+  for_approval, for_information, for_construction, as_built`). Extend `ISSUE_PURPOSES` + widen the
+  `drawing_revision.issue_purpose` CHECK (additive).
+- **Drawing Type** now enumerated explicitly (~13): `PLAN, ELEV, SECT, DET, PROD, SHOP, RCP, ISO, SCH,
+  SPEC, REND, MOD, CAL`. Align the `drawing_type` const to this set.
+
+**Newly specified, lands in later PRs:**
+
+- **Configurable master data** — Drawing Types, Issue Purposes, and **Packages** should be
+  customizable per company (today they're code consts; only Disciplines are data). → widen to per-org
+  lookup tables with the Disciplines work in **PR-6**.
+- **Document relationships** — optional UUID links from a drawing to BOQ items / change orders (and
+  future RFI / inspection / space tracking). → **PR-6** / separate.
+- **Granular configurable RBAC** — explicit matrix (Junior/Senior Architect, PM, Client, Admin ×
+  upload / review / approve / freeze), "configurable by company". Confirms the **PR-6** RBAC scope.
+
+**Confirmed unchanged (our build already matches):** Design Package codes (CON/SCH/DD/TD/IFC/ASB), the
+12-state drawing lifecycle, the 10-state package lifecycle, the document-number format, the
+mandatory-drawing package-completion gate, and the audit-trail requirement.
 
 ## Architecture (data model)
 
