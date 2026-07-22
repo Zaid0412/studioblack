@@ -43,9 +43,17 @@ export const CURATED_CATEGORY_ICONS = [
   "Landmark",
 ] as const;
 
-/** Icon id → display label: `"PencilRuler"` → `"Pencil Ruler"`, `"Grid2x2"` → `"Grid 2x 2"`. */
+/**
+ * Icon id → display label. Splits camelCase/PascalCase and letter→number
+ * boundaries, but keeps an `NxN` dimension token whole:
+ * `"PencilRuler"` → `"Pencil Ruler"`, `"Building2"` → `"Building 2"`,
+ * `"Grid2x2"` → `"Grid 2x2"`.
+ */
 export const humanizeIconName = (name: string) =>
-  name.replace(/([A-Z0-9]+)/g, " $1").trim();
+  name
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/([A-Za-z])(\d+(?:x\d+)*)/g, "$1 $2")
+    .trim();
 
 /** Inline quick-picks shown before "Browse all" — a compact construction subset. */
 export const DEFAULT_CATEGORY_ICONS = [
