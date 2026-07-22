@@ -62,7 +62,7 @@ import {
   isDestructivePhase,
   parseOptionalNumber,
   phaseToLabel,
-  phaseToVariant,
+  boqStatusBadge,
   marginTier,
   toNum,
 } from "../_lib/formatters";
@@ -902,6 +902,7 @@ const BoqItemRow = memo(function BoqItemRow({
   // `item_code` may be blank on a custom line.
   const lineDisplay = formatBoqLineRef(item.division_code, item.line_number);
   const lineRef = `line ${lineDisplay}`;
+  const statusBadge = boqStatusBadge(item, role);
 
   return (
     <div
@@ -1076,10 +1077,10 @@ const BoqItemRow = memo(function BoqItemRow({
       )}
       <span className="min-w-0 flex items-center justify-center pl-3">
         <Badge
-          variant={phaseToVariant(item.phase, role)}
+          variant={statusBadge.variant}
           className="!px-2 truncate max-w-full"
         >
-          {phaseToLabel(item.phase, role)}
+          {statusBadge.label}
         </Badge>
       </span>
       <span className="flex justify-end pr-3">
