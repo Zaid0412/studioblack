@@ -688,9 +688,17 @@ async function cascadeCodePrefix(
  * trades, rate contracts). Elements must be moved out first; the cascade would
  * otherwise silently orphan them (SET NULL) or hit a RESTRICT and throw.
  *
- * The subtree scan, reference guard, and delete run in one transaction so a
- * concurrent reference can't slip in between the check and the delete.
+ * The subtree is scanned **and locked** (`FOR UPDATE`) before the reference
+ * check, all in one transaction. Adding a reference (element / BOQ / RFQ /
+ * vendor / rate-contract) takes a `FOR KEY SHARE` lock on its parent category
+ * row, which conflicts with our `FOR UPDATE` — so a concurrent reference can't
+ * slip in between the check and the delete: it blocks until we commit, then
+ * fails its FK because the row is gone.
  * Returns not_found/referenced/deleted.
+ *
+ * NOTE: the API-route tests mock this function, so the SQL below (recursive
+ * CTE + reference guard + cascade) isn't exercised by the suite — verify SQL
+ * edits against a real DB.
  */
 export async function deleteCategory(id: string, orgId: string) {
   const pool = getPool();
@@ -698,6 +706,9 @@ export async function deleteCategory(id: string, orgId: string) {
   try {
     await client.query("BEGIN");
 
+    // Gather the whole subtree and lock those category rows. FOR UPDATE lives on
+    // the outer SELECT (it can't sit on a recursive term), which is enough — the
+    // lock is what closes the check-then-delete race.
     const { rows: subtree } = await client.query<{ id: string }>(
       `WITH RECURSIVE subtree AS (
          SELECT id FROM element_category WHERE id = $1 AND org_id = $2
@@ -705,7 +716,9 @@ export async function deleteCategory(id: string, orgId: string) {
          SELECT c.id FROM element_category c
            JOIN subtree s ON c.parent_id = s.id
        )
-       SELECT id FROM subtree`,
+       SELECT id FROM element_category
+        WHERE id IN (SELECT id FROM subtree)
+        FOR UPDATE`,
       [id, orgId]
     );
 
