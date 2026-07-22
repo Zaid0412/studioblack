@@ -12,6 +12,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { emphasisTags } from "@/components/ui/richText";
 import type { ElementCategoryNode } from "@/types";
 
 interface Props {
@@ -70,22 +71,28 @@ export function DeleteConfirmDialog({
                 <AlertTriangle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
                 <span>
                   {blockedByElements
-                    ? t("categoryDeleteBlocked", {
+                    ? t.rich("categoryDeleteBlocked", {
+                        ...emphasisTags,
                         name: target?.name ?? "",
                         count: subtreeElementCount,
                       })
-                    : t("categoryDeleteBlockedRef", {
+                    : t.rich("categoryDeleteBlockedRef", {
+                        ...emphasisTags,
                         name: target?.name ?? "",
                       })}
                 </span>
               </span>
             ) : descendantCount > 0 ? (
-              t("categoryDeleteCascade", {
+              t.rich("categoryDeleteCascade", {
+                ...emphasisTags,
                 name: target?.name ?? "",
                 count: descendantCount,
               })
             ) : (
-              t("categoryDeletePermanent", { name: target?.name ?? "" })
+              t.rich("categoryDeletePermanent", {
+                ...emphasisTags,
+                name: target?.name ?? "",
+              })
             )}
           </DialogDescription>
         </DialogHeader>
