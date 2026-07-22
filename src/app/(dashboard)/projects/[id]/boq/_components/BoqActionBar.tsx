@@ -81,11 +81,11 @@ export function BoqActionBar({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onSelect={onExport} disabled={exporting}>
-                <Download className="h-4 w-4" />
+                <Upload className="h-4 w-4" />
                 {exporting ? "Exporting…" : "Export to Excel"}
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={onImport} disabled={disabled}>
-                <Upload className="h-4 w-4" />
+                <Download className="h-4 w-4" />
                 Import from Excel
               </DropdownMenuItem>
             </DropdownMenuContent>

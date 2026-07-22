@@ -312,7 +312,7 @@ export default function CategoriesPage() {
               onClick={handleExport}
               disabled={exporting}
             >
-              <Download className="w-4 h-4" />
+              <Upload className="w-4 h-4" />
               {exporting ? tCommon("loading") : t("exportBtn")}
             </Button>
             <Button
@@ -320,7 +320,7 @@ export default function CategoriesPage() {
               variant="secondary"
               onClick={() => setImportOpen(true)}
             >
-              <Upload className="w-4 h-4" />
+              <Download className="w-4 h-4" />
               {t("categoryImportAction")}
             </Button>
             <Button type="button" onClick={() => openCreate(null)}>
