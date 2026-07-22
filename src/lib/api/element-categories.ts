@@ -1,4 +1,11 @@
-import { apiGet, apiPost, apiPatch, apiDelete, ApiError } from "./client";
+import {
+  apiGet,
+  apiPost,
+  apiPatch,
+  apiDelete,
+  apiBlob,
+  ApiError,
+} from "./client";
 import { API } from "./routes";
 import type { ElementCategory, ElementCategoryNode } from "@/types";
 import type { z } from "zod";
@@ -113,4 +120,9 @@ export function confirmImport(paths: CategoryPath[]) {
 /** The org's current taxonomy, in the shape the importer accepts. */
 export function downloadImportTemplate() {
   return API.elementCategoriesImportTemplate();
+}
+
+/** Download the full taxonomy as an .xlsx blob (round-trips through the importer). */
+export function downloadExport(): Promise<Blob> {
+  return apiBlob(API.elementCategoriesExport());
 }
