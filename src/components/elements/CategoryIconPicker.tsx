@@ -11,6 +11,7 @@ import {
 import {
   Tooltip,
   TooltipContent,
+  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -40,7 +41,7 @@ export function CategoryIconPicker({
   const renderTile = (name: string | null, key: string) => {
     const selected = value === name;
     return (
-      <Tooltip key={key} delayDuration={300}>
+      <Tooltip key={key}>
         <TooltipTrigger asChild>
           <button
             type="button"
@@ -71,21 +72,23 @@ export function CategoryIconPicker({
           {label}
         </label>
       )}
-      <div className="flex flex-wrap items-center gap-2">
-        {DEFAULT_ICONS.map((name) => renderTile(name, name))}
-        {isCustom && renderTile(value, `custom-${value}`)}
-        <button
-          type="button"
-          onClick={() => setBrowseOpen(true)}
-          className={cn(
-            "flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-dashed border-border-default bg-transparent px-3 text-[12px] text-text-secondary",
-            "hover:border-accent-strong/60 hover:text-text-primary"
-          )}
-        >
-          <Search className="h-3.5 w-3.5" aria-hidden />
-          Browse all
-        </button>
-      </div>
+      <TooltipProvider delayDuration={300}>
+        <div className="flex flex-wrap items-center gap-2">
+          {DEFAULT_ICONS.map((name) => renderTile(name, name))}
+          {isCustom && renderTile(value, `custom-${value}`)}
+          <button
+            type="button"
+            onClick={() => setBrowseOpen(true)}
+            className={cn(
+              "flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-dashed border-border-default bg-transparent px-3 text-[12px] text-text-secondary",
+              "hover:border-accent-strong/60 hover:text-text-primary"
+            )}
+          >
+            <Search className="h-3.5 w-3.5" aria-hidden />
+            Browse all
+          </button>
+        </div>
+      </TooltipProvider>
       <CategoryIconBrowseDialog
         open={browseOpen}
         value={value}
