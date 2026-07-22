@@ -192,11 +192,11 @@ export default function ElementsPage() {
                 onClick={handleExport}
                 disabled={exporting}
               >
-                <Upload className="w-4 h-4" />
+                <Download className="w-4 h-4" />
                 {exporting ? tCommon("loading") : t("exportBtn")}
               </Button>
               <Button variant="secondary" onClick={() => setImportOpen(true)}>
-                <Download className="w-4 h-4" />
+                <Upload className="w-4 h-4" />
                 {t("importBtn")}
               </Button>
             </div>
@@ -213,11 +213,11 @@ export default function ElementsPage() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={handleExport} disabled={exporting}>
-                    <Upload className="w-4 h-4" />
+                    <Download className="w-4 h-4" />
                     {t("exportBtn")}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setImportOpen(true)}>
-                    <Download className="w-4 h-4" />
+                    <Upload className="w-4 h-4" />
                     {t("importBtn")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
