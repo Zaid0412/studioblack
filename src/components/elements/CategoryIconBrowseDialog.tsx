@@ -124,7 +124,6 @@ export function CategoryIconBrowseDialog({
     setPending(value);
   }, [open, value]);
 
-  const showingCurated = !debounced;
   const filtered = useMemo(() => {
     if (!debounced) return CURATED_ENTRIES;
     return ICON_ENTRIES.filter(([name]) =>
@@ -208,7 +207,7 @@ export function CategoryIconBrowseDialog({
             </div>
           ) : (
             <>
-              {showingCurated && (
+              {!debounced && (
                 <div className="px-1 pb-2 pt-1 text-[11px] font-semibold uppercase tracking-wide text-text-secondary">
                   Architecture &amp; construction
                 </div>

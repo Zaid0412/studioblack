@@ -15,8 +15,8 @@ interface CategoryIconPickerProps {
 }
 
 /**
- * Inline 4-tile icon picker with a "Browse all" escape hatch.
- * If `value` is outside the 4 defaults, a 5th tile shows the current
+ * Inline quick-pick icon row with a "Browse all" escape hatch.
+ * If `value` is outside the defaults, a trailing tile shows the current
  * selection so it remains reachable without re-opening the browse dialog.
  */
 export function CategoryIconPicker({
