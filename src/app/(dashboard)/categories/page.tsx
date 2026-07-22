@@ -94,6 +94,11 @@ function subtreeElementCount(node: ElementCategoryNode): number {
   return total;
 }
 
+/** True when the node or any descendant is referenced by live data. */
+function subtreeInUse(node: ElementCategoryNode): boolean {
+  return node.in_use === true || node.children.some(subtreeInUse);
+}
+
 /**
  * Returns a new tree where the children of `parentId` (or the root list if
  * parentId is null) are reordered to match `orderedChildIds`. Pure — does not
@@ -350,6 +355,8 @@ export default function CategoriesPage() {
   }
 
   const subtreeCountForDelete = deleting ? subtreeElementCount(deleting) : 0;
+  const subtreeReferenced = deleting ? subtreeInUse(deleting) : false;
+  const descendantCount = deleting ? collectDescendants(deleting).length : 0;
   const presetParent = presetParentId
     ? (flat.find((r) => r.node.id === presetParentId)?.node ?? null)
     : null;
@@ -477,6 +484,8 @@ export default function CategoriesPage() {
         open={deleting !== null}
         target={deleting}
         subtreeElementCount={subtreeCountForDelete}
+        subtreeReferenced={subtreeReferenced}
+        descendantCount={descendantCount}
         submitting={submitting}
         onOpenChange={(open) => {
           if (!open) setDeleting(null);

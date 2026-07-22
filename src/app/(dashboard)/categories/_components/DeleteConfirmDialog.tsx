@@ -19,6 +19,10 @@ interface Props {
   target: ElementCategoryNode | null;
   /** Total direct-element count across the target's entire subtree. */
   subtreeElementCount: number;
+  /** True when the subtree is still referenced by live data (elements or other). */
+  subtreeReferenced: boolean;
+  /** Number of nested sub-categories + service areas that will be deleted too. */
+  descendantCount: number;
   submitting: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
@@ -26,26 +30,27 @@ interface Props {
 
 /**
  * Blocks deletion with an explanatory error when the category (or any
- * descendant) still has elements attached. Otherwise offers a destructive
- * confirm button.
+ * descendant) is still referenced by live data. Once the subtree is clear,
+ * deleting cascades to every nested sub-category and service area, so the
+ * confirm spells out how many nested items go with it.
  */
 export function DeleteConfirmDialog({
   open,
   target,
   subtreeElementCount,
+  subtreeReferenced,
+  descendantCount,
   submitting,
   onOpenChange,
   onConfirm,
 }: Props) {
   const t = useTranslations("elements");
   const tCommon = useTranslations("common");
-  // Surface both block reasons up front so the user isn't hit with a server
-  // error after confirming: a node with sub-categories can't be deleted, and
-  // neither can one whose subtree still has elements attached.
-  const childCount = target?.children.length ?? 0;
-  const blockedByChildren = childCount > 0;
-  const blockedByElements = !blockedByChildren && subtreeElementCount > 0;
-  const blocked = blockedByChildren || blockedByElements;
+  // Blocked only when something in the subtree is still referenced. Prefer the
+  // element message (the common, actionable case) and fall back to the generic
+  // "referenced elsewhere" copy when it's BOQ/vendor/rate-contract data.
+  const blocked = subtreeReferenced;
+  const blockedByElements = blocked && subtreeElementCount > 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -65,17 +70,21 @@ export function DeleteConfirmDialog({
               <span className="flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
                 <span>
-                  {blockedByChildren
-                    ? t("categoryDeleteHasChildren", {
-                        name: target?.name ?? "",
-                        count: childCount,
-                      })
-                    : t("categoryDeleteBlocked", {
+                  {blockedByElements
+                    ? t("categoryDeleteBlocked", {
                         name: target?.name ?? "",
                         count: subtreeElementCount,
+                      })
+                    : t("categoryDeleteBlockedRef", {
+                        name: target?.name ?? "",
                       })}
                 </span>
               </span>
+            ) : descendantCount > 0 ? (
+              t("categoryDeleteCascade", {
+                name: target?.name ?? "",
+                count: descendantCount,
+              })
             ) : (
               t("categoryDeletePermanent", { name: target?.name ?? "" })
             )}

@@ -16,7 +16,11 @@ import type {
   ElementCategoryNode,
 } from "@/types";
 import { getCategoryCodeConfig } from "./categoryCodeConfig";
-import { categoryRefExistsSql, isCategoryReferenced } from "./categoryImport";
+import {
+  areCategoriesReferenced,
+  categoryRefExistsSql,
+  isCategoryReferenced,
+} from "./categoryImport";
 import { escapeSqlLike } from "./helpers";
 
 /**
@@ -677,33 +681,64 @@ async function cascadeCodePrefix(
 }
 
 /**
- * Delete a category atomically. Returns not_found/has_children/deleted.
- * Single query via conditional DELETE — no TOCTOU race.
+ * Delete a category and its whole subtree. Structural children (sub-categories,
+ * service areas) are removed by the `parent_id ON DELETE CASCADE` FK, so a
+ * single delete of the root clears the branch — but only once nothing in the
+ * subtree is still referenced by live data (elements, BOQ/RFQ items, vendor
+ * trades, rate contracts). Elements must be moved out first; the cascade would
+ * otherwise silently orphan them (SET NULL) or hit a RESTRICT and throw.
+ *
+ * The subtree scan, reference guard, and delete run in one transaction so a
+ * concurrent reference can't slip in between the check and the delete.
+ * Returns not_found/referenced/deleted.
  */
 export async function deleteCategory(id: string, orgId: string) {
   const pool = getPool();
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
 
-  const { rowCount } = await pool.query(
-    `DELETE FROM element_category
-     WHERE id = $1 AND org_id = $2
-       AND NOT EXISTS (SELECT 1 FROM element_category WHERE parent_id = $1)`,
-    [id, orgId]
-  );
+    const { rows: subtree } = await client.query<{ id: string }>(
+      `WITH RECURSIVE subtree AS (
+         SELECT id FROM element_category WHERE id = $1 AND org_id = $2
+         UNION ALL
+         SELECT c.id FROM element_category c
+           JOIN subtree s ON c.parent_id = s.id
+       )
+       SELECT id FROM subtree`,
+      [id, orgId]
+    );
 
-  if ((rowCount ?? 0) > 0) return { deleted: true as const };
+    if (subtree.length === 0) {
+      await client.query("ROLLBACK");
+      return { deleted: false as const, error: "Category not found" };
+    }
 
-  // Distinguish not-found from has-children
-  const { rows } = await pool.query(
-    `SELECT EXISTS (SELECT 1 FROM element_category WHERE parent_id = $1) AS has_children`,
-    [id]
-  );
-  if (rows[0]?.has_children) {
-    return {
-      deleted: false as const,
-      error: "Category has children. Remove or move them first.",
-    };
+    if (
+      await areCategoriesReferenced(
+        client,
+        subtree.map((r) => r.id)
+      )
+    ) {
+      await client.query("ROLLBACK");
+      return {
+        deleted: false as const,
+        error: "Category is still in use. Move its elements first.",
+      };
+    }
+
+    await client.query(
+      `DELETE FROM element_category WHERE id = $1 AND org_id = $2`,
+      [id, orgId]
+    );
+    await client.query("COMMIT");
+    return { deleted: true as const };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
   }
-  return { deleted: false as const, error: "Category not found" };
 }
 
 /** Reorder categories within a parent (or root level when parentId is null). */

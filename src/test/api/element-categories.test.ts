@@ -364,10 +364,10 @@ describe("DELETE /api/element-categories/[id]", () => {
     expect(body.success).toBe(true);
   });
 
-  it("returns 409 when category has children", async () => {
+  it("returns 409 when the subtree is still in use", async () => {
     vi.mocked(deleteCategory).mockResolvedValue({
       deleted: false,
-      error: "Category has children. Remove or move them first.",
+      error: "Category is still in use. Move its elements first.",
     });
 
     const req = buildRequest(`/api/element-categories/${CAT_ID}`, {
@@ -377,7 +377,7 @@ describe("DELETE /api/element-categories/[id]", () => {
     const { status, body } = await parseResponse<{ error: string }>(res);
 
     expect(status).toBe(409);
-    expect(body.error).toContain("children");
+    expect(body.error).toContain("in use");
   });
 
   it("returns 404 when category not found", async () => {
