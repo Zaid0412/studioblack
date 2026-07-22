@@ -110,6 +110,7 @@ export const API = {
   elementCategoriesImport:  ()                            => "/api/element-categories/import",
   elementCategoriesImportConfirm: ()                      => "/api/element-categories/import/confirm",
   elementCategoriesImportTemplate: ()                     => "/api/element-categories/import/template",
+  elementCategoriesExport:  ()                            => "/api/element-categories/export",
 
   // ── Elements ────────────────────────────────────
   elements:                 ()                            => "/api/elements",

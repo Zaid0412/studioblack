@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import useSWR, { mutate as globalMutate } from "swr";
-import { Plus, Upload } from "lucide-react";
+import { Plus, Upload, Download } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -26,6 +26,7 @@ import { toast } from "@/components/ui/useToast";
 import { API } from "@/lib/api/routes";
 import { elementCategories } from "@/lib/api";
 import { withViewTransition } from "@/lib/viewTransition";
+import { saveBlob } from "@/lib/download";
 import { useStaggerReveal } from "@/hooks/useStaggerReveal";
 import { useCanManageCategories } from "@/hooks/useCanManageCategories";
 import type { ElementCategoryNode } from "@/types";
@@ -187,6 +188,25 @@ export default function CategoriesPage() {
   const [submitting, setSubmitting] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const blob = await elementCategories.downloadExport();
+      const stamp = new Date().toISOString().slice(0, 10);
+      saveBlob(blob, `categories-${stamp}.xlsx`);
+    } catch (e) {
+      toast({
+        title: t("exportFailed"),
+        description: e instanceof Error ? e.message : "",
+        variant: "error",
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const activeDescendantIds = useMemo(() => {
     if (!activeId) return new Set<string>();
@@ -341,6 +361,15 @@ export default function CategoriesPage() {
         subtitle={t("subtitle")}
         actions={
           <>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleExport}
+              disabled={exporting}
+            >
+              <Download className="w-4 h-4" />
+              {exporting ? tCommon("loading") : t("exportBtn")}
+            </Button>
             <Button
               type="button"
               variant="secondary"
