@@ -5,6 +5,11 @@ import { Search } from "lucide-react";
 import { CategoryIcon } from "./CategoryIcon";
 import { CategoryIconBrowseDialog } from "./CategoryIconBrowseDialog";
 import { DEFAULT_CATEGORY_ICONS as DEFAULT_ICONS } from "./categoryIcons";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 interface CategoryIconPickerProps {
@@ -32,21 +37,25 @@ export function CategoryIconPicker({
   const renderTile = (name: string | null, key: string) => {
     const selected = value === name;
     return (
-      <button
-        key={key}
-        type="button"
-        onClick={() => onChange(name)}
-        aria-label={name ? `Select icon ${name}` : "Clear icon"}
-        aria-pressed={selected}
-        className={cn(
-          "flex h-9 w-9 cursor-pointer items-center justify-center rounded-md border transition-colors",
-          selected
-            ? "border-2 border-accent-strong bg-accent/10"
-            : "border-border-default bg-bg-input hover:border-accent-strong/60"
-        )}
-      >
-        <CategoryIcon icon={name} color={color ?? null} size={18} />
-      </button>
+      <Tooltip key={key} delayDuration={300}>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={() => onChange(name)}
+            aria-label={name ? `Select icon ${name}` : "Clear icon"}
+            aria-pressed={selected}
+            className={cn(
+              "flex h-9 w-9 cursor-pointer items-center justify-center rounded-md border transition-colors",
+              selected
+                ? "border-2 border-accent-strong bg-accent/10"
+                : "border-border-default bg-bg-input hover:border-accent-strong/60"
+            )}
+          >
+            <CategoryIcon icon={name} color={color ?? null} size={18} />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>{name ?? "Clear icon"}</TooltipContent>
+      </Tooltip>
     );
   };
 
