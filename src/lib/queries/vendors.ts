@@ -18,6 +18,17 @@ import type {
 } from "@/lib/validations";
 import { escapeSqlLike, descendantCategoryIdsSql } from "./helpers";
 import { mapPgError } from "./_pgErrors";
+import { updateUserEmail } from "./emailChange";
+
+/**
+ * Canonical form for a contact email — trimmed + lowercased. Stored this way so
+ * duplicate detection, RFQ-recipient de-duplication, and the
+ * `linkVendorContactByEmail` match (which lowercases both sides) all agree, and
+ * so `A@x.com` / `a@x.com ` can't become two distinct contacts.
+ */
+export function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
 
 export interface VendorFilters {
   search?: string;
@@ -72,6 +83,8 @@ export interface CreateVendorInput {
   addresses?: Array<Record<string, string | boolean | undefined>>;
   notes?: string;
   contacts?: Array<{
+    /** Present for an existing contact being edited; absent for a new one. */
+    id?: string;
     name: string;
     title?: string;
     email: string;
@@ -450,7 +463,7 @@ export async function createVendor(
             vendorId,
             c.name,
             c.title ?? null,
-            c.email,
+            normalizeEmail(c.email),
             c.phone ?? null,
             isPrimary,
             isSecondary,
@@ -552,31 +565,86 @@ export async function updateVendor(
     }
 
     if (patch.contacts !== undefined) {
-      await client.query(`DELETE FROM vendor_contact WHERE vendor_id = $1`, [
+      // Reconcile contacts in place, keyed on the round-tripped id, so an
+      // existing contact keeps its portal link (`user_id`) across an edit — and
+      // when a *linked* contact's email changes, the change flows through to the
+      // login identity so magic-link / invite mail follows the new address.
+      const { rows: existing } = await client.query<{
+        id: string;
+        email: string;
+        user_id: string | null;
+      }>(`SELECT id, email, user_id FROM vendor_contact WHERE vendor_id = $1`, [
         vendorId,
       ]);
+      const existingById = new Map(existing.map((r) => [r.id, r]));
+
+      // Clear the flags up front so re-assigning the single Main/Secondary below
+      // can't transiently trip the "one primary per vendor" partial unique index.
+      await client.query(
+        `UPDATE vendor_contact SET is_primary = false, is_secondary = false WHERE vendor_id = $1`,
+        [vendorId]
+      );
+
       let primaryClaimed = false;
       let secondaryClaimed = false;
+      const keptIds: string[] = [];
       for (const c of patch.contacts) {
         const isPrimary = !!c.isPrimary && !primaryClaimed;
         if (isPrimary) primaryClaimed = true;
         const isSecondary = !!c.isSecondary && !isPrimary && !secondaryClaimed;
         if (isSecondary) secondaryClaimed = true;
-        await client.query(
-          `INSERT INTO vendor_contact (vendor_id, name, title, email, phone, is_primary, is_secondary, receives_rfq)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8, true))`,
-          [
-            vendorId,
-            c.name,
-            c.title ?? null,
-            c.email,
-            c.phone ?? null,
-            isPrimary,
-            isSecondary,
-            c.receivesRfq ?? null,
-          ]
-        );
+        const email = normalizeEmail(c.email);
+        // Trust `id` only when it's this vendor's row; anything else is new.
+        const prior = c.id ? existingById.get(c.id) : undefined;
+
+        if (prior) {
+          await client.query(
+            `UPDATE vendor_contact
+                SET name = $1, title = $2, email = $3, phone = $4,
+                    is_primary = $5, is_secondary = $6,
+                    receives_rfq = COALESCE($7, true)
+              WHERE id = $8 AND vendor_id = $9`,
+            [
+              c.name,
+              c.title ?? null,
+              email,
+              c.phone ?? null,
+              isPrimary,
+              isSecondary,
+              c.receivesRfq ?? null,
+              prior.id,
+              vendorId,
+            ]
+          );
+          keptIds.push(prior.id);
+          if (prior.user_id && normalizeEmail(prior.email) !== email) {
+            await updateUserEmail(prior.user_id, email, client);
+          }
+        } else {
+          const { rows } = await client.query<{ id: string }>(
+            `INSERT INTO vendor_contact (vendor_id, name, title, email, phone, is_primary, is_secondary, receives_rfq)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8, true))
+             RETURNING id`,
+            [
+              vendorId,
+              c.name,
+              c.title ?? null,
+              email,
+              c.phone ?? null,
+              isPrimary,
+              isSecondary,
+              c.receivesRfq ?? null,
+            ]
+          );
+          keptIds.push(rows[0].id);
+        }
       }
+
+      // Drop the contacts removed from the form (empty kept set → delete all).
+      await client.query(
+        `DELETE FROM vendor_contact WHERE vendor_id = $1 AND id <> ALL($2::uuid[])`,
+        [vendorId, keptIds]
+      );
     }
 
     if (patch.trades !== undefined) {
@@ -1125,7 +1193,7 @@ export async function addVendorContactSelf(
         vendorId,
         input.name,
         input.title ?? null,
-        input.email,
+        normalizeEmail(input.email),
         input.phone ?? null,
         !!input.isPrimary,
         input.receivesRfq ?? null,
@@ -1162,6 +1230,21 @@ export async function updateVendorContactSelf(
   try {
     await client.query("BEGIN");
 
+    // A linked contact changing its own email must also move the login
+    // identity, so a magic-link lands at the new address. Capture the prior
+    // link before the update.
+    let priorLink: { user_id: string | null; email: string } | null = null;
+    if (typeof patch.email === "string") {
+      const { rows } = await client.query<{
+        user_id: string | null;
+        email: string;
+      }>(
+        `SELECT user_id, email FROM vendor_contact WHERE id = $1 AND vendor_id = $2`,
+        [contactId, vendorId]
+      );
+      priorLink = rows[0] ?? null;
+    }
+
     if (patch.isPrimary === true) {
       await client.query(
         `UPDATE vendor_contact SET is_primary = false
@@ -1175,7 +1258,12 @@ export async function updateVendorContactSelf(
     for (const [key, col] of Object.entries(CONTACT_PATCH_COLS)) {
       const k = key as keyof VendorContactPatch;
       if (k in patch) {
-        params.push((patch as Record<string, unknown>)[k]);
+        const value = (patch as Record<string, unknown>)[k];
+        params.push(
+          k === "email" && typeof value === "string"
+            ? normalizeEmail(value)
+            : value
+        );
         setClauses.push(`${col} = $${params.length}`);
       }
     }
@@ -1190,6 +1278,18 @@ export async function updateVendorContactSelf(
          WHERE id = $1 AND vendor_id = $2`,
       params
     );
+
+    if (
+      priorLink?.user_id &&
+      typeof patch.email === "string" &&
+      normalizeEmail(patch.email) !== normalizeEmail(priorLink.email)
+    ) {
+      await updateUserEmail(
+        priorLink.user_id,
+        normalizeEmail(patch.email),
+        client
+      );
+    }
 
     await client.query("COMMIT");
     return (rowCount ?? 0) > 0;
