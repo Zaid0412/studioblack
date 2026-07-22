@@ -4,9 +4,8 @@ import { useState } from "react";
 import { Search } from "lucide-react";
 import { CategoryIcon } from "./CategoryIcon";
 import { CategoryIconBrowseDialog } from "./CategoryIconBrowseDialog";
+import { DEFAULT_CATEGORY_ICONS as DEFAULT_ICONS } from "./categoryIcons";
 import { cn } from "@/lib/utils";
-
-const DEFAULT_ICONS = ["BrickWall", "Square", "Paintbrush", "Droplet"] as const;
 
 interface CategoryIconPickerProps {
   value: string | null;
