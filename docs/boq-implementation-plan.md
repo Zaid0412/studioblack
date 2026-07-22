@@ -89,7 +89,7 @@ RFQs nested under Order), not the 8-tab bar this plan describes.
 > - [PO/Invoice](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.gpgps6teep6q)
 > - [Awards & PO](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.xs6yeduybzkk)
 > - [Numbering System](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.2givkzbri20k)
-> - [01.Design doc — Design Management & Document Control (PDS)](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.sw56y13u47f3)
+> - [01.Design doc — Design Management & Document Control (PDS)](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.sw56y13u47f3) · [updated revision (2026-07-22)](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.ovg5x0856f8g)
 
 ## Overview
 
