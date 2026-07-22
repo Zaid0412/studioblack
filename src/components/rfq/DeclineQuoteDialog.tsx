@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { emphasisTags } from "@/components/ui/richText";
 
 interface Props {
   open: boolean;
@@ -49,7 +50,7 @@ export function DeclineQuoteDialog({
       title={t("title")}
       description={
         vendorName
-          ? t("descriptionStudio", { vendor: vendorName })
+          ? t.rich("descriptionStudio", { ...emphasisTags, vendor: vendorName })
           : t("descriptionVendor")
       }
       confirmLabel={t("confirmLabel")}

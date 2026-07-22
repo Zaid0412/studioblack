@@ -33,6 +33,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ToggleSwitch } from "@/components/ui/ToggleSwitch";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { emphasisTags } from "@/components/ui/richText";
 import { toast } from "@/components/ui/useToast";
 import { divisions as divisionsApi } from "@/lib/api";
 import { useDivisions } from "@/hooks/useDivisions";
@@ -431,7 +432,10 @@ export function DivisionsSection() {
         open={toDelete !== null}
         onOpenChange={(open) => !open && setToDelete(null)}
         title={t("deleteTitle")}
-        description={t("deleteConfirm", { name: toDelete?.name ?? "" })}
+        description={t.rich("deleteConfirm", {
+          ...emphasisTags,
+          name: toDelete?.name ?? "",
+        })}
         confirmLabel={t("deleteAction")}
         cancelLabel={tc("cancel")}
         destructive

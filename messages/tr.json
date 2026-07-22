@@ -785,7 +785,7 @@
     "toastDisabled": "Bölüm devre dışı bırakıldı",
     "deleteAction": "Sil",
     "deleteTitle": "Bölümü sil",
-    "deleteConfirm": "\"{name}\" silinsin mi? Bu geri alınamaz. Bir BOQ tarafından hâlâ kullanılan bir bölüm silinemez — bunun yerine devre dışı bırakın."
+    "deleteConfirm": "\"<b>{name}</b>\" silinsin mi? Bu geri alınamaz. Bir BOQ tarafından hâlâ kullanılan bir bölüm silinemez — bunun yerine devre dışı bırakın."
   },
   "organisation": {
     "title": "Organizasyon",
@@ -1614,7 +1614,7 @@
     },
     "decline": {
       "title": "Teklif vermeyi reddet",
-      "descriptionStudio": "{vendor} tedarikçisinin bu talebe teklif vermeyeceğini kaydedin. Reddeden tedarikçiler, bir teklif girilene kadar ihale seçicisinden hariç tutulur — daha sonra onlar için yine de bir teklif girebilirsiniz.",
+      "descriptionStudio": "<b>{vendor}</b> tedarikçisinin bu talebe teklif vermeyeceğini kaydedin. Reddeden tedarikçiler, bir teklif girilene kadar ihale seçicisinden hariç tutulur — daha sonra onlar için yine de bir teklif girebilirsiniz.",
       "descriptionVendor": "Stüdyoya bu talebe teklif vermeyeceğinizi bildirin. Daha sonra yine de teklif verebilirsiniz.",
       "reasonLabel": "Neden (isteğe bağlı)",
       "reasonPlaceholder": "ör. mevcut kapasitemizin dışında",

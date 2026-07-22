@@ -785,7 +785,7 @@
     "toastDisabled": "Division disabled",
     "deleteAction": "Delete",
     "deleteTitle": "Delete division",
-    "deleteConfirm": "Delete \"{name}\"? This can't be undone. A division still used by a BOQ can't be deleted — disable it instead."
+    "deleteConfirm": "Delete \"<b>{name}</b>\"? This can't be undone. A division still used by a BOQ can't be deleted — disable it instead."
   },
   "organisation": {
     "title": "Organisation",
@@ -1614,7 +1614,7 @@
     },
     "decline": {
       "title": "Decline to quote",
-      "descriptionStudio": "Record that {vendor} won't be quoting this RFQ. Declined vendors are excluded from the award picker until a quote is entered — you can still submit a quote for them later.",
+      "descriptionStudio": "Record that <b>{vendor}</b> won't be quoting this RFQ. Declined vendors are excluded from the award picker until a quote is entered — you can still submit a quote for them later.",
       "descriptionVendor": "Let the studio know you won't be quoting this RFQ. You can still submit a quote later.",
       "reasonLabel": "Reason (optional)",
       "reasonPlaceholder": "e.g. outside our current capacity",
