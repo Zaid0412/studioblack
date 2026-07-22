@@ -4,20 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import useSWR, { mutate as globalMutate } from "swr";
 import { Plus, Upload, Download } from "lucide-react";
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-  type DragStartEvent,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  verticalListSortingStrategy,
-  arrayMove,
-} from "@dnd-kit/sortable";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -32,13 +18,34 @@ import { useCanManageCategories } from "@/hooks/useCanManageCategories";
 import type { ElementCategoryNode } from "@/types";
 import { flattenCategories } from "@/app/(dashboard)/elements/_lib/categoryUtils";
 import { SERVICE_AREA_LEVEL } from "@/lib/categoryCode";
+import {
+  SortableHeaderButton,
+  nextSortDirection,
+  type SortConfig,
+} from "@/components/ui/SortableHeader";
 import { CategoryTableRow } from "./_components/CategoryTableRow";
+import { CategoryFilterBar } from "./_components/CategoryFilterBar";
 import { CategoryEditDialog } from "@/components/elements/CategoryEditDialog";
 import { CategoryImportDialog } from "./_components/CategoryImportDialog";
 import { DeleteConfirmDialog } from "./_components/DeleteConfirmDialog";
+import {
+  EMPTY_FILTERS,
+  hasActiveFilters,
+  pruneCategoryTree,
+  sortCategoryTree,
+  type CategoryFilters,
+  type SortField,
+} from "./_lib/categoryFilters";
 import type { CategoryFormSubmit } from "@/components/elements/CategoryForm";
 
 const COLLAPSED_STORAGE_KEY = "element-categories-collapsed";
+
+/** Stable empty set — passed to flattenTree to render every branch expanded. */
+const EMPTY_COLLAPSED: ReadonlySet<string> = new Set();
+
+/** Muted, uppercase header styling to match the table's non-sortable columns. */
+const HEADER_CLASS =
+  "text-[11px] font-medium uppercase tracking-wider text-text-muted";
 
 interface TreeResponse {
   tree: ElementCategoryNode[];
@@ -94,35 +101,12 @@ function subtreeElementCount(node: ElementCategoryNode): number {
   return total;
 }
 
-/**
- * Returns a new tree where the children of `parentId` (or the root list if
- * parentId is null) are reordered to match `orderedChildIds`. Pure — does not
- * mutate the input tree.
- */
-function reorderSiblings(
-  tree: ElementCategoryNode[],
-  parentId: string | null,
-  orderedChildIds: string[]
-): ElementCategoryNode[] {
-  const reorder = (children: ElementCategoryNode[]): ElementCategoryNode[] => {
-    const byId = new Map(children.map((c) => [c.id, c]));
-    return orderedChildIds
-      .map((id) => byId.get(id))
-      .filter((n): n is ElementCategoryNode => n !== undefined);
-  };
-
-  if (parentId === null) return reorder(tree);
-
-  const walk = (nodes: ElementCategoryNode[]): ElementCategoryNode[] =>
-    nodes.map((n) =>
-      n.id === parentId
-        ? { ...n, children: reorder(n.children) }
-        : { ...n, children: walk(n.children) }
-    );
-  return walk(tree);
+/** True when the node or any descendant is referenced by live data. */
+function subtreeInUse(node: ElementCategoryNode): boolean {
+  return node.in_use === true || node.children.some(subtreeInUse);
 }
 
-/** Central page for managing the shared category tree: CRUD, drag-to-reorder, collapse/expand. */
+/** Central page for managing the shared category tree: CRUD, search/filter/sort, collapse/expand. */
 export default function CategoriesPage() {
   const t = useTranslations("elements");
   const tCommon = useTranslations("common");
@@ -162,17 +146,35 @@ export default function CategoriesPage() {
     withViewTransition(() => setCollapsedIds(next));
   };
 
-  const flat = useMemo(
-    () => flattenTree(tree, collapsedIds),
-    [tree, collapsedIds]
+  const [filters, setFilters] = useState<CategoryFilters>(EMPTY_FILTERS);
+  const [sort, setSort] = useState<SortConfig<SortField>>(null);
+
+  const filtering = hasActiveFilters(filters);
+
+  // Prune to matches (keeping ancestors), then sort within each sibling group.
+  const viewTree = useMemo(
+    () =>
+      sortCategoryTree(
+        pruneCategoryTree(tree, filters),
+        sort?.key ?? null,
+        sort?.direction ?? "asc"
+      ),
+    [tree, filters, sort]
   );
 
-  // One-time entrance cascade, keyed on the top-level id set (sorted) so it
-  // fires on load/create/delete but NOT on expand/collapse or drag-reorder —
-  // those leave `tree`'s membership unchanged and drive their own animations
-  // (View Transitions / dnd-kit).
+  // While filtering, force every branch open so matches are visible regardless
+  // of the persisted collapse state.
+  const flat = useMemo(
+    () => flattenTree(viewTree, filtering ? EMPTY_COLLAPSED : collapsedIds),
+    [viewTree, filtering, collapsedIds]
+  );
+
+  // One-time entrance cascade, keyed on the visible top-level id set (sorted)
+  // so it fires on load/create/delete/filter but NOT on expand/collapse —
+  // those leave membership unchanged and drive their own animation (View
+  // Transitions).
   const treeBodyRef = useStaggerReveal<HTMLTableSectionElement>(
-    tree
+    viewTree
       .map((n) => n.id)
       .sort()
       .join(",")
@@ -186,7 +188,6 @@ export default function CategoriesPage() {
   >(undefined);
   const [deleting, setDeleting] = useState<ElementCategoryNode | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [activeId, setActiveId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
 
@@ -207,17 +208,6 @@ export default function CategoriesPage() {
       setExporting(false);
     }
   };
-
-  const activeDescendantIds = useMemo(() => {
-    if (!activeId) return new Set<string>();
-    const node = flat.find((r) => r.node.id === activeId)?.node;
-    if (!node) return new Set<string>();
-    return new Set(collectDescendants(node));
-  }, [activeId, flat]);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
-  );
 
   const openCreate = (parentId?: string | null) => {
     setDialogMode("create");
@@ -278,56 +268,9 @@ export default function CategoriesPage() {
     }
   };
 
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id as string);
-  };
-
-  const handleDragCancel = () => {
-    setActiveId(null);
-  };
-
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
-    setActiveId(null);
-    if (!over || active.id === over.id) return;
-
-    const activeRow = flat.find((r) => r.node.id === active.id);
-    const overRow = flat.find((r) => r.node.id === over.id);
-    if (!activeRow || !overRow) return;
-
-    // Only reorder within the same parent (dnd-kit sibling sort).
-    const activeParent = activeRow.node.parent_id;
-    const overParent = overRow.node.parent_id;
-    if (activeParent !== overParent) return;
-
-    const siblings = flat
-      .filter((r) => r.node.parent_id === activeParent)
-      .map((r) => r.node.id);
-    const oldIndex = siblings.indexOf(active.id as string);
-    const newIndex = siblings.indexOf(over.id as string);
-    if (oldIndex === -1 || newIndex === -1) return;
-
-    const reordered = arrayMove(siblings, oldIndex, newIndex);
-    const key = API.elementCategories();
-    const previousTree = tree;
-    const optimisticTree = reorderSiblings(tree, activeParent, reordered);
-
-    // Optimistic update — apply the new order to the SWR cache immediately
-    // so descendants relocate under the parent in the new position.
-    await globalMutate(key, { tree: optimisticTree }, { revalidate: false });
-
-    try {
-      await elementCategories.reorder(activeParent, reordered);
-      await globalMutate(key);
-    } catch (e) {
-      // Rollback to the prior tree on failure.
-      await globalMutate(key, { tree: previousTree }, { revalidate: false });
-      toast({
-        title: e instanceof Error ? e.message : String(e),
-        variant: "error",
-      });
-    }
-  };
+  // Click a column header to cycle its sort: asc → desc → off.
+  const handleSort = (key: SortField) =>
+    setSort((s) => nextSortDirection(s, key));
 
   if (roleLoading) {
     return (
@@ -350,6 +293,8 @@ export default function CategoriesPage() {
   }
 
   const subtreeCountForDelete = deleting ? subtreeElementCount(deleting) : 0;
+  const subtreeReferenced = deleting ? subtreeInUse(deleting) : false;
+  const descendantCount = deleting ? collectDescendants(deleting).length : 0;
   const presetParent = presetParentId
     ? (flat.find((r) => r.node.id === presetParentId)?.node ?? null)
     : null;
@@ -386,6 +331,16 @@ export default function CategoriesPage() {
         }
       />
 
+      {(tree.length > 0 || filtering) && (
+        <CategoryFilterBar
+          filters={filters}
+          onSearchChange={(search) => setFilters((f) => ({ ...f, search }))}
+          onLevelChange={(level) => setFilters((f) => ({ ...f, level }))}
+          onUsageChange={(usage) => setFilters((f) => ({ ...f, usage }))}
+          onClear={() => setFilters(EMPTY_FILTERS)}
+        />
+      )}
+
       <Card>
         {isLoading ? (
           <div className="flex flex-col gap-2">
@@ -395,70 +350,84 @@ export default function CategoriesPage() {
           </div>
         ) : flat.length === 0 ? (
           <p className="text-sm text-text-muted text-center py-8">
-            {t("categoryEmpty")}
+            {filtering ? t("categoryNoMatches") : t("categoryEmpty")}
           </p>
         ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragStart={handleDragStart}
-            onDragCancel={handleDragCancel}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={flat.map((r) => r.node.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              <div className="overflow-x-auto">
-                <table className="w-full table-fixed">
-                  <colgroup>
-                    <col />
-                    <col className="w-[140px]" />
-                    <col className="w-[120px]" />
-                    <col className="w-[140px]" />
-                    <col className="w-[140px]" />
-                  </colgroup>
-                  <thead>
-                    <tr className="border-b border-border-default">
-                      <th className="text-left text-[11px] font-medium text-text-muted uppercase tracking-wider py-2 pr-3">
-                        {t("categoryName")}
-                      </th>
-                      <th className="truncate text-left text-[11px] font-medium text-text-muted uppercase tracking-wider py-2 px-3">
-                        {t("categoryCodePrefix")}
-                      </th>
-                      <th className="truncate text-left text-[11px] font-medium text-text-muted uppercase tracking-wider py-2 px-3">
-                        {t("colCategoryElements")}
-                      </th>
-                      <th className="truncate text-left text-[11px] font-medium text-text-muted uppercase tracking-wider py-2 px-3">
-                        {t("colUpdated")}
-                      </th>
-                      <th className="text-right text-[11px] font-medium text-text-muted uppercase tracking-wider py-2 pl-3">
-                        {t("colActions")}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody ref={treeBodyRef}>
-                    {flat.map(({ node, depth, hasChildren, isLastSibling }) => (
-                      <CategoryTableRow
-                        key={node.id}
-                        node={node}
-                        depth={depth}
-                        canAddChild={node.level < SERVICE_AREA_LEVEL}
-                        hasChildren={hasChildren}
-                        isLastSibling={isLastSibling}
-                        isCollapsed={collapsedIds.has(node.id)}
-                        onToggleCollapse={toggleCollapse}
-                        hidden={activeDescendantIds.has(node.id)}
-                        onEdit={openEdit}
-                        onDelete={setDeleting}
-                        onAddChild={(parent) => openCreate(parent.id)}
-                      />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </SortableContext>
-          </DndContext>
+          <div className="overflow-x-auto">
+            <table className="w-full table-fixed">
+              <colgroup>
+                <col />
+                <col className="w-[140px]" />
+                <col className="w-[120px]" />
+                <col className="w-[140px]" />
+                <col className="w-[140px]" />
+              </colgroup>
+              <thead>
+                <tr className="border-b border-border-default">
+                  <th className="text-left py-2 pr-3">
+                    <SortableHeaderButton
+                      sortKey="name"
+                      config={sort}
+                      onSort={handleSort}
+                      className={HEADER_CLASS}
+                    >
+                      {t("categoryName")}
+                    </SortableHeaderButton>
+                  </th>
+                  <th className="text-left py-2 px-3">
+                    <SortableHeaderButton
+                      sortKey="code"
+                      config={sort}
+                      onSort={handleSort}
+                      className={HEADER_CLASS}
+                    >
+                      {t("categoryCodePrefix")}
+                    </SortableHeaderButton>
+                  </th>
+                  <th className="text-left py-2 px-3">
+                    <SortableHeaderButton
+                      sortKey="elements"
+                      config={sort}
+                      onSort={handleSort}
+                      className={HEADER_CLASS}
+                    >
+                      {t("colCategoryElements")}
+                    </SortableHeaderButton>
+                  </th>
+                  <th className="text-left py-2 px-3">
+                    <SortableHeaderButton
+                      sortKey="updated"
+                      config={sort}
+                      onSort={handleSort}
+                      className={HEADER_CLASS}
+                    >
+                      {t("colUpdated")}
+                    </SortableHeaderButton>
+                  </th>
+                  <th className="text-right text-[11px] font-medium text-text-muted uppercase tracking-wider py-2 pl-3">
+                    {t("colActions")}
+                  </th>
+                </tr>
+              </thead>
+              <tbody ref={treeBodyRef}>
+                {flat.map(({ node, depth, hasChildren, isLastSibling }) => (
+                  <CategoryTableRow
+                    key={node.id}
+                    node={node}
+                    depth={depth}
+                    canAddChild={node.level < SERVICE_AREA_LEVEL}
+                    hasChildren={hasChildren}
+                    isLastSibling={isLastSibling}
+                    isCollapsed={!filtering && collapsedIds.has(node.id)}
+                    onToggleCollapse={toggleCollapse}
+                    onEdit={openEdit}
+                    onDelete={setDeleting}
+                    onAddChild={(parent) => openCreate(parent.id)}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
 
@@ -477,6 +446,8 @@ export default function CategoriesPage() {
         open={deleting !== null}
         target={deleting}
         subtreeElementCount={subtreeCountForDelete}
+        subtreeReferenced={subtreeReferenced}
+        descendantCount={descendantCount}
         submitting={submitting}
         onOpenChange={(open) => {
           if (!open) setDeleting(null);

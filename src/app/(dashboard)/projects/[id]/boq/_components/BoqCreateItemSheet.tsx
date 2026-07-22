@@ -130,6 +130,11 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   projectId: string;
   boqId: string;
+  /**
+   * The BOQ's margin (the min-margin set at BOQ creation) — seeds a new line's
+   * Margin %, still editable per line.
+   */
+  minimumMarginPct: string;
   sections: BoqSection[];
   /** Pre-selected section (e.g., opened from a section's menu). */
   defaultSectionId?: string | null;
@@ -153,6 +158,7 @@ export function BoqCreateItemSheet({
   onOpenChange,
   projectId,
   boqId,
+  minimumMarginPct,
   sections,
   defaultSectionId,
   anchorItemId,
@@ -205,6 +211,10 @@ export function BoqCreateItemSheet({
 
   useEffect(() => {
     if (!open) return;
+    // Seed Margin % from the BOQ's margin. Falls back to INITIAL's global
+    // default when the BOQ carries no usable margin — an empty value or a 0
+    // (no-floor) shouldn't start every line at 0%.
+    const marginSeed = Number(minimumMarginPct);
     setV({
       ...INITIAL,
       sectionId: defaultSectionId ?? BOQ_NO_SECTION_ID,
@@ -212,10 +222,14 @@ export function BoqCreateItemSheet({
       unit: (project?.default_unit ?? INITIAL.unit) as ElementUnit,
       serviceChargePct:
         project?.default_service_charge_pct ?? INITIAL.serviceChargePct,
+      marginPct:
+        Number.isFinite(marginSeed) && marginSeed > 0
+          ? String(marginSeed)
+          : INITIAL.marginPct,
     });
     setManualQty(false);
     setLinkedElement(null);
-  }, [open, defaultSectionId, defaultDivisionId, project]);
+  }, [open, defaultSectionId, defaultDivisionId, project, minimumMarginPct]);
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setV((prev) => ({ ...prev, [key]: value }));

@@ -1,10 +1,12 @@
 import { describe, it, expect } from "vitest";
 import {
   CATEGORY_CODE_MAX,
+  CATEGORY_CODE_SEGMENT_MIN,
   applyCase,
   codeSegmentOf,
   composeCategoryCode,
   dedupeSegment,
+  isSegmentTooShort,
   maxSegmentLength,
   nextAutoSegment,
   normalizeCodeSegment,
@@ -12,6 +14,22 @@ import {
   suggestCodeSegment,
   UNCATEGORIZED_PREFIX,
 } from "@/lib/categoryCode";
+
+describe("isSegmentTooShort", () => {
+  it("flags a non-empty segment below the minimum", () => {
+    expect(CATEGORY_CODE_SEGMENT_MIN).toBe(3);
+    expect(isSegmentTooShort("K")).toBe(true);
+    expect(isSegmentTooShort("KI")).toBe(true);
+    expect(isSegmentTooShort("  KI ")).toBe(true);
+  });
+
+  it("passes an empty segment (blank is a separate case) and any >= min", () => {
+    expect(isSegmentTooShort("")).toBe(false);
+    expect(isSegmentTooShort("   ")).toBe(false);
+    expect(isSegmentTooShort("KIT")).toBe(false);
+    expect(isSegmentTooShort("KITC")).toBe(false);
+  });
+});
 
 describe("suggestCodeSegment", () => {
   it("abbreviates the first word to the cap (the PRD examples)", () => {

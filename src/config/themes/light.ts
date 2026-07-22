@@ -15,6 +15,9 @@ const lightTheme: Theme = {
     "accent-hover": "#B08E0A",
     // Foreground-safe accent for ink on light surfaces (AA ~4.8:1 on white).
     "accent-strong": "#8A6D00",
+    // Deeper gold for the primary-button fill so a CTA reads as clickable.
+    "accent-button": "#A8820A",
+    "accent-button-hover": "#8F6E08",
 
     // Text
     "text-primary": "#111111",

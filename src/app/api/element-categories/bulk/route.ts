@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
-import { bulkCreateCategoriesFromTemplates } from "@/lib/queries";
+import {
+  bulkCreateCategoriesFromTemplates,
+  findShortCodeSegment,
+} from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
+import { CATEGORY_CODE_SEGMENT_MIN } from "@/lib/categoryCode";
 import { parseRequest, bulkCreateCategoriesSchema } from "@/lib/validations";
 
 /**
@@ -20,6 +24,16 @@ export const POST = withAuth(
     const parsed = await parseRequest(req, bulkCreateCategoriesSchema);
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+
+    const short = findShortCodeSegment(parsed.data.categories);
+    if (short !== null) {
+      return NextResponse.json(
+        {
+          error: `Code "${short}" is too short — use at least ${CATEGORY_CODE_SEGMENT_MIN} characters.`,
+        },
+        { status: 400 }
+      );
     }
 
     try {

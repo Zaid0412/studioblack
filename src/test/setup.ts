@@ -336,7 +336,6 @@ vi.mock("@/lib/queries", () => ({
   createCategory: vi.fn(),
   updateCategory: vi.fn(),
   deleteCategory: vi.fn().mockResolvedValue({ deleted: true }),
-  reorderCategories: vi.fn(),
   isCategoryReferenced: vi.fn().mockResolvedValue(false),
   getCategoryCodeConfig: vi.fn().mockResolvedValue({
     auto_generate: true,
@@ -355,6 +354,7 @@ vi.mock("@/lib/queries", () => ({
   bulkCreateCategoriesFromTemplates: vi
     .fn()
     .mockResolvedValue({ created: [], skipped: [] }),
+  findShortCodeSegment: vi.fn().mockReturnValue(null),
   // Elements
   getElements: vi.fn().mockResolvedValue({ rows: [], total: 0 }),
   getElementById: vi.fn().mockResolvedValue(null),

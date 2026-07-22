@@ -148,3 +148,44 @@ describe("bulkCreateCategoriesFromTemplates — level batching", () => {
     expect(mocks.db.query.mock.calls.map((c) => c[0])).toContain("ROLLBACK");
   });
 });
+
+// `@/lib/queries` is globally mocked in setup — load the real implementation.
+async function findShortCodeSegment(nodes: readonly BulkCategoryNode[]) {
+  const actual = await vi.importActual<
+    typeof import("@/lib/queries/elementCategories")
+  >("@/lib/queries/elementCategories");
+  return actual.findShortCodeSegment(nodes);
+}
+
+describe("findShortCodeSegment", () => {
+  it("returns null when every node's segment clears the minimum", async () => {
+    expect(await findShortCodeSegment(kitchenTree)).toBeNull();
+  });
+
+  it("flags a too-short segment nested under valid ancestors", async () => {
+    const tree: BulkCategoryNode[] = [
+      {
+        name: "Plumbing",
+        codePrefix: "PLB",
+        children: [
+          {
+            name: "Fixtures",
+            codePrefix: "PLB-FIX",
+            children: [{ name: "Kitchen Sinks", codePrefix: "PLB-FIX-K" }],
+          },
+        ],
+      },
+    ];
+    expect(await findShortCodeSegment(tree)).toBe("PLB-FIX-K");
+  });
+
+  it("flags a too-short root segment", async () => {
+    expect(await findShortCodeSegment([{ name: "X", codePrefix: "AB" }])).toBe(
+      "AB"
+    );
+  });
+
+  it("ignores an empty/absent segment (blank is a separate case)", async () => {
+    expect(await findShortCodeSegment([{ name: "No code" }])).toBeNull();
+  });
+});

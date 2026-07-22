@@ -2,10 +2,12 @@ import type { PoolClient } from "pg";
 import { getPool } from "@/lib/db";
 import {
   CATEGORY_CODE_MAX,
+  CATEGORY_CODE_SEGMENT_MIN,
   applyCase,
   codeSegmentOf,
   composeCategoryCode,
   dedupeSegment,
+  isSegmentTooShort,
   segmentCap,
   suggestCodeSegment,
 } from "@/lib/categoryCode";
@@ -16,7 +18,11 @@ import type {
   ElementCategoryNode,
 } from "@/types";
 import { getCategoryCodeConfig } from "./categoryCodeConfig";
-import { categoryRefExistsSql, isCategoryReferenced } from "./categoryImport";
+import {
+  areCategoriesReferenced,
+  categoryRefExistsSql,
+  isCategoryReferenced,
+} from "./categoryImport";
 import { escapeSqlLike } from "./helpers";
 
 /**
@@ -220,6 +226,18 @@ export async function createCategory(
       config
     );
 
+    // Backstop for a user-supplied code that bypassed the form's min-length
+    // guard (e.g. a direct API call). Auto-generated codes are left lenient —
+    // they can be legitimately short for a tiny name and the form blocks those.
+    if (
+      input.codePrefix &&
+      isSegmentTooShort(codeSegmentOf(codePrefix, parentPrefix))
+    ) {
+      throw new Error(
+        `Code must be at least ${CATEGORY_CODE_SEGMENT_MIN} characters`
+      );
+    }
+
     const result = await client.query<ElementCategory>(
       `INSERT INTO element_category (org_id, name, parent_id, level, code_prefix, sort_order, icon, color)
        SELECT $1, $2, $3,
@@ -273,6 +291,30 @@ export async function createCategory(
   } finally {
     client.release();
   }
+}
+
+/**
+ * Walk a client bulk-create payload and return the first node whose own code
+ * segment is a non-empty value shorter than the minimum, or null when all are
+ * fine. The bulk ROUTE calls this to backstop the form's min-length guard;
+ * org-provisioning seeding bypasses the route, so its curated (occasionally
+ * 2-char) template codes are unaffected.
+ */
+export function findShortCodeSegment(
+  nodes: readonly BulkCategoryNode[],
+  parentPrefix: string | null = null
+): string | null {
+  for (const node of nodes) {
+    const prefix = node.codePrefix ?? null;
+    if (isSegmentTooShort(codeSegmentOf(prefix, parentPrefix))) {
+      return prefix ?? "";
+    }
+    if (node.children?.length) {
+      const found = findShortCodeSegment(node.children, prefix ?? parentPrefix);
+      if (found !== null) return found;
+    }
+  }
+  return null;
 }
 
 /** One node of the flattened template tree, linked to its parent for id resolution. */
@@ -677,49 +719,75 @@ async function cascadeCodePrefix(
 }
 
 /**
- * Delete a category atomically. Returns not_found/has_children/deleted.
- * Single query via conditional DELETE — no TOCTOU race.
+ * Delete a category and its whole subtree. Structural children (sub-categories,
+ * service areas) are removed by the `parent_id ON DELETE CASCADE` FK, so a
+ * single delete of the root clears the branch — but only once nothing in the
+ * subtree is still referenced by live data (elements, BOQ/RFQ items, vendor
+ * trades, rate contracts). Elements must be moved out first; the cascade would
+ * otherwise silently orphan them (SET NULL) or hit a RESTRICT and throw.
+ *
+ * The subtree is scanned **and locked** (`FOR UPDATE`) before the reference
+ * check, all in one transaction. Adding a reference (element / BOQ / RFQ /
+ * vendor / rate-contract) takes a `FOR KEY SHARE` lock on its parent category
+ * row, which conflicts with our `FOR UPDATE` — so a concurrent reference can't
+ * slip in between the check and the delete: it blocks until we commit, then
+ * fails its FK because the row is gone.
+ * Returns not_found/referenced/deleted.
+ *
+ * NOTE: the API-route tests mock this function, so the SQL below (recursive
+ * CTE + reference guard + cascade) isn't exercised by the suite — verify SQL
+ * edits against a real DB.
  */
 export async function deleteCategory(id: string, orgId: string) {
   const pool = getPool();
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
 
-  const { rowCount } = await pool.query(
-    `DELETE FROM element_category
-     WHERE id = $1 AND org_id = $2
-       AND NOT EXISTS (SELECT 1 FROM element_category WHERE parent_id = $1)`,
-    [id, orgId]
-  );
+    // Gather the whole subtree and lock those category rows. FOR UPDATE lives on
+    // the outer SELECT (it can't sit on a recursive term), which is enough — the
+    // lock is what closes the check-then-delete race.
+    const { rows: subtree } = await client.query<{ id: string }>(
+      `WITH RECURSIVE subtree AS (
+         SELECT id FROM element_category WHERE id = $1 AND org_id = $2
+         UNION ALL
+         SELECT c.id FROM element_category c
+           JOIN subtree s ON c.parent_id = s.id
+       )
+       SELECT id FROM element_category
+        WHERE id IN (SELECT id FROM subtree)
+        FOR UPDATE`,
+      [id, orgId]
+    );
 
-  if ((rowCount ?? 0) > 0) return { deleted: true as const };
+    if (subtree.length === 0) {
+      await client.query("ROLLBACK");
+      return { deleted: false as const, error: "Category not found" };
+    }
 
-  // Distinguish not-found from has-children
-  const { rows } = await pool.query(
-    `SELECT EXISTS (SELECT 1 FROM element_category WHERE parent_id = $1) AS has_children`,
-    [id]
-  );
-  if (rows[0]?.has_children) {
-    return {
-      deleted: false as const,
-      error: "Category has children. Remove or move them first.",
-    };
+    if (
+      await areCategoriesReferenced(
+        client,
+        subtree.map((r) => r.id)
+      )
+    ) {
+      await client.query("ROLLBACK");
+      return {
+        deleted: false as const,
+        error: "Category is still in use. Move its elements first.",
+      };
+    }
+
+    await client.query(
+      `DELETE FROM element_category WHERE id = $1 AND org_id = $2`,
+      [id, orgId]
+    );
+    await client.query("COMMIT");
+    return { deleted: true as const };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
   }
-  return { deleted: false as const, error: "Category not found" };
-}
-
-/** Reorder categories within a parent (or root level when parentId is null). */
-export async function reorderCategories(
-  orgId: string,
-  parentId: string | null,
-  orderedIds: string[]
-) {
-  const pool = getPool();
-  await pool.query(
-    `UPDATE element_category
-     SET sort_order = data.pos, updated_at = now()
-     FROM (SELECT unnest($1::uuid[]) AS id, generate_series(0, $2::int) AS pos) data
-     WHERE element_category.id = data.id
-       AND element_category.org_id = $3
-       AND element_category.parent_id IS NOT DISTINCT FROM $4`,
-    [orderedIds, orderedIds.length - 1, orgId, parentId]
-  );
 }

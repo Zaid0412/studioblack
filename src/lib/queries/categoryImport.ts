@@ -133,9 +133,22 @@ export async function isCategoryReferenced(
   db: Querier,
   id: string
 ): Promise<boolean> {
+  return areCategoriesReferenced(db, [id]);
+}
+
+/**
+ * Whether any category in `ids` is referenced by live data — the set form of
+ * `isCategoryReferenced`. Used to guard a cascade delete: the whole subtree
+ * must be clear of references before it can be removed.
+ */
+export async function areCategoriesReferenced(
+  db: Querier,
+  ids: string[]
+): Promise<boolean> {
+  if (ids.length === 0) return false;
   const { rows } = await db.query<{ referenced: boolean }>(
-    `SELECT EXISTS (${categoryRefExistsSql("$1")} LIMIT 1) AS referenced`,
-    [id]
+    `SELECT EXISTS (${categoryRefExistsSql("ANY($1::uuid[])")} LIMIT 1) AS referenced`,
+    [ids]
   );
   return rows[0]?.referenced ?? false;
 }

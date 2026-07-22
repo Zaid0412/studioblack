@@ -672,11 +672,6 @@ export const bulkCreateCategoriesSchema = z.object({
 
 export type BulkCategoryNode = z.infer<typeof bulkCategoryNode>;
 
-export const reorderCategoriesSchema = z.object({
-  parentId: z.string().uuid().nullable(),
-  orderedIds: z.array(uuid).min(1),
-});
-
 // ─── Divisions (/api/divisions) ────────────────────────────────────────────
 
 export const createDivisionSchema = z.object({

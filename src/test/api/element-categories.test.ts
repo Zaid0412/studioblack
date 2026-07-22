@@ -5,14 +5,12 @@ import {
   createCategory,
   updateCategory,
   deleteCategory,
-  reorderCategories,
 } from "@/lib/queries";
 import { GET, POST } from "@/app/api/element-categories/route";
 import {
   PATCH as PATCH_ITEM,
   DELETE as DELETE_ITEM,
 } from "@/app/api/element-categories/[id]/route";
-import { PATCH as PATCH_REORDER } from "@/app/api/element-categories/reorder/route";
 import {
   buildRequest,
   buildParams,
@@ -364,10 +362,10 @@ describe("DELETE /api/element-categories/[id]", () => {
     expect(body.success).toBe(true);
   });
 
-  it("returns 409 when category has children", async () => {
+  it("returns 409 when the subtree is still in use", async () => {
     vi.mocked(deleteCategory).mockResolvedValue({
       deleted: false,
-      error: "Category has children. Remove or move them first.",
+      error: "Category is still in use. Move its elements first.",
     });
 
     const req = buildRequest(`/api/element-categories/${CAT_ID}`, {
@@ -377,7 +375,7 @@ describe("DELETE /api/element-categories/[id]", () => {
     const { status, body } = await parseResponse<{ error: string }>(res);
 
     expect(status).toBe(409);
-    expect(body.error).toContain("children");
+    expect(body.error).toContain("in use");
   });
 
   it("returns 404 when category not found", async () => {
@@ -402,86 +400,6 @@ describe("DELETE /api/element-categories/[id]", () => {
       method: "DELETE",
     });
     const res = await DELETE_ITEM(req, buildParams({ id: CAT_ID }));
-    const { status } = await parseResponse(res);
-
-    expect(status).toBe(403);
-  });
-});
-
-// ── PATCH /api/element-categories/reorder ───────────────────────────────────
-
-describe("PATCH /api/element-categories/reorder", () => {
-  it("reorders root categories", async () => {
-    vi.mocked(reorderCategories).mockResolvedValue(undefined);
-
-    const orderedIds = [CHILD_ID, CAT_ID];
-    const req = buildRequest("/api/element-categories/reorder", {
-      method: "PATCH",
-      body: { parentId: null, orderedIds },
-    });
-    const res = await PATCH_REORDER(req);
-    const { status, body } = await parseResponse<{ ok: boolean }>(res);
-
-    expect(status).toBe(200);
-    expect(body.ok).toBe(true);
-    expect(reorderCategories).toHaveBeenCalledWith(
-      "org-test-001",
-      null,
-      orderedIds
-    );
-  });
-
-  it("reorders children within a parent", async () => {
-    vi.mocked(reorderCategories).mockResolvedValue(undefined);
-
-    const orderedIds = [GRANDCHILD_ID, CHILD_ID];
-    const req = buildRequest("/api/element-categories/reorder", {
-      method: "PATCH",
-      body: { parentId: CAT_ID, orderedIds },
-    });
-    const res = await PATCH_REORDER(req);
-    const { status } = await parseResponse(res);
-
-    expect(status).toBe(200);
-    expect(reorderCategories).toHaveBeenCalledWith(
-      "org-test-001",
-      CAT_ID,
-      orderedIds
-    );
-  });
-
-  it("returns 400 when orderedIds is empty", async () => {
-    const req = buildRequest("/api/element-categories/reorder", {
-      method: "PATCH",
-      body: { parentId: null, orderedIds: [] },
-    });
-    const res = await PATCH_REORDER(req);
-    const { status } = await parseResponse(res);
-
-    expect(status).toBe(400);
-  });
-
-  it("returns 401 without session", async () => {
-    setupAuth(mocks.auth, null);
-
-    const req = buildRequest("/api/element-categories/reorder", {
-      method: "PATCH",
-      body: { parentId: null, orderedIds: [CAT_ID] },
-    });
-    const res = await PATCH_REORDER(req);
-    const { status } = await parseResponse(res);
-
-    expect(status).toBe(401);
-  });
-
-  it("returns 403 for client role", async () => {
-    setupAuth(mocks.auth, clientSession);
-
-    const req = buildRequest("/api/element-categories/reorder", {
-      method: "PATCH",
-      body: { parentId: null, orderedIds: [CAT_ID] },
-    });
-    const res = await PATCH_REORDER(req);
     const { status } = await parseResponse(res);
 
     expect(status).toBe(403);

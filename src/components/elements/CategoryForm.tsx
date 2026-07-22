@@ -15,8 +15,10 @@ import {
 import { CategoryIconPicker } from "./CategoryIconPicker";
 import { CategoryColorPicker } from "./CategoryColorPicker";
 import {
+  CATEGORY_CODE_SEGMENT_MIN,
   codeSegmentOf,
   composeCategoryCode,
+  isSegmentTooShort,
   segmentCap,
   suggestCodeSegment,
 } from "@/lib/categoryCode";
@@ -140,6 +142,9 @@ export function CategoryForm({
   const codeSegment = codeSegmentOf(values.codePrefix, parentPrefix);
 
   const cap = segmentCap(parentPrefix, config.code_max_length);
+  // Block a too-short segment on create (a legacy short code being edited is
+  // left alone — its own creation is what should have caught it).
+  const codeTooShort = !isEditing && isSegmentTooShort(codeSegment);
 
   // Auto-suggest the code from the name while creating and the user hasn't
   // touched the code field. Recomputes on name/parent change; the first keystroke
@@ -248,12 +253,16 @@ export function CategoryForm({
             disabled={codeLocked}
             readOnly={codeLocked}
           />
-          <p className="text-xs text-text-muted">
+          <p
+            className={`text-xs ${codeTooShort ? "text-warning" : "text-text-muted"}`}
+          >
             {codeLocked
               ? t("categoryCodeLocked")
-              : values.codePrefix
-                ? t("categoryCodeComposed", { code: values.codePrefix })
-                : t("categoryCodeHint")}
+              : codeTooShort
+                ? t("categoryCodeMinHint", { min: CATEGORY_CODE_SEGMENT_MIN })
+                : values.codePrefix
+                  ? t("categoryCodeComposed", { code: values.codePrefix })
+                  : t("categoryCodeHint")}
           </p>
         </div>
       </div>
@@ -279,7 +288,7 @@ export function CategoryForm({
         <Button
           type="submit"
           size="sm"
-          disabled={submitting || !values.name.trim()}
+          disabled={submitting || !values.name.trim() || codeTooShort}
         >
           <Save className="h-4 w-4" />
           {submitting ? tCommon("loading") : tCommon("save")}

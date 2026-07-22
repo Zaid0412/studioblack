@@ -33,6 +33,19 @@ export const CATEGORY_LEVEL = 1;
 export const CATEGORY_CODE_MAX = 20;
 
 /**
+ * Minimum length of a single path segment. Matches the floor of the org's
+ * `code_max_length` setting (3–5), so a one/two-letter segment like `K` can't
+ * be typed and saved — auto-generation is already bounded to `code_max_length`.
+ */
+export const CATEGORY_CODE_SEGMENT_MIN = 3;
+
+/** A non-empty segment shorter than the minimum can't be saved. */
+export function isSegmentTooShort(segment: string): boolean {
+  const seg = segment.trim();
+  return seg.length > 0 && seg.length < CATEGORY_CODE_SEGMENT_MIN;
+}
+
+/**
  * Defaults for an org with no `category_code_config` row. Lives here (a pure,
  * client-safe module) rather than in the query module so client hooks can read
  * it without pulling the `pg` driver into the browser bundle.

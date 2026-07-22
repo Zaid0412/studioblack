@@ -1,9 +1,7 @@
 "use client";
 
 import type React from "react";
-import { ChevronDown, GripVertical, Pencil, Plus, Trash2 } from "lucide-react";
-import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+import { ChevronDown, Pencil, Plus, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { CategoryIcon } from "@/components/elements/CategoryIcon";
 import { Button } from "@/components/ui/button";
@@ -18,7 +16,6 @@ import type { ElementCategoryNode } from "@/types";
 const INDENT_PX = 20;
 const CONNECTOR_COLOR = "var(--border-default)";
 const CONNECTOR_WIDTH = 2;
-const GRIP_ICON_PX = 14;
 
 interface Props {
   node: ElementCategoryNode;
@@ -32,8 +29,6 @@ interface Props {
   hasChildren: boolean;
   isLastSibling: boolean;
   isCollapsed: boolean;
-  /** True while an ancestor is being dragged — hide to signal it travels with the parent. */
-  hidden?: boolean;
 }
 
 /** D2 curved elbow connector drawn with CSS borders. */
@@ -45,11 +40,11 @@ function TreeConnector({
   isLastSibling: boolean;
 }) {
   const left = (depth - 1) * INDENT_PX + 10;
-  // End the horizontal stroke at the horizontal midpoint of the drag handle.
-  // Grip icon starts at `depth * INDENT_PX` from the td's left edge; its
-  // center is half the icon's width deeper. The connector box is `left`
-  // from the td, so its width covers the gap in between.
-  const horizontalEndX = depth * INDENT_PX + GRIP_ICON_PX / 2;
+  // End the horizontal stroke at the centre of the collapse chevron. The
+  // chevron/spacer starts at `depth * INDENT_PX` from the td's left edge and is
+  // 18px wide; the connector box is `left` from the td, so its width covers the
+  // gap in between.
+  const horizontalEndX = depth * INDENT_PX + 9;
   const width = horizontalEndX - left;
   return (
     <>
@@ -103,42 +98,25 @@ export function CategoryTableRow({
   hasChildren,
   isLastSibling,
   isCollapsed,
-  hidden = false,
 }: Props) {
   const t = useTranslations("elements");
   const tCommon = useTranslations("common");
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: node.id });
 
   const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : undefined,
     // Unique per-row name so the View Transitions API can tween position
     // changes when siblings collapse/expand. CSS identifiers can't contain
     // raw hyphens from UUIDs in certain positions, so we only strip them
     // as a safety net — the `cat-row-` prefix already ensures a valid start.
     viewTransitionName: `cat-row-${node.id.replace(/-/g, "")}`,
-    ...(hidden && { display: "none" }),
   };
 
   const updatedRel = new Date(node.updated_at).toLocaleDateString();
 
   return (
     <tr
-      ref={setNodeRef}
       data-anim-item
       style={style}
-      className={cn(
-        "border-b border-border-default last:border-b-0 hover:bg-bg-elevated/50 transition-colors",
-        isDragging && "bg-bg-elevated"
-      )}
+      className="border-b border-border-default last:border-b-0 hover:bg-bg-elevated/50 transition-colors"
     >
       <td className="py-2 pr-3 relative">
         {depth > 0 && (
@@ -148,15 +126,6 @@ export function CategoryTableRow({
           className="flex items-center gap-2"
           style={{ paddingLeft: `${depth * INDENT_PX}px` }}
         >
-          <button
-            type="button"
-            {...attributes}
-            {...listeners}
-            aria-label="Reorder"
-            className="shrink-0 text-text-muted hover:text-text-primary cursor-grab active:cursor-grabbing"
-          >
-            <GripVertical className="w-3.5 h-3.5" />
-          </button>
           {hasChildren ? (
             <button
               type="button"

@@ -14,6 +14,11 @@
      The bright accent is ~2.4:1 on white — fails WCAG; this darker gold clears
      AA (~4.8:1). Use `--accent` for fills, `--accent-strong` for accent text. */
   --accent-strong: #8a6d00;
+  /* Primary-button fill. Deeper than `--accent` so a filled CTA clearly reads
+     as clickable on light surfaces — the raw accent looks washed-out/disabled
+     as a large fill. Keeps dark ink at ~6:1. */
+  --accent-button: #a8820a;
+  --accent-button-hover: #8f6e08;
 
   --text-primary: #111111;
   --text-secondary: #444444;
@@ -77,6 +82,9 @@
      accent-strong == accent here. Swapping text-accent → text-accent-strong is
      therefore a no-op in dark mode and a fix in light mode. */
   --accent-strong: #f5c518;
+  /* The dark accent is already a vivid CTA — reuse it for the button fill. */
+  --accent-button: #f5c518;
+  --accent-button-hover: #d4a90d;
 
   --text-primary: #ffffff;
   --text-secondary: #b0b0b0;
@@ -145,6 +153,8 @@
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-accent-strong: var(--accent-strong);
+  --color-accent-button: var(--accent-button);
+  --color-accent-button-hover: var(--accent-button-hover);
   --color-accent-foreground: var(--text-on-accent);
 
   /* Text */

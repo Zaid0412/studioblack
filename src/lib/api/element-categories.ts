@@ -61,14 +61,6 @@ export function remove(id: string) {
   return apiDelete(API.elementCategory(id));
 }
 
-/** Reorder categories within a parent (or root level). */
-export function reorder(parentId: string | null, orderedIds: string[]) {
-  return apiPatch<{ ok: boolean }>(API.elementCategoriesReorder(), {
-    parentId,
-    orderedIds,
-  });
-}
-
 /**
  * Bulk-create a chain (or a whole starter taxonomy). Idempotent — a node whose
  * name already exists under the same parent is reused, and its missing children
