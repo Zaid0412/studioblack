@@ -22,7 +22,11 @@ export function hasActiveFilters(f: CategoryFilters): boolean {
   return f.search.trim() !== "" || f.level !== null || f.usage !== null;
 }
 
-/** Whether a node matches every active predicate — its own attributes only. */
+/**
+ * Whether a node matches every active predicate — its own attributes only. The
+ * usage facet reads the node's own `in_use`; the delete guard, by contrast, is
+ * subtree-wide, so a parent can read "unused" here yet still block deletion.
+ */
 function nodeMatches(node: ElementCategoryNode, f: CategoryFilters): boolean {
   if (f.level !== null && node.level !== f.level) return false;
   if (f.usage === "in-use" && node.in_use !== true) return false;

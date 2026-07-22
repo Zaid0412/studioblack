@@ -18,9 +18,13 @@ import { useCanManageCategories } from "@/hooks/useCanManageCategories";
 import type { ElementCategoryNode } from "@/types";
 import { flattenCategories } from "@/app/(dashboard)/elements/_lib/categoryUtils";
 import { SERVICE_AREA_LEVEL } from "@/lib/categoryCode";
+import {
+  SortableHeaderButton,
+  nextSortDirection,
+  type SortConfig,
+} from "@/components/ui/SortableHeader";
 import { CategoryTableRow } from "./_components/CategoryTableRow";
 import { CategoryFilterBar } from "./_components/CategoryFilterBar";
-import { CategorySortHeader } from "./_components/CategorySortHeader";
 import { CategoryEditDialog } from "@/components/elements/CategoryEditDialog";
 import { CategoryImportDialog } from "./_components/CategoryImportDialog";
 import { DeleteConfirmDialog } from "./_components/DeleteConfirmDialog";
@@ -30,7 +34,6 @@ import {
   pruneCategoryTree,
   sortCategoryTree,
   type CategoryFilters,
-  type SortDir,
   type SortField,
 } from "./_lib/categoryFilters";
 import type { CategoryFormSubmit } from "@/components/elements/CategoryForm";
@@ -39,6 +42,10 @@ const COLLAPSED_STORAGE_KEY = "element-categories-collapsed";
 
 /** Stable empty set — passed to flattenTree to render every branch expanded. */
 const EMPTY_COLLAPSED: ReadonlySet<string> = new Set();
+
+/** Muted, uppercase header styling to match the table's non-sortable columns. */
+const HEADER_CLASS =
+  "text-[11px] font-medium uppercase tracking-wider text-text-muted";
 
 interface TreeResponse {
   tree: ElementCategoryNode[];
@@ -140,16 +147,19 @@ export default function CategoriesPage() {
   };
 
   const [filters, setFilters] = useState<CategoryFilters>(EMPTY_FILTERS);
-  const [sortField, setSortField] = useState<SortField | null>(null);
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [sort, setSort] = useState<SortConfig<SortField>>(null);
 
   const filtering = hasActiveFilters(filters);
 
   // Prune to matches (keeping ancestors), then sort within each sibling group.
   const viewTree = useMemo(
     () =>
-      sortCategoryTree(pruneCategoryTree(tree, filters), sortField, sortDir),
-    [tree, filters, sortField, sortDir]
+      sortCategoryTree(
+        pruneCategoryTree(tree, filters),
+        sort?.key ?? null,
+        sort?.direction ?? "asc"
+      ),
+    [tree, filters, sort]
   );
 
   // While filtering, force every branch open so matches are visible regardless
@@ -259,16 +269,8 @@ export default function CategoriesPage() {
   };
 
   // Click a column header to cycle its sort: asc → desc → off.
-  const handleSort = (field: SortField) => {
-    if (sortField !== field) {
-      setSortField(field);
-      setSortDir("asc");
-    } else if (sortDir === "asc") {
-      setSortDir("desc");
-    } else {
-      setSortField(null);
-    }
-  };
+  const handleSort = (key: SortField) =>
+    setSort((s) => nextSortDirection(s, key));
 
   if (roleLoading) {
     return (
@@ -362,38 +364,46 @@ export default function CategoriesPage() {
               </colgroup>
               <thead>
                 <tr className="border-b border-border-default">
-                  <CategorySortHeader
-                    label={t("categoryName")}
-                    field="name"
-                    activeField={sortField}
-                    dir={sortDir}
-                    onSort={handleSort}
-                    className="text-left py-2 pr-3"
-                  />
-                  <CategorySortHeader
-                    label={t("categoryCodePrefix")}
-                    field="code"
-                    activeField={sortField}
-                    dir={sortDir}
-                    onSort={handleSort}
-                    className="text-left py-2 px-3"
-                  />
-                  <CategorySortHeader
-                    label={t("colCategoryElements")}
-                    field="elements"
-                    activeField={sortField}
-                    dir={sortDir}
-                    onSort={handleSort}
-                    className="text-left py-2 px-3"
-                  />
-                  <CategorySortHeader
-                    label={t("colUpdated")}
-                    field="updated"
-                    activeField={sortField}
-                    dir={sortDir}
-                    onSort={handleSort}
-                    className="text-left py-2 px-3"
-                  />
+                  <th className="text-left py-2 pr-3">
+                    <SortableHeaderButton
+                      sortKey="name"
+                      config={sort}
+                      onSort={handleSort}
+                      className={HEADER_CLASS}
+                    >
+                      {t("categoryName")}
+                    </SortableHeaderButton>
+                  </th>
+                  <th className="text-left py-2 px-3">
+                    <SortableHeaderButton
+                      sortKey="code"
+                      config={sort}
+                      onSort={handleSort}
+                      className={HEADER_CLASS}
+                    >
+                      {t("categoryCodePrefix")}
+                    </SortableHeaderButton>
+                  </th>
+                  <th className="text-left py-2 px-3">
+                    <SortableHeaderButton
+                      sortKey="elements"
+                      config={sort}
+                      onSort={handleSort}
+                      className={HEADER_CLASS}
+                    >
+                      {t("colCategoryElements")}
+                    </SortableHeaderButton>
+                  </th>
+                  <th className="text-left py-2 px-3">
+                    <SortableHeaderButton
+                      sortKey="updated"
+                      config={sort}
+                      onSort={handleSort}
+                      className={HEADER_CLASS}
+                    >
+                      {t("colUpdated")}
+                    </SortableHeaderButton>
+                  </th>
                   <th className="text-right text-[11px] font-medium text-text-muted uppercase tracking-wider py-2 pl-3">
                     {t("colActions")}
                   </th>

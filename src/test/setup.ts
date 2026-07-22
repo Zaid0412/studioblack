@@ -336,7 +336,6 @@ vi.mock("@/lib/queries", () => ({
   createCategory: vi.fn(),
   updateCategory: vi.fn(),
   deleteCategory: vi.fn().mockResolvedValue({ deleted: true }),
-  reorderCategories: vi.fn(),
   isCategoryReferenced: vi.fn().mockResolvedValue(false),
   getCategoryCodeConfig: vi.fn().mockResolvedValue({
     auto_generate: true,

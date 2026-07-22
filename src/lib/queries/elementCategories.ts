@@ -740,21 +740,3 @@ export async function deleteCategory(id: string, orgId: string) {
     client.release();
   }
 }
-
-/** Reorder categories within a parent (or root level when parentId is null). */
-export async function reorderCategories(
-  orgId: string,
-  parentId: string | null,
-  orderedIds: string[]
-) {
-  const pool = getPool();
-  await pool.query(
-    `UPDATE element_category
-     SET sort_order = data.pos, updated_at = now()
-     FROM (SELECT unnest($1::uuid[]) AS id, generate_series(0, $2::int) AS pos) data
-     WHERE element_category.id = data.id
-       AND element_category.org_id = $3
-       AND element_category.parent_id IS NOT DISTINCT FROM $4`,
-    [orderedIds, orderedIds.length - 1, orgId, parentId]
-  );
-}

@@ -105,7 +105,6 @@ export const API = {
   // ── Element Categories ──────────────────────────
   elementCategories:        ()                            => "/api/element-categories",
   elementCategory:          (id: string)                  => `/api/element-categories/${id}`,
-  elementCategoriesReorder: ()                            => "/api/element-categories/reorder",
   elementCategoriesBulk:    ()                            => "/api/element-categories/bulk",
   elementCategoriesImport:  ()                            => "/api/element-categories/import",
   elementCategoriesImportConfirm: ()                      => "/api/element-categories/import/confirm",
