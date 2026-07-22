@@ -36,8 +36,8 @@ nullable columns and don't change the `drawing`-over-`version_group` model:
   Villa Block, …), used for filtering only, never in the document number. → `drawing.location`
   (nullable text) now, per-org lookup later if needed.
 
-  Land both as one small additive migration + the cascading-filter UI — fits alongside PR-4 or a
-  dedicated PR-4a; not blocking. Numbering stays `<Project>-<Discipline>-<Type>-<Seq>`.
+  Land both as one small additive migration + the cascading-filter UI. Numbering stays
+  `<Project>-<Discipline>-<Type>-<Seq>`.
 
 **Enum changes — two diverge from already-shipped code:**
 
@@ -50,6 +50,9 @@ nullable columns and don't change the `drawing`-over-`version_group` model:
   `drawing_revision.issue_purpose` CHECK (additive).
 - **Drawing Type** now enumerated explicitly (~13): `PLAN, ELEV, SECT, DET, PROD, SHOP, RCP, ISO, SCH,
   SPEC, REND, MOD, CAL`. Align the `drawing_type` const to this set.
+
+> All of the above — the two new dimensions plus these enum/seed reconciliations — are additive and
+> scoped to **PR-3a** in the roadmap below.
 
 **Newly specified, lands in later PRs:**
 
@@ -108,13 +111,14 @@ transitions on `pmOnly`-style gates; defer data-driven RBAC tiers.
 
 ## PR roadmap (4–6 independently-shippable PRs)
 
-> **Status (2026-07-22):** PR-1 (#216), PR-2 (#217), and PR-3 (#222) shipped and merged — live behind the `designDocumentControl` PostHog flag (0% / dormant). Migrations applied to dev/staging and prod. PR-4–PR-6 not started.
+> **Status (2026-07-22):** PR-1 (#216), PR-2 (#217), and PR-3 (#222) shipped and merged — live behind the `designDocumentControl` PostHog flag (0% / dormant). Migrations applied to dev/staging and prod. PR-3a (PRD 2026-07-22 revision catch-up) and PR-4–PR-6 not started.
 
 | PR                                              | Goal                                                                                                                   | Tables / key files                                                                                                                                                                                                | Reuses                                                              | Risk                                             |
 | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------ |
 | **✅ PR-1 Package backbone** (#216)             | Design Packages + Disciplines exist & render (alongside phases, additive)                                              | `design_package`, `design_discipline` (+seeds); `queries/designPackages.ts`; `PACKAGE_TRANSITIONS` declared; seed hook in `projects.ts`                                                                           | project/phase seeding, `element_category` lookup                    | Low                                              |
 | **✅ PR-2 Drawing register + numbering** (#217) | Files group into drawings w/ discipline, type, document_number                                                         | `drawing`, `attachment.drawing_id`; `nextDrawingNumber` + prefix widen; `queries/drawings.ts`; backfill drawings from `version_group`s                                                                            | attachment engine, `DocumentViewer`, markup, review — all unchanged | Medium                                           |
 | **✅ PR-3 Revisions & issue** (#222)            | Official Rev-01/02/03 issues, issue-purpose, prev revisions read-only; markup Open/Resolved/Closed                     | `drawing_revision`, `drawing.current_revision_id`; `pin_comment.status` (backfill from `resolved`)                                                                                                                | `frozen_at` freeze, `attachment_review` append-only convention      | Medium                                           |
+| **⏳ PR-3a Apply PRD 2026-07-22 revision** (additive) | Reconcile shipped classification with the revised PRD: discipline seed → `PLB/ELC/MEC/LND/FUR/VIS`; Issue Purpose 5→8 (add Internal/Client Review, For Tender, Record Copy, Information Only); align `drawing_type` to the ~13-type enum; add optional **Representation** (`2D/3D/REN/VR`) + **Location** (free-text/lookup) drawing dimensions + cascading filters | `design_discipline` seed; `ISSUE_PURPOSES` + widen `drawing_revision.issue_purpose` CHECK; `drawing_type` const; new nullable `drawing.representation` + `drawing.location` cols; classification filter UI | PR-1 seed hook, `validations.ts` enums, upload/DrawingMeta dialog, existing list-filter patterns | Low (additive: nullable cols, enum/CHECK widen, data-only seed) |
 | **⏳ PR-4 Lifecycle + rollup + audit/notify**   | Enforce 12-state drawing + 10-state package transitions; package approves only when all mandatory approved; progress % | `transitionDrawing`/`transitionPackage` (clone `transitionRateContract`); map `review_status`→`status`; `logAuditSafe` + notify per transition; new `notification.drawing_id`/`package_id` col + destination case | rate-contract executor, `audit_event`, notification fan-out         | Med-High                                         |
 | **⏳ PR-5 Cutover**                             | Retire the 6 design phases; every design attachment lives under a package/drawing                                      | `scripts/migrate-design-cutover.sql` — backfill remaining attachments → default package, `drawing_id`/`package_id`/`status` NOT NULL, stop seeding design phases                                                  | BOQ `migrate-boq-drop-legacy.sql` precedent                         | High (NOT NULL flip + data migration; runs last) |
 | **⏳ PR-6 (optional)**                          | Configurable RBAC tiers (Junior/Senior), non-drawing document categories, audit-timeline UI                            | permission tables; category discriminator; `audit_event`-backed UI (the `/audit` page currently reads `notification`)                                                                                             | —                                                                   | Scoped separately                                |
