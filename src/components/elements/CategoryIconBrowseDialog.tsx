@@ -20,10 +20,19 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useDebouncedCallback, useDebouncedValue } from "@/hooks/useDebounce";
+import { CURATED_CATEGORY_ICONS, humanizeIconName } from "./categoryIcons";
 import { capitalize } from "@/lib/taskUtils";
 import { cn } from "@/lib/utils";
 
 const ICON_ENTRIES = Object.entries(icons) as [string, LucideIcon][];
+
+/**
+ * Architecture & construction icons shown by default (no search). Resolved
+ * against the live set so a name Lucide ever drops is skipped, not rendered blank.
+ */
+const CURATED_ENTRIES = CURATED_CATEGORY_ICONS.map(
+  (name) => [name, icons[name as keyof typeof icons]] as [string, LucideIcon]
+).filter(([, Icon]) => Boolean(Icon));
 
 const SEARCH_VOCABULARY: readonly string[] = Array.from(
   new Set(
@@ -80,9 +89,6 @@ function suggestSearches(query: string, limit = 3): string[] {
   return out;
 }
 
-/** "BrickWall" → "Brick Wall", "Icon3D" → "Icon 3 D". */
-const humanize = (name: string) => name.replace(/([A-Z0-9]+)/g, " $1").trim();
-
 interface Props {
   open: boolean;
   value: string | null;
@@ -116,7 +122,7 @@ export function CategoryIconBrowseDialog({
   }, [open, value]);
 
   const filtered = useMemo(() => {
-    if (!debounced) return ICON_ENTRIES.slice(0, 300);
+    if (!debounced) return CURATED_ENTRIES;
     return ICON_ENTRIES.filter(([name]) =>
       name.toLowerCase().includes(debounced)
     ).slice(0, 600);
@@ -151,7 +157,7 @@ export function CategoryIconBrowseDialog({
 
         <div className="relative">
           <Search
-            className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted"
+            className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-text-muted"
             aria-hidden
           />
           <Input
@@ -197,45 +203,52 @@ export function CategoryIconBrowseDialog({
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-6 gap-2 sm:grid-cols-8">
-              {filtered.map(([name, Icon]) => {
-                const selected = pending === name;
-                return (
-                  <Tooltip key={name} delayDuration={300}>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        onClick={() => setPending(name)}
-                        onDoubleClick={() => {
-                          setPending(name);
-                          onSelect(name);
-                          onOpenChange(false);
-                        }}
-                        onMouseEnter={() => scheduleHover(name)}
-                        onMouseLeave={() => scheduleHover(null)}
-                        onFocus={() => scheduleHover(name)}
-                        onBlur={() => scheduleHover(null)}
-                        aria-label={name}
-                        aria-pressed={selected}
-                        className={cn(
-                          "flex aspect-square cursor-pointer items-center justify-center rounded-md transition-all duration-150",
-                          selected
-                            ? "bg-accent/10 text-accent-strong ring-2 ring-accent scale-105"
-                            : "ring-1 ring-transparent text-text-secondary hover:bg-accent/8 hover:ring-accent/60"
-                        )}
-                      >
-                        <Icon
-                          className="h-5 w-5"
-                          style={color ? { color } : undefined}
-                          aria-hidden
-                        />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent>{name}</TooltipContent>
-                  </Tooltip>
-                );
-              })}
-            </div>
+            <>
+              {!debounced && (
+                <div className="px-1 pb-2 pt-1 text-[11px] font-semibold uppercase tracking-wide text-text-secondary">
+                  Architecture &amp; construction
+                </div>
+              )}
+              <div className="grid grid-cols-6 gap-2 sm:grid-cols-8">
+                {filtered.map(([name, Icon]) => {
+                  const selected = pending === name;
+                  return (
+                    <Tooltip key={name} delayDuration={300}>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          onClick={() => setPending(name)}
+                          onDoubleClick={() => {
+                            setPending(name);
+                            onSelect(name);
+                            onOpenChange(false);
+                          }}
+                          onMouseEnter={() => scheduleHover(name)}
+                          onMouseLeave={() => scheduleHover(null)}
+                          onFocus={() => scheduleHover(name)}
+                          onBlur={() => scheduleHover(null)}
+                          aria-label={name}
+                          aria-pressed={selected}
+                          className={cn(
+                            "flex aspect-square cursor-pointer items-center justify-center rounded-md transition-all duration-150",
+                            selected
+                              ? "bg-accent/10 text-accent-strong ring-2 ring-accent scale-105"
+                              : "ring-1 ring-transparent text-text-secondary hover:bg-accent/8 hover:ring-accent/60"
+                          )}
+                        >
+                          <Icon
+                            className="h-5 w-5"
+                            style={color ? { color } : undefined}
+                            aria-hidden
+                          />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>{humanizeIconName(name)}</TooltipContent>
+                    </Tooltip>
+                  );
+                })}
+              </div>
+            </>
           )}
         </div>
 
@@ -251,7 +264,7 @@ export function CategoryIconBrowseDialog({
               </div>
               <div className="flex min-w-0 flex-col leading-tight">
                 <span className="truncate text-sm font-medium text-text-primary">
-                  {humanize(displayed)}
+                  {humanizeIconName(displayed)}
                 </span>
                 <code className="mt-0.5 truncate font-mono text-[11px] text-text-muted">
                   {displayed}
