@@ -2,10 +2,12 @@ import type { PoolClient } from "pg";
 import { getPool } from "@/lib/db";
 import {
   CATEGORY_CODE_MAX,
+  CATEGORY_CODE_SEGMENT_MIN,
   applyCase,
   codeSegmentOf,
   composeCategoryCode,
   dedupeSegment,
+  isSegmentTooShort,
   segmentCap,
   suggestCodeSegment,
 } from "@/lib/categoryCode";
@@ -224,6 +226,18 @@ export async function createCategory(
       config
     );
 
+    // Backstop for a user-supplied code that bypassed the form's min-length
+    // guard (e.g. a direct API call). Auto-generated codes are left lenient —
+    // they can be legitimately short for a tiny name and the form blocks those.
+    if (
+      input.codePrefix &&
+      isSegmentTooShort(codeSegmentOf(codePrefix, parentPrefix))
+    ) {
+      throw new Error(
+        `Code must be at least ${CATEGORY_CODE_SEGMENT_MIN} characters`
+      );
+    }
+
     const result = await client.query<ElementCategory>(
       `INSERT INTO element_category (org_id, name, parent_id, level, code_prefix, sort_order, icon, color)
        SELECT $1, $2, $3,
@@ -277,6 +291,30 @@ export async function createCategory(
   } finally {
     client.release();
   }
+}
+
+/**
+ * Walk a client bulk-create payload and return the first node whose own code
+ * segment is a non-empty value shorter than the minimum, or null when all are
+ * fine. The bulk ROUTE calls this to backstop the form's min-length guard;
+ * org-provisioning seeding bypasses the route, so its curated (occasionally
+ * 2-char) template codes are unaffected.
+ */
+export function findShortCodeSegment(
+  nodes: readonly BulkCategoryNode[],
+  parentPrefix: string | null = null
+): string | null {
+  for (const node of nodes) {
+    const prefix = node.codePrefix ?? null;
+    if (isSegmentTooShort(codeSegmentOf(prefix, parentPrefix))) {
+      return prefix ?? "";
+    }
+    if (node.children?.length) {
+      const found = findShortCodeSegment(node.children, prefix ?? parentPrefix);
+      if (found !== null) return found;
+    }
+  }
+  return null;
 }
 
 /** One node of the flattened template tree, linked to its parent for id resolution. */

@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { bulkCreateCategoriesFromTemplates } from "@/lib/queries";
+import {
+  bulkCreateCategoriesFromTemplates,
+  findShortCodeSegment,
+} from "@/lib/queries";
 import { POST } from "@/app/api/element-categories/bulk/route";
 import {
   buildRequest,
@@ -93,6 +96,21 @@ describe("POST /api/element-categories/bulk", () => {
     });
     const res = await POST(req);
     expect((await parseResponse(res)).status).toBe(400);
+  });
+
+  it("rejects a too-short code segment with 400 before creating", async () => {
+    vi.mocked(findShortCodeSegment).mockReturnValue("PLB-FIX-K");
+
+    const req = buildRequest("/api/element-categories/bulk", {
+      method: "POST",
+      body: threeLevelPayload,
+    });
+    const res = await POST(req);
+    const { status, body } = await parseResponse<{ error: string }>(res);
+
+    expect(status).toBe(400);
+    expect(body.error).toContain("too short");
+    expect(bulkCreateCategoriesFromTemplates).not.toHaveBeenCalled();
   });
 
   it("returns 403 for client role", async () => {

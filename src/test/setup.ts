@@ -354,6 +354,7 @@ vi.mock("@/lib/queries", () => ({
   bulkCreateCategoriesFromTemplates: vi
     .fn()
     .mockResolvedValue({ created: [], skipped: [] }),
+  findShortCodeSegment: vi.fn().mockReturnValue(null),
   // Elements
   getElements: vi.fn().mockResolvedValue({ rows: [], total: 0 }),
   getElementById: vi.fn().mockResolvedValue(null),
