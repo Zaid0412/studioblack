@@ -638,6 +638,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         }}
         projectId={projectId}
         boqId={boq.id}
+        minimumMarginPct={boq.minimum_margin_pct}
         sections={boq.sections}
         defaultSectionId={createItemSection}
         anchorItemId={insertAnchor?.itemId ?? null}
