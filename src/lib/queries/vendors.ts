@@ -19,6 +19,16 @@ import type {
 import { escapeSqlLike, descendantCategoryIdsSql } from "./helpers";
 import { mapPgError } from "./_pgErrors";
 
+/**
+ * Canonical form for a contact email — trimmed + lowercased. Stored this way so
+ * duplicate detection, RFQ-recipient de-duplication, and the
+ * `linkVendorContactByEmail` match (which lowercases both sides) all agree, and
+ * so `A@x.com` / `a@x.com ` can't become two distinct contacts.
+ */
+export function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
 export interface VendorFilters {
   search?: string;
   status?: VendorStatus;
@@ -450,7 +460,7 @@ export async function createVendor(
             vendorId,
             c.name,
             c.title ?? null,
-            c.email,
+            normalizeEmail(c.email),
             c.phone ?? null,
             isPrimary,
             isSecondary,
@@ -552,6 +562,22 @@ export async function updateVendor(
     }
 
     if (patch.contacts !== undefined) {
+      // The form sends no contact ids, so contacts are rebuilt wholesale.
+      // Capture the portal links (email → user_id) first and re-attach them by
+      // email after the rebuild, so editing an unrelated vendor field doesn't
+      // orphan a vendor's portal access (user_id isn't in the INSERT below). A
+      // contact whose email actually changed won't re-match — that rarer case
+      // still needs the id-based reconciliation follow-up.
+      const { rows: linkedBefore } = await client.query<{
+        email: string;
+        user_id: string;
+      }>(
+        `SELECT LOWER(TRIM(email)) AS email, user_id
+           FROM vendor_contact
+          WHERE vendor_id = $1 AND user_id IS NOT NULL`,
+        [vendorId]
+      );
+
       await client.query(`DELETE FROM vendor_contact WHERE vendor_id = $1`, [
         vendorId,
       ]);
@@ -569,12 +595,21 @@ export async function updateVendor(
             vendorId,
             c.name,
             c.title ?? null,
-            c.email,
+            normalizeEmail(c.email),
             c.phone ?? null,
             isPrimary,
             isSecondary,
             c.receivesRfq ?? null,
           ]
+        );
+      }
+
+      // Re-attach portal links to their contact by (normalized) email.
+      for (const link of linkedBefore) {
+        await client.query(
+          `UPDATE vendor_contact SET user_id = $1
+             WHERE vendor_id = $2 AND LOWER(TRIM(email)) = $3 AND user_id IS NULL`,
+          [link.user_id, vendorId, link.email]
         );
       }
     }
@@ -1125,7 +1160,7 @@ export async function addVendorContactSelf(
         vendorId,
         input.name,
         input.title ?? null,
-        input.email,
+        normalizeEmail(input.email),
         input.phone ?? null,
         !!input.isPrimary,
         input.receivesRfq ?? null,
@@ -1175,7 +1210,12 @@ export async function updateVendorContactSelf(
     for (const [key, col] of Object.entries(CONTACT_PATCH_COLS)) {
       const k = key as keyof VendorContactPatch;
       if (k in patch) {
-        params.push((patch as Record<string, unknown>)[k]);
+        const value = (patch as Record<string, unknown>)[k];
+        params.push(
+          k === "email" && typeof value === "string"
+            ? normalizeEmail(value)
+            : value
+        );
         setClauses.push(`${col} = $${params.length}`);
       }
     }
