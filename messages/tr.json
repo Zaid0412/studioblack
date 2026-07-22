@@ -967,6 +967,7 @@
     "categoryCodeSegmentPlaceholder": "örn. BASE",
     "categoryCodeComposed": "Tam kod: {code}",
     "categoryCodeHint": "Üst kategorinin koduna eklenir",
+    "categoryCodeMinHint": "Kod en az {min} karakter olmalıdır.",
     "categoryCodeLocked": "Kod kilitli — bu kategori zaten kullanımda",
     "categoryIcon": "İkon",
     "categoryColor": "Renk",

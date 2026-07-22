@@ -18,10 +18,12 @@ import { toast } from "@/components/ui/useToast";
 import { elementCategories as categoriesApi } from "@/lib/api";
 import { API } from "@/lib/api/routes";
 import {
+  CATEGORY_CODE_SEGMENT_MIN,
   composeCategoryCode,
-  maxSegmentLength,
+  isSegmentTooShort,
   nextAutoSegment,
   normalizeCodeSegment,
+  segmentCap,
 } from "@/lib/categoryCode";
 import { useCodeConfig } from "@/hooks/useCodeConfig";
 import { cn } from "@/lib/utils";
@@ -163,12 +165,18 @@ export function ServiceAreaDialog({
     : composeCategoryCode(categoryPrefix, subcategory.segment);
   const serviceAreaPrefix = composeCategoryCode(subPrefix, serviceArea.segment);
 
-  // A picked rung needs nothing more; a new one needs a name, plus a code
-  // segment unless the org auto-generates it. The Service Area is always new, so
-  // this covers it too.
-  const rungReady = (rung: Rung) =>
-    rung.pick !== NEW ||
-    (!!rung.name.trim() && (!!rung.segment.trim() || config.auto_generate));
+  // A picked rung needs nothing more; a new one needs a name plus a code
+  // segment. A non-empty segment must clear the minimum length (so `K` can't be
+  // saved); an empty one is only allowed when the org auto-generates. The
+  // Service Area is always new, so this covers it too.
+  const rungReady = (rung: Rung) => {
+    if (rung.pick !== NEW) return true;
+    const seg = rung.segment.trim();
+    const segOk =
+      seg.length >= CATEGORY_CODE_SEGMENT_MIN ||
+      (seg === "" && config.auto_generate);
+    return !!rung.name.trim() && segOk;
+  };
   const ready = [category, subcategory, serviceArea].every(rungReady);
 
   const selectCategory = (pick: string) => {
@@ -247,6 +255,7 @@ export function ServiceAreaDialog({
             namePlaceholder={t("categoryNamePlaceholder")}
             parentReady
             autoGenerate={config.auto_generate}
+            codeMaxLength={config.code_max_length}
           />
 
           <RungFields
@@ -260,6 +269,7 @@ export function ServiceAreaDialog({
             namePlaceholder={t("categoryNamePlaceholder")}
             parentReady={rungReady(category)}
             autoGenerate={config.auto_generate}
+            codeMaxLength={config.code_max_length}
           />
 
           {/* The Service Area is a rung with nothing to pick from — it is always
@@ -273,6 +283,7 @@ export function ServiceAreaDialog({
             namePlaceholder={t("serviceAreaNamePlaceholder")}
             parentReady={rungReady(subcategory)}
             autoGenerate={config.auto_generate}
+            codeMaxLength={config.code_max_length}
           />
 
           <p className="text-xs text-text-muted">
@@ -314,6 +325,8 @@ interface RungProps {
   parentReady: boolean;
   /** When the org auto-generates codes, the segment field isn't required. */
   autoGenerate: boolean;
+  /** The org's `code_max_length` — caps the segment input at the setting. */
+  codeMaxLength: number;
   newLabel?: string;
   onPick?: (pick: string) => void;
 }
@@ -334,6 +347,7 @@ function RungFields({
   onChange,
   parentReady,
   autoGenerate,
+  codeMaxLength,
   newLabel,
   onPick,
 }: RungProps) {
@@ -440,31 +454,38 @@ function RungFields({
       )}
 
       {creating && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {/* Both are mandatory — `rungReady` gates Save on a name AND a code
-              segment for every rung being created. */}
-          <Input
-            label={t("categoryNameLabel")}
-            placeholder={namePlaceholder}
-            value={rung.name}
-            onChange={(e) => onChange({ ...rung, name: e.target.value })}
-            maxLength={150}
-            required
-          />
-          <Input
-            label={t("categoryCodeSegment")}
-            placeholder={t("categoryCodeSegmentPlaceholder")}
-            value={rung.segment}
-            onChange={(e) => {
-              const segment = normalizeCodeSegment(e.target.value);
-              // Typing a code stops auto-fill; clearing it back to empty
-              // resumes name-driven auto-fill.
-              onChange({ ...rung, segment, codeTouched: segment !== "" });
-            }}
-            maxLength={maxSegmentLength(parentPrefix)}
-            required={!autoGenerate}
-          />
-        </div>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* Both are mandatory — `rungReady` gates Save on a name AND a code
+                segment for every rung being created. */}
+            <Input
+              label={t("categoryNameLabel")}
+              placeholder={namePlaceholder}
+              value={rung.name}
+              onChange={(e) => onChange({ ...rung, name: e.target.value })}
+              maxLength={150}
+              required
+            />
+            <Input
+              label={t("categoryCodeSegment")}
+              placeholder={t("categoryCodeSegmentPlaceholder")}
+              value={rung.segment}
+              onChange={(e) => {
+                const segment = normalizeCodeSegment(e.target.value);
+                // Typing a code stops auto-fill; clearing it back to empty
+                // resumes name-driven auto-fill.
+                onChange({ ...rung, segment, codeTouched: segment !== "" });
+              }}
+              maxLength={segmentCap(parentPrefix, codeMaxLength)}
+              required={!autoGenerate}
+            />
+          </div>
+          {isSegmentTooShort(rung.segment) && (
+            <p className="text-xs text-warning">
+              {t("categoryCodeMinHint", { min: CATEGORY_CODE_SEGMENT_MIN })}
+            </p>
+          )}
+        </>
       )}
     </div>
   );

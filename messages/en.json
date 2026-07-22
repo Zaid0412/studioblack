@@ -967,6 +967,7 @@
     "categoryCodeSegmentPlaceholder": "e.g. BASE",
     "categoryCodeComposed": "Full code: {code}",
     "categoryCodeHint": "Added to the parent's code",
+    "categoryCodeMinHint": "Code must be at least {min} characters.",
     "categoryCodeLocked": "Code is locked — this category is already in use",
     "categoryIcon": "Icon",
     "categoryColor": "Color",
