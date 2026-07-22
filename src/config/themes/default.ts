@@ -18,6 +18,9 @@ const defaultTheme: Theme = {
     "accent-hover": "#D4A90D",
     // On dark surfaces the bright accent is already readable as ink → == accent.
     "accent-strong": "#F5C518",
+    // The dark accent is already a vivid CTA — reuse it for the button fill.
+    "accent-button": "#F5C518",
+    "accent-button-hover": "#D4A90D",
 
     // Text
     "text-primary": "#FFFFFF",
