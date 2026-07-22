@@ -188,6 +188,7 @@ function vendorToForm(v: VendorWithRelations): FormState {
     notes: v.notes ?? "",
     addresses,
     contacts: v.contacts.map((c) => ({
+      id: c.id,
       name: c.name,
       title: c.title ?? "",
       email: c.email,
@@ -287,6 +288,7 @@ export function VendorFormDialog({
         contacts: values.contacts
           .filter((c) => c.name.trim() && c.email.trim())
           .map((c) => ({
+            id: c.id,
             name: c.name.trim(),
             title: opt(c.title),
             email: c.email.trim(),

@@ -1323,6 +1323,11 @@ export const vendorAddressSchema = z
 
 export const vendorContactSchema = z
   .object({
+    /**
+     * Round-tripped for an existing contact so the server updates it in place
+     * (preserving its portal `user_id`) instead of rebuilding it.
+     */
+    id: z.string().uuid().optional(),
     name: trimmedString.max(255),
     title: z.string().max(100).optional(),
     email: z.string().email(),

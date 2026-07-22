@@ -687,11 +687,29 @@ export interface RfqContactForEmail {
 }
 
 /**
+ * Drop recipients that resolve to the same address for the same target. A
+ * vendor can have several `receives_rfq` contacts, and more than one can share
+ * an email (case/whitespace, or a stale duplicate left behind when the address
+ * was "changed" by adding a new contact) — without this the same inbox gets the
+ * RFQ twice. Keeps the first, i.e. the primary contact given the queries'
+ * `is_primary DESC` order.
+ */
+function dedupeByKey<T>(rows: T[], keyOf: (r: T) => string): T[] {
+  const seen = new Set<string>();
+  return rows.filter((r) => {
+    const k = keyOf(r);
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
+/**
  * `receives_rfq = true` contacts for vendors on this RFQ's invitation list,
  * joined with `vendor.company_name` and the `vendor_contact.user_id` link
  * (when a vendor user has accepted the portal invite). Pass `vendorIds`
  * to scope to a subset — used by the invite-more flow so emails only fire
- * to newly-added vendors.
+ * to newly-added vendors. De-duped so one inbox never gets the RFQ twice.
  */
 export async function getRfqContactsForEmail(
   rfqId: string,
@@ -724,14 +742,17 @@ export async function getRfqContactsForEmail(
      ORDER BY lower(v.company_name), vc.is_primary DESC, lower(vc.name)`,
     params
   );
-  return rows.map((r) => ({
-    vendorId: r.vendor_id,
-    vendorName: r.vendor_name,
-    contactId: r.contact_id,
-    contactName: r.contact_name,
-    contactEmail: r.contact_email,
-    contactUserId: r.contact_user_id,
-  }));
+  return dedupeByKey(
+    rows.map((r) => ({
+      vendorId: r.vendor_id,
+      vendorName: r.vendor_name,
+      contactId: r.contact_id,
+      contactName: r.contact_name,
+      contactEmail: r.contact_email,
+      contactUserId: r.contact_user_id,
+    })),
+    (r) => `${r.vendorId}:${r.contactEmail.trim().toLowerCase()}`
+  );
 }
 
 /**
@@ -758,6 +779,11 @@ export interface DueRfqReminder {
   reminderCount: number;
 }
 
+/**
+ * Vendors due a 3-day RFQ reminder (issued / quotes_received / under_review, no
+ * current quote yet), addressed to their `receives_rfq` contacts. De-duped so
+ * one inbox never gets the same reminder twice.
+ */
 export async function getDueRfqReminders(): Promise<DueRfqReminder[]> {
   const { rows } = await getPool().query(
     `SELECT r.id AS rfq_id, r.rfq_number, r.title AS rfq_title,
@@ -781,18 +807,21 @@ export async function getDueRfqReminders(): Promise<DueRfqReminder[]> {
         )
       ORDER BY r.id, lower(v.company_name), vc.is_primary DESC, lower(vc.name)`
   );
-  return rows.map((r) => ({
-    rfqId: r.rfq_id,
-    rfqNumber: r.rfq_number,
-    rfqTitle: r.rfq_title,
-    projectName: r.project_name,
-    responseDeadline: r.response_deadline,
-    vendorId: r.vendor_id,
-    vendorName: r.vendor_name,
-    contactName: r.contact_name,
-    contactEmail: r.contact_email,
-    reminderCount: r.reminder_count,
-  }));
+  return dedupeByKey(
+    rows.map((r) => ({
+      rfqId: r.rfq_id,
+      rfqNumber: r.rfq_number,
+      rfqTitle: r.rfq_title,
+      projectName: r.project_name,
+      responseDeadline: r.response_deadline,
+      vendorId: r.vendor_id,
+      vendorName: r.vendor_name,
+      contactName: r.contact_name,
+      contactEmail: r.contact_email,
+      reminderCount: r.reminder_count,
+    })),
+    (r) => `${r.rfqId}:${r.vendorId}:${r.contactEmail.trim().toLowerCase()}`
+  );
 }
 
 /**

@@ -1,4 +1,7 @@
+import type { Pool, PoolClient } from "pg";
 import { getPool } from "@/lib/db";
+
+type Querier = Pick<Pool | PoolClient, "query">;
 
 /** Create a pending email change record and return the verification token. */
 export async function createPendingEmailChange(
@@ -90,11 +93,19 @@ export class EmailTakenError extends Error {
   }
 }
 
-/** Update user email, mark as verified, and invalidate all sessions. */
-export async function updateUserEmail(userId: string, newEmail: string) {
-  const pool = getPool();
+/**
+ * Update user email, mark as verified, and invalidate all sessions. Pass
+ * `executor` (a transaction client) to run it atomically alongside a caller's
+ * other writes — e.g. a vendor-contact email change that must also move the
+ * linked login identity.
+ */
+export async function updateUserEmail(
+  userId: string,
+  newEmail: string,
+  executor: Querier = getPool()
+) {
   try {
-    await pool.query(
+    await executor.query(
       `UPDATE "user" SET email = $1, "emailVerified" = true, "updatedAt" = NOW() WHERE id = $2`,
       [newEmail, userId]
     );
@@ -111,7 +122,7 @@ export async function updateUserEmail(userId: string, newEmail: string) {
     throw err;
   }
   // Invalidate all sessions so the user re-authenticates with the new email
-  await pool.query(`DELETE FROM session WHERE "userId" = $1`, [userId]);
+  await executor.query(`DELETE FROM session WHERE "userId" = $1`, [userId]);
 }
 
 /** Get the password hash for a user's credential account. */
