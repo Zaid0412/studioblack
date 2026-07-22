@@ -4,7 +4,10 @@ import { useState } from "react";
 import { Search } from "lucide-react";
 import { CategoryIcon } from "./CategoryIcon";
 import { CategoryIconBrowseDialog } from "./CategoryIconBrowseDialog";
-import { DEFAULT_CATEGORY_ICONS as DEFAULT_ICONS } from "./categoryIcons";
+import {
+  DEFAULT_CATEGORY_ICONS as DEFAULT_ICONS,
+  humanizeIconName,
+} from "./categoryIcons";
 import {
   Tooltip,
   TooltipContent,
@@ -54,7 +57,9 @@ export function CategoryIconPicker({
             <CategoryIcon icon={name} color={color ?? null} size={18} />
           </button>
         </TooltipTrigger>
-        <TooltipContent>{name ?? "Clear icon"}</TooltipContent>
+        <TooltipContent>
+          {name ? humanizeIconName(name) : "Clear icon"}
+        </TooltipContent>
       </Tooltip>
     );
   };

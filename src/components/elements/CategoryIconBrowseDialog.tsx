@@ -20,7 +20,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useDebouncedCallback, useDebouncedValue } from "@/hooks/useDebounce";
-import { CURATED_CATEGORY_ICONS } from "./categoryIcons";
+import { CURATED_CATEGORY_ICONS, humanizeIconName } from "./categoryIcons";
 import { capitalize } from "@/lib/taskUtils";
 import { cn } from "@/lib/utils";
 
@@ -88,9 +88,6 @@ function suggestSearches(query: string, limit = 3): string[] {
   }
   return out;
 }
-
-/** "BrickWall" → "Brick Wall", "Icon3D" → "Icon 3 D". */
-const humanize = (name: string) => name.replace(/([A-Z0-9]+)/g, " $1").trim();
 
 interface Props {
   open: boolean;
@@ -246,7 +243,7 @@ export function CategoryIconBrowseDialog({
                           />
                         </button>
                       </TooltipTrigger>
-                      <TooltipContent>{name}</TooltipContent>
+                      <TooltipContent>{humanizeIconName(name)}</TooltipContent>
                     </Tooltip>
                   );
                 })}
@@ -267,7 +264,7 @@ export function CategoryIconBrowseDialog({
               </div>
               <div className="flex min-w-0 flex-col leading-tight">
                 <span className="truncate text-sm font-medium text-text-primary">
-                  {humanize(displayed)}
+                  {humanizeIconName(displayed)}
                 </span>
                 <code className="mt-0.5 truncate font-mono text-[11px] text-text-muted">
                   {displayed}

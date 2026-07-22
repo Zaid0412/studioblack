@@ -43,6 +43,10 @@ export const CURATED_CATEGORY_ICONS = [
   "Landmark",
 ] as const;
 
+/** Icon id → display label: `"PencilRuler"` → `"Pencil Ruler"`, `"Grid2x2"` → `"Grid 2x 2"`. */
+export const humanizeIconName = (name: string) =>
+  name.replace(/([A-Z0-9]+)/g, " $1").trim();
+
 /** Inline quick-picks shown before "Browse all" — a compact construction subset. */
 export const DEFAULT_CATEGORY_ICONS = [
   "House",
