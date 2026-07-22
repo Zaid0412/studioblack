@@ -212,7 +212,8 @@ export function BoqCreateItemSheet({
   useEffect(() => {
     if (!open) return;
     // Seed Margin % from the BOQ's margin. Falls back to INITIAL's global
-    // default when the BOQ carries no usable value.
+    // default when the BOQ carries no usable margin — an empty value or a 0
+    // (no-floor) shouldn't start every line at 0%.
     const marginSeed = Number(minimumMarginPct);
     setV({
       ...INITIAL,
@@ -222,7 +223,7 @@ export function BoqCreateItemSheet({
       serviceChargePct:
         project?.default_service_charge_pct ?? INITIAL.serviceChargePct,
       marginPct:
-        minimumMarginPct.trim() !== "" && Number.isFinite(marginSeed)
+        Number.isFinite(marginSeed) && marginSeed > 0
           ? String(marginSeed)
           : INITIAL.marginPct,
     });
