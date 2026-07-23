@@ -785,7 +785,12 @@
     "toastDisabled": "Bölüm devre dışı bırakıldı",
     "deleteAction": "Sil",
     "deleteTitle": "Bölümü sil",
-    "deleteConfirm": "\"<b>{name}</b>\" silinsin mi? Bu geri alınamaz. Bir BOQ tarafından hâlâ kullanılan bir bölüm silinemez — bunun yerine devre dışı bırakın."
+    "deleteConfirm": "\"<b>{name}</b>\" silinsin mi? Bu geri alınamaz.",
+    "usageChecking": "Bu bölümün nerede kullanıldığı kontrol ediliyor…",
+    "usageIntro": "Hâlâ burada kullanılıyor — önce bunları kaldırın veya yeniden atayın ya da bölümü devre dışı bırakın:",
+    "usageItems": "{count, plural, one {# satır} other {# satır}}",
+    "usageSections": "{count, plural, one {# kısım} other {# kısım}}",
+    "usageOpenBoq": "{project} BOQ'sunu aç"
   },
   "organisation": {
     "title": "Organizasyon",

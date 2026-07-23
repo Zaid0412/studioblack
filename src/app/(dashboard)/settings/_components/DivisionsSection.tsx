@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import useSWR, { preload } from "swr";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -21,6 +22,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   ArrowLeft,
+  ArrowUpRight,
   GripVertical,
   Plus,
   RotateCcw,
@@ -36,8 +38,15 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { emphasisTags } from "@/components/ui/richText";
 import { toast } from "@/components/ui/useToast";
 import { divisions as divisionsApi } from "@/lib/api";
+import { API } from "@/lib/api/routes";
+import { swrFetcher } from "@/lib/swr";
 import { useDivisions } from "@/hooks/useDivisions";
-import type { Division } from "@/types";
+import { useDebouncedValue } from "@/hooks/useDebounce";
+import type { Division, DivisionUsage } from "@/types";
+
+/** Warm the usage cache before the delete dialog opens (hover/focus the trash). */
+const prefetchUsage = (id: string) =>
+  preload(API.divisionUsage(id), swrFetcher);
 
 // One grid template shared by the header, every row, and the add row, so the
 // Code / Name columns line up exactly and the toggles/actions column aligns.
@@ -126,6 +135,8 @@ function DivisionRow({
         type="button"
         aria-label={t("deleteAction")}
         onClick={() => onDelete(division)}
+        onMouseEnter={() => prefetchUsage(division.id)}
+        onFocus={() => prefetchUsage(division.id)}
         className="flex justify-center text-text-muted transition-colors hover:text-error"
       >
         <Trash2 className="h-4 w-4" />
@@ -161,6 +172,20 @@ export function DivisionsSection() {
   const [restoring, setRestoring] = useState(false);
   const [toDelete, setToDelete] = useState<Division | null>(null);
   const [deleting, setDeleting] = useState(false);
+  // Where the pending-delete division is used, so the dialog can name the
+  // projects blocking it (a BOQ section holds a division even with no lines —
+  // the reference the user can't see just by scanning line items).
+  const { data: usageData, error: usageError } = useSWR<{
+    usage: DivisionUsage[];
+  }>(toDelete ? API.divisionUsage(toDelete.id) : null);
+  const usage = usageData?.usage ?? [];
+  const usageLoading = toDelete !== null && !usageData && !usageError;
+  const divisionInUse = usage.length > 0;
+  // Only surface the "checking" state if the fetch is actually slow — most
+  // resolve in a blink (or are already prefetched from the trash hover), and a
+  // loader that flashes for a frame then vanishes reads as jank.
+  const loadingSettled = useDebouncedValue(usageLoading, 300);
+  const showChecking = usageLoading && loadingSettled;
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
@@ -340,7 +365,7 @@ export function DivisionsSection() {
 
       {/* Search */}
       <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-text-muted" />
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -440,8 +465,52 @@ export function DivisionsSection() {
         cancelLabel={tc("cancel")}
         destructive
         submitting={deleting}
+        confirmDisabled={usageLoading || divisionInUse}
         onConfirm={handleDelete}
-      />
+      >
+        {toDelete &&
+          (showChecking ? (
+            <div
+              aria-busy="true"
+              className="flex flex-col gap-2 rounded-lg border border-border-default bg-bg-elevated/30 p-3 animate-in fade-in duration-200 ease-out motion-reduce:animate-none"
+            >
+              <span className="sr-only">{t("usageChecking")}</span>
+              <Skeleton className="h-3.5 w-44" />
+              <Skeleton className="h-4 w-full" />
+            </div>
+          ) : divisionInUse ? (
+            <div className="flex flex-col gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3 animate-in fade-in slide-in-from-top-1 duration-200 ease-out motion-reduce:animate-none">
+              <p className="text-sm text-text-secondary">{t("usageIntro")}</p>
+              <ul className="flex flex-col divide-y divide-border-default">
+                {usage.map((u) => (
+                  <li key={u.project_id}>
+                    <Link
+                      href={`/projects/${u.project_id}/boq`}
+                      onClick={() => setToDelete(null)}
+                      className="group flex items-center justify-between gap-3 py-1.5 text-sm"
+                      title={t("usageOpenBoq", { project: u.project_name })}
+                    >
+                      <span className="inline-flex min-w-0 items-center gap-1.5 text-text-primary group-hover:text-accent-strong">
+                        <span className="truncate">{u.project_name}</span>
+                        <ArrowUpRight className="h-3.5 w-3.5 shrink-0 opacity-60 group-hover:opacity-100" />
+                      </span>
+                      <span className="shrink-0 text-text-muted">
+                        {[
+                          u.item_count > 0 &&
+                            t("usageItems", { count: u.item_count }),
+                          u.section_count > 0 &&
+                            t("usageSections", { count: u.section_count }),
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null)}
+      </ConfirmDialog>
     </div>
   );
 }

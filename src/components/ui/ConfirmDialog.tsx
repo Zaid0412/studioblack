@@ -22,6 +22,8 @@ interface ConfirmDialogProps {
   /** Use the danger button variant and add a warning icon. */
   destructive?: boolean;
   submitting?: boolean;
+  /** Disable the confirm action (e.g. the target is blocked from deletion). */
+  confirmDisabled?: boolean;
   onConfirm: () => void | Promise<void>;
   /** Optional extra content (e.g. a note field) rendered above the buttons. */
   children?: React.ReactNode;
@@ -41,6 +43,7 @@ export function ConfirmDialog({
   cancelLabel = "Cancel",
   destructive,
   submitting,
+  confirmDisabled,
   onConfirm,
   children,
 }: ConfirmDialogProps) {
@@ -69,7 +72,7 @@ export function ConfirmDialog({
             onClick={async () => {
               await onConfirm();
             }}
-            disabled={submitting}
+            disabled={submitting || confirmDisabled}
           >
             {submitting ? (
               <>

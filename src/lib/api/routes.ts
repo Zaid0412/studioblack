@@ -99,6 +99,7 @@ export const API = {
   // ── Divisions ───────────────────────────────────
   divisions:                ()                            => "/api/divisions",
   division:                 (id: string)                  => `/api/divisions/${id}`,
+  divisionUsage:            (id: string)                  => `/api/divisions/${id}/usage`,
   divisionsReorder:         ()                            => "/api/divisions/reorder",
   divisionsRestore:         ()                            => "/api/divisions/restore",
 

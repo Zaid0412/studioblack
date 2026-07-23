@@ -4,6 +4,7 @@ import {
   createDivision,
   updateDivision,
   deleteDivision,
+  getDivisionUsage,
   reorderDivisions,
   seedDefaultDivisions,
 } from "@/lib/queries";
@@ -12,6 +13,7 @@ import {
   PATCH as PATCH_ITEM,
   DELETE as DELETE_ITEM,
 } from "@/app/api/divisions/[id]/route";
+import { GET as GET_USAGE } from "@/app/api/divisions/[id]/usage/route";
 import { PATCH as PATCH_REORDER } from "@/app/api/divisions/reorder/route";
 import { POST as POST_RESTORE } from "@/app/api/divisions/restore/route";
 import {
@@ -22,7 +24,7 @@ import {
   parseResponse,
 } from "../helpers";
 import { mocks } from "../setup";
-import type { Division } from "@/types";
+import type { Division, DivisionUsage } from "@/types";
 
 const DIV_ID = "f47ac10b-58cc-4372-a567-0e02b2c3d479";
 const DIV_ID_2 = "7c9e6679-7425-40de-944b-e07fc1f90ae7";
@@ -203,6 +205,56 @@ describe("DELETE /api/divisions/[id]", () => {
       buildParams({ id: DIV_ID })
     );
     expect((await parseResponse(res)).status).toBe(404);
+  });
+});
+
+describe("GET /api/divisions/[id]/usage", () => {
+  it("returns the projects (with counts) that reference the division", async () => {
+    vi.mocked(getDivisionUsage).mockResolvedValue([
+      {
+        project_id: "p1",
+        project_name: "Riverside Tower",
+        item_count: 0,
+        section_count: 1,
+      },
+    ]);
+
+    const res = await GET_USAGE(
+      buildRequest(`/api/divisions/${DIV_ID}/usage`),
+      buildParams({ id: DIV_ID })
+    );
+    const { status, body } = await parseResponse<{ usage: DivisionUsage[] }>(
+      res
+    );
+
+    expect(status).toBe(200);
+    expect(body.usage).toHaveLength(1);
+    expect(body.usage[0].project_name).toBe("Riverside Tower");
+    expect(body.usage[0].section_count).toBe(1);
+  });
+
+  it("returns an empty list for an unreferenced division", async () => {
+    vi.mocked(getDivisionUsage).mockResolvedValue([]);
+
+    const res = await GET_USAGE(
+      buildRequest(`/api/divisions/${DIV_ID}/usage`),
+      buildParams({ id: DIV_ID })
+    );
+    const { status, body } = await parseResponse<{ usage: DivisionUsage[] }>(
+      res
+    );
+
+    expect(status).toBe(200);
+    expect(body.usage).toHaveLength(0);
+  });
+
+  it("returns 403 for client role", async () => {
+    setupAuth(mocks.auth, clientSession);
+    const res = await GET_USAGE(
+      buildRequest(`/api/divisions/${DIV_ID}/usage`),
+      buildParams({ id: DIV_ID })
+    );
+    expect((await parseResponse(res)).status).toBe(403);
   });
 });
 
