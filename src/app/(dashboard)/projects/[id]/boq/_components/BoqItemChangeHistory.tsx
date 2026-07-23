@@ -25,8 +25,8 @@ interface Props {
 /**
  * Immutable material-change history for a BOQ item (RFQ-3a), newest first —
  * every qty/spec/cost/dimension edit with who changed it, why, and the
- * before→after values. Sits under the phase timeline on the Activity tab.
- * Renders nothing until there's at least one recorded change.
+ * before→after values. Rendered under the Activity tab's "Changes" sub-tab
+ * (the phase timeline is the sibling "Timeline" sub-tab).
  */
 export function BoqItemChangeHistory({ projectId, itemId }: Props) {
   const { data, isLoading } = useSWR<{ versions: BoqItemVersion[] }>(
@@ -37,19 +37,18 @@ export function BoqItemChangeHistory({ projectId, itemId }: Props) {
   if (isLoading) {
     return <Skeleton className="h-16 rounded-lg" />;
   }
-  if (versions.length === 0) return null;
+  if (versions.length === 0) {
+    return (
+      <p className="text-xs italic text-text-muted">No field changes yet.</p>
+    );
+  }
 
   return (
-    <section className="flex flex-col gap-3">
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-        Change history
-      </h3>
-      <ul className="flex flex-col gap-2.5">
-        {versions.map((v) => (
-          <VersionCard key={v.id} version={v} />
-        ))}
-      </ul>
-    </section>
+    <ul className="flex flex-col gap-2.5">
+      {versions.map((v) => (
+        <VersionCard key={v.id} version={v} />
+      ))}
+    </ul>
   );
 }
 
