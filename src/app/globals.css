@@ -17,8 +17,8 @@
   /* Primary-button fill. Deeper than `--accent` so a filled CTA clearly reads
      as clickable on light surfaces — the raw accent looks washed-out/disabled
      as a large fill. Keeps dark ink at ~6:1. */
-  --accent-button: #a8820a;
-  --accent-button-hover: #8f6e08;
+  --accent-button: #be9a0b;
+  --accent-button-hover: #a5860a;
 
   --text-primary: #111111;
   --text-secondary: #444444;
