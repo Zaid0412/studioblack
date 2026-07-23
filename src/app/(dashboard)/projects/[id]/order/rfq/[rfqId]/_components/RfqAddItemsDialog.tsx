@@ -16,8 +16,9 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useBoq } from "@/hooks/useBoq";
 import { useRfqMutations } from "@/hooks/useRfqs";
-import type { BoqItemWithComputed } from "@/types";
 import { BoqItemsPickerTable } from "../../_components/BoqItemsPickerTable";
+import { isRfqEligiblePhase } from "../../_lib/itemEligibility";
+import { useRfqItemPicker } from "../../_lib/useRfqItemPicker";
 
 interface Props {
   projectId: string;
@@ -60,12 +61,24 @@ export function RfqAddItemsDialog({
     () => new Set(excludeBoqItemIds),
     [excludeBoqItemIds]
   );
-  const candidates: BoqItemWithComputed[] = useMemo(
-    () => (boq?.items ?? []).filter((it) => !excluded.has(it.id)),
-    [boq?.items, excluded]
+  // Same RFQ-4a gate the create form applies (shared hook): only
+  // Ready-for-Procurement items can enter an RFQ, minus those already on it.
+  // Without it the picker offered every BOQ item and the server rejected the
+  // ineligible picks (bad_items → 400).
+  const {
+    eligible: candidates,
+    selectable,
+    disabledReasons,
+  } = useRfqItemPicker(boq?.items, excluded);
+  // Tells the two empty causes apart: nothing ready at all vs. every ready
+  // item already added to this RFQ.
+  const hasReadyItems = useMemo(
+    () => (boq?.items ?? []).some(isRfqEligiblePhase),
+    [boq?.items]
   );
 
   const toggleItem = (id: string) => {
+    if (disabledReasons[id]) return; // committed items can't be picked
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -75,9 +88,9 @@ export function RfqAddItemsDialog({
   };
   const toggleAll = () => {
     setSelected((prev) =>
-      prev.size === candidates.length
+      prev.size === selectable.length
         ? new Set()
-        : new Set(candidates.map((i) => i.id))
+        : new Set(selectable.map((i) => i.id))
     );
   };
 
@@ -86,7 +99,7 @@ export function RfqAddItemsDialog({
   const submit = async () => {
     if (!canSubmit) return;
     setSubmitting(true);
-    const payload = candidates
+    const payload = selectable
       .filter((it) => selected.has(it.id))
       .map((it) => ({
         boqItemId: it.id,
@@ -119,17 +132,26 @@ export function RfqAddItemsDialog({
               {t("loading")}
             </p>
           ) : candidates.length === 0 ? (
-            <EmptyState
-              icon={FileText}
-              title={t("empty")}
-              description={t("emptyHint")}
-            />
+            hasReadyItems ? (
+              <EmptyState
+                icon={FileText}
+                title={t("emptyAllAdded")}
+                description={t("emptyAllAddedHint")}
+              />
+            ) : (
+              <EmptyState
+                icon={FileText}
+                title={t("empty")}
+                description={t("emptyHint")}
+              />
+            )
           ) : (
             <BoqItemsPickerTable
               items={candidates}
               selected={selected}
               onToggleItem={toggleItem}
               onToggleAll={toggleAll}
+              disabledReasons={disabledReasons}
               labels={{
                 selectAll: t("selectAll"),
                 code: t("col.code"),
