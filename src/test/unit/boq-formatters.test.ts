@@ -4,6 +4,7 @@ import {
   marginTier,
   phaseToVariant,
   phaseToLabel,
+  boqStatusBadge,
   formatCurrency,
   formatDimension,
   formatDimensions,
@@ -119,6 +120,32 @@ describe("phaseToLabel", () => {
     expect(phaseToLabel("internally_approved", "client")).toBe(
       "Internally Approved"
     );
+  });
+});
+
+describe("boqStatusBadge", () => {
+  it("mirrors the phase badge for an in-scope line", () => {
+    expect(
+      boqStatusBadge({ phase: "ready_for_procurement", is_excluded: false })
+    ).toEqual({ label: "Ready for Procurement", variant: "active" });
+  });
+
+  it("respects the client alias for an in-scope line", () => {
+    expect(
+      boqStatusBadge(
+        { phase: "ready_for_procurement", is_excluded: false },
+        "client"
+      )
+    ).toEqual({ label: "Approved", variant: "approved-client" });
+  });
+
+  it("shows 'Out of scope' for an excluded line regardless of phase", () => {
+    expect(
+      boqStatusBadge({ phase: "ready_for_procurement", is_excluded: true })
+    ).toEqual({ label: "Out of scope", variant: "archived" });
+    expect(
+      boqStatusBadge({ phase: "draft", is_excluded: true }, "client")
+    ).toEqual({ label: "Out of scope", variant: "archived" });
   });
 });
 

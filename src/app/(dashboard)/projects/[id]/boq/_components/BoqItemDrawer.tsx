@@ -24,11 +24,14 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/useToast";
 import { cn } from "@/lib/utils";
 import { API } from "@/lib/api/routes";
 import type {
   AvailableRate,
+  BoqItemHistoryEvent,
+  BoqItemVersion,
   BoqItemWithComputed,
   BoqSection,
   UserRole,
@@ -419,6 +422,23 @@ export function BoqItemDrawer({
   const [pendingDestructive, setPendingDestructive] =
     useState<BoqItemPhase | null>(null);
   const [tab, setTab] = useState<"details" | "activity">("details");
+  // Activity splits into a phase Timeline and a field-change log; they're
+  // distinct histories, so they live behind a sub-toggle rather than stacked.
+  const [activityView, setActivityView] = useState<"timeline" | "changes">(
+    "timeline"
+  );
+  // Counts for the sub-toggle, fetched only while the Activity tab is open. The
+  // shown view's endpoint dedupes against its child component's own fetch; the
+  // hidden view's is a cheap prefetch, so switching sub-tabs is instant.
+  const activityOpen = open && tab === "activity";
+  const { data: timelineData } = useSWR<{ events: BoqItemHistoryEvent[] }>(
+    activityOpen && item ? API.boqItemHistory(projectId, item.id) : null
+  );
+  const { data: changesData } = useSWR<{ versions: BoqItemVersion[] }>(
+    activityOpen && item ? API.boqItemVersions(projectId, item.id) : null
+  );
+  const timelineCount = timelineData?.events.length;
+  const changesCount = changesData?.versions.length;
 
   // Seed the buffer only when a new drawer opens (or the item id changes).
   // Also reset to Details so opening a different item doesn't keep an
@@ -427,6 +447,7 @@ export function BoqItemDrawer({
     if (!open || !item) return;
     setDraft(seedDraft(item));
     setTab("details");
+    setActivityView("timeline");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, item?.id]);
 
@@ -662,14 +683,16 @@ export function BoqItemDrawer({
               )}
             </div>
             <SheetTitle>{item.description}</SheetTitle>
-            <SheetDescription>
-              {formatQty(item.quantity)} {item.unit} ·{" "}
-              {formatCurrency(item.sell_price, currency)}
-            </SheetDescription>
-            <div className="flex flex-wrap gap-2 pt-2">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <SheetDescription>
+                {formatQty(item.quantity)} {item.unit} ·{" "}
+                {formatCurrency(item.sell_price, currency)}
+              </SheetDescription>
               <Badge variant={phaseToVariant(item.phase, role)}>
                 {phaseToLabel(item.phase, role)}
               </Badge>
+            </div>
+            <div className="flex flex-wrap gap-1.5 pt-0.5 empty:hidden">
               {item.is_provisional && (
                 <Badge variant="warning">provisional</Badge>
               )}
@@ -727,14 +750,14 @@ export function BoqItemDrawer({
 
           <SheetBody
             className={cn(
-              "flex flex-col gap-5",
+              "flex flex-col gap-4",
               tab === "activity" && "hidden"
             )}
           >
             {isDestructivePhase(item.phase) && (
               <BoqChangeRequestBanner projectId={projectId} itemId={item.id} />
             )}
-            <section className="flex flex-col gap-3">
+            <DrawerCard title="Identity">
               <EditableField
                 label="Name"
                 disabled={fieldsDisabled}
@@ -832,107 +855,117 @@ export function BoqItemDrawer({
                   )}
                 </div>
               )}
-            </section>
+            </DrawerCard>
 
-            <section className="grid grid-cols-2 gap-3 text-sm">
-              <EditableField
-                label="Quantity"
-                disabled={fieldsDisabled}
-                mode="number"
-                min={0}
-                value={draft.quantity}
-                display={formatQty(draft.quantity)}
-                onSave={(next) => setField({ quantity: next })}
-              />
-              <DetailField
-                label={isExternal ? t("totalLabel") : t("fieldProposedPrice")}
-                value={formatCurrency(item.sell_price, currency)}
-              />
-              {!isExternal && (
-                <>
-                  <EditableField
-                    label="Unit cost"
-                    disabled={fieldsDisabled}
-                    mode="number"
-                    min={0}
-                    value={draft.unitCost}
-                    display={formatCurrency(draft.unitCost, currency)}
-                    onSave={(next) => setField({ unitCost: next })}
-                  />
-                  <DetailField
+            <DrawerCard title="Pricing">
+              <div
+                className={cn(
+                  "grid gap-2",
+                  isExternal ? "grid-cols-1" : "grid-cols-2"
+                )}
+              >
+                <StatBlock
+                  label={isExternal ? t("totalLabel") : t("fieldProposedPrice")}
+                  value={formatCurrency(item.sell_price, currency)}
+                />
+                {!isExternal && (
+                  <StatBlock
                     label="Total cost"
                     value={formatCurrency(item.total_cost, currency)}
                   />
-                  <EditableField
-                    label="Margin"
-                    disabled={fieldsDisabled}
-                    mode="number"
-                    min={0}
-                    max={100}
-                    value={draft.marginPct}
-                    display={formatPct(draft.marginPct)}
-                    valueClassName={marginColor}
-                    onSave={(next) => setField({ marginPct: next })}
-                  />
-                  <EditableField
-                    label="Overhead"
-                    disabled={fieldsDisabled}
-                    mode="number"
-                    min={0}
-                    max={100}
-                    value={draft.overheadPct}
-                    display={formatPct(draft.overheadPct)}
-                    onSave={(next) => setField({ overheadPct: next })}
-                  />
-                  <EditableField
-                    label="Service charge"
-                    disabled={fieldsDisabled}
-                    mode="number"
-                    min={0}
-                    max={100}
-                    value={draft.serviceChargePct}
-                    display={formatPct(draft.serviceChargePct)}
-                    onSave={(next) => setField({ serviceChargePct: next })}
-                  />
-                  <EditableField
-                    label="Client rate"
-                    disabled={fieldsDisabled}
-                    mode="number"
-                    min={0}
-                    value={draft.clientRate}
-                    display={formatOptionalCurrency(
-                      draft.clientRate === "" ? null : draft.clientRate,
-                      currency
-                    )}
-                    onSave={(next) => setField({ clientRate: next })}
-                  />
-                  <EditableField
-                    label="Budget rate"
-                    disabled={fieldsDisabled}
-                    mode="number"
-                    min={0}
-                    value={draft.budgetRate}
-                    display={formatOptionalCurrency(
-                      draft.budgetRate === "" ? null : draft.budgetRate,
-                      currency
-                    )}
-                    onSave={(next) => setField({ budgetRate: next })}
-                  />
-                </>
-              )}
-            </section>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <EditableField
+                  label="Quantity"
+                  disabled={fieldsDisabled}
+                  mode="number"
+                  min={0}
+                  value={draft.quantity}
+                  display={formatQty(draft.quantity)}
+                  onSave={(next) => setField({ quantity: next })}
+                />
+                {!isExternal && (
+                  <>
+                    <EditableField
+                      label="Unit cost"
+                      disabled={fieldsDisabled}
+                      mode="number"
+                      min={0}
+                      value={draft.unitCost}
+                      display={formatCurrency(draft.unitCost, currency)}
+                      onSave={(next) => setField({ unitCost: next })}
+                    />
+                    <EditableField
+                      label="Margin"
+                      disabled={fieldsDisabled}
+                      mode="number"
+                      min={0}
+                      max={100}
+                      value={draft.marginPct}
+                      display={formatPct(draft.marginPct)}
+                      valueClassName={marginColor}
+                      onSave={(next) => setField({ marginPct: next })}
+                    />
+                    <EditableField
+                      label="Overhead"
+                      disabled={fieldsDisabled}
+                      mode="number"
+                      min={0}
+                      max={100}
+                      value={draft.overheadPct}
+                      display={formatPct(draft.overheadPct)}
+                      onSave={(next) => setField({ overheadPct: next })}
+                    />
+                    <EditableField
+                      label="Service charge"
+                      disabled={fieldsDisabled}
+                      mode="number"
+                      min={0}
+                      max={100}
+                      value={draft.serviceChargePct}
+                      display={formatPct(draft.serviceChargePct)}
+                      onSave={(next) => setField({ serviceChargePct: next })}
+                    />
+                    <EditableField
+                      label="Client rate"
+                      disabled={fieldsDisabled}
+                      mode="number"
+                      min={0}
+                      value={draft.clientRate}
+                      display={formatOptionalCurrency(
+                        draft.clientRate === "" ? null : draft.clientRate,
+                        currency
+                      )}
+                      onSave={(next) => setField({ clientRate: next })}
+                    />
+                    <EditableField
+                      label="Budget rate"
+                      disabled={fieldsDisabled}
+                      mode="number"
+                      min={0}
+                      value={draft.budgetRate}
+                      display={formatOptionalCurrency(
+                        draft.budgetRate === "" ? null : draft.budgetRate,
+                        currency
+                      )}
+                      onSave={(next) => setField({ budgetRate: next })}
+                    />
+                  </>
+                )}
+              </div>
+            </DrawerCard>
 
-            <section className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
-                  Dimensions
-                </span>
+            <DrawerCard
+              title="Dimensions"
+              action={
                 <BoqDimensionUnitToggle
                   value={draft.dimensionUnit}
                   disabled={fieldsDisabled}
                   onChange={setDimensionUnit}
                 />
-              </div>
+              }
+            >
               <div className="grid grid-cols-3 gap-3">
                 <EditableField
                   label="Length"
@@ -962,9 +995,9 @@ export function BoqItemDrawer({
                   onSave={(next) => setDimension("height", next)}
                 />
               </div>
-            </section>
+            </DrawerCard>
 
-            <section className="flex flex-col gap-2">
+            <DrawerCard title="Notes">
               {!isExternal && (
                 <label className="flex flex-col gap-1.5">
                   <span className="text-xs font-medium text-text-secondary">
@@ -999,7 +1032,7 @@ export function BoqItemDrawer({
                   }
                 />
               </label>
-            </section>
+            </DrawerCard>
 
             {allowedNext.length > 0 && (
               <section className="flex flex-col gap-2">
@@ -1065,14 +1098,40 @@ export function BoqItemDrawer({
           </SheetBody>
 
           {tab === "activity" && (
-            <SheetBody className="flex flex-col gap-6">
-              <BoqItemActivity
-                projectId={projectId}
-                itemId={item.id}
-                viewerRole={role}
-                onOpenOtherItem={onOpenOtherItem}
-              />
-              <BoqItemChangeHistory projectId={projectId} itemId={item.id} />
+            <SheetBody>
+              <Tabs
+                value={activityView}
+                onValueChange={(v) =>
+                  setActivityView(v as "timeline" | "changes")
+                }
+              >
+                <TabsList className="w-full">
+                  <TabsTrigger value="timeline" className="flex-1 gap-1.5">
+                    Timeline
+                    {timelineCount != null && (
+                      <ActivityCount n={timelineCount} />
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger value="changes" className="flex-1 gap-1.5">
+                    Changes
+                    {changesCount != null && <ActivityCount n={changesCount} />}
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="timeline">
+                  <BoqItemActivity
+                    projectId={projectId}
+                    itemId={item.id}
+                    viewerRole={role}
+                    onOpenOtherItem={onOpenOtherItem}
+                  />
+                </TabsContent>
+                <TabsContent value="changes">
+                  <BoqItemChangeHistory
+                    projectId={projectId}
+                    itemId={item.id}
+                  />
+                </TabsContent>
+              </Tabs>
             </SheetBody>
           )}
 
@@ -1259,5 +1318,80 @@ function EditableField({
         className={`text-sm tabular-nums text-text-primary ${valueClassName ?? ""}`}
       />
     </div>
+  );
+}
+
+/**
+ * Titled card that groups a set of related drawer fields. The Details tab is a
+ * long list of same-weight fields otherwise; chunking them into cards gives the
+ * eye a structure to land on. `action` renders on the right of the title row
+ * (e.g. the dimension unit toggle).
+ */
+function DrawerCard({
+  title,
+  action,
+  children,
+  className,
+}: {
+  title?: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <section
+      className={cn(
+        "flex flex-col gap-3 rounded-xl border border-border-default bg-bg-elevated/40 p-3.5",
+        className
+      )}
+    >
+      {(title || action) && (
+        <div className="flex items-center justify-between gap-2">
+          {title && (
+            <h3 className="text-sm font-bold uppercase tracking-wide text-text-primary">
+              {title}
+            </h3>
+          )}
+          {action}
+        </div>
+      )}
+      {children}
+    </section>
+  );
+}
+
+/** Large read-only figure — the two computed totals that lead the Pricing card. */
+function StatBlock({
+  label,
+  value,
+  valueClassName,
+}: {
+  label: string;
+  value: string;
+  valueClassName?: string;
+}) {
+  return (
+    <div className="flex min-w-0 flex-col gap-0.5 rounded-lg bg-bg-input/60 px-3 py-2">
+      <span className="truncate text-[10px] uppercase tracking-wide text-text-muted">
+        {label}
+      </span>
+      <span
+        className={cn(
+          "truncate text-base font-semibold tabular-nums text-text-primary",
+          valueClassName
+        )}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+/** Count pill shown next to an Activity sub-tab label. */
+function ActivityCount({ n }: { n: number }) {
+  return (
+    <span className="rounded bg-bg-input px-1 text-[10px] tabular-nums text-text-muted">
+      {n}
+    </span>
   );
 }

@@ -87,6 +87,25 @@ export function phaseToLabel(
 }
 
 /**
+ * The status badge to show for a BOQ line. A line that's been removed from
+ * scope (`is_excluded`) keeps its `phase` for history and its RFQ trail, but
+ * it's dropped from totals and no longer operative — so the badge reflects the
+ * exclusion instead of the now-stale phase (e.g. "Ready for Procurement").
+ */
+export function boqStatusBadge(
+  item: { phase: BoqItemPhase; is_excluded: boolean },
+  viewerRole?: UserRole | null
+): { label: string; variant: BadgeVariant } {
+  if (item.is_excluded) {
+    return { label: "Out of scope", variant: "archived" };
+  }
+  return {
+    label: phaseToLabel(item.phase, viewerRole),
+    variant: phaseToVariant(item.phase, viewerRole),
+  };
+}
+
+/**
  * Tone classes for a kick-back transition. Client-initiated kick-backs use
  * the warning (amber) palette; PM-initiated internal ones use error (red).
  * Single source of truth for both the Details-tab `BoqChangeRequestBanner`
