@@ -24,6 +24,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/useToast";
 import { cn } from "@/lib/utils";
 import { API } from "@/lib/api/routes";
@@ -426,9 +427,10 @@ export function BoqItemDrawer({
   const [activityView, setActivityView] = useState<"timeline" | "changes">(
     "timeline"
   );
-  // Counts for the sub-toggle. Same SWR keys the child views use, so they're
-  // deduped — no extra request — and only fetched while the Activity tab is open.
-  const activityOpen = open && tab === "activity" && !!item;
+  // Counts for the sub-toggle, fetched only while the Activity tab is open. The
+  // shown view's endpoint dedupes against its child component's own fetch; the
+  // hidden view's is a cheap prefetch, so switching sub-tabs is instant.
+  const activityOpen = open && tab === "activity";
   const { data: timelineData } = useSWR<{ events: BoqItemHistoryEvent[] }>(
     activityOpen && item ? API.boqItemHistory(projectId, item.id) : null
   );
@@ -1096,23 +1098,40 @@ export function BoqItemDrawer({
           </SheetBody>
 
           {tab === "activity" && (
-            <SheetBody className="flex flex-col gap-4">
-              <ActivitySubToggle
-                view={activityView}
-                onChange={setActivityView}
-                timelineCount={timelineCount}
-                changesCount={changesCount}
-              />
-              {activityView === "timeline" ? (
-                <BoqItemActivity
-                  projectId={projectId}
-                  itemId={item.id}
-                  viewerRole={role}
-                  onOpenOtherItem={onOpenOtherItem}
-                />
-              ) : (
-                <BoqItemChangeHistory projectId={projectId} itemId={item.id} />
-              )}
+            <SheetBody>
+              <Tabs
+                value={activityView}
+                onValueChange={(v) =>
+                  setActivityView(v as "timeline" | "changes")
+                }
+              >
+                <TabsList className="w-full">
+                  <TabsTrigger value="timeline" className="flex-1 gap-1.5">
+                    Timeline
+                    {timelineCount != null && (
+                      <ActivityCount n={timelineCount} />
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger value="changes" className="flex-1 gap-1.5">
+                    Changes
+                    {changesCount != null && <ActivityCount n={changesCount} />}
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="timeline">
+                  <BoqItemActivity
+                    projectId={projectId}
+                    itemId={item.id}
+                    viewerRole={role}
+                    onOpenOtherItem={onOpenOtherItem}
+                  />
+                </TabsContent>
+                <TabsContent value="changes">
+                  <BoqItemChangeHistory
+                    projectId={projectId}
+                    itemId={item.id}
+                  />
+                </TabsContent>
+              </Tabs>
             </SheetBody>
           )}
 
@@ -1368,62 +1387,11 @@ function StatBlock({
   );
 }
 
-/**
- * Timeline / Changes switch for the Activity tab. The phase timeline and the
- * field-change log are separate histories, so they get a sub-toggle instead of
- * being stacked as one scroll. Counts hint what's in each before switching.
- */
-function ActivitySubToggle({
-  view,
-  onChange,
-  timelineCount,
-  changesCount,
-}: {
-  view: "timeline" | "changes";
-  onChange: (v: "timeline" | "changes") => void;
-  timelineCount?: number;
-  changesCount?: number;
-}) {
-  const opts = [
-    { key: "timeline" as const, label: "Timeline", count: timelineCount },
-    { key: "changes" as const, label: "Changes", count: changesCount },
-  ];
+/** Count pill shown next to an Activity sub-tab label. */
+function ActivityCount({ n }: { n: number }) {
   return (
-    <div
-      role="tablist"
-      aria-label="Activity view"
-      className="flex gap-1 rounded-lg bg-bg-input p-1"
-    >
-      {opts.map((o) => {
-        const active = view === o.key;
-        return (
-          <button
-            key={o.key}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onClick={() => onChange(o.key)}
-            className={cn(
-              "inline-flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-              active
-                ? "bg-bg-secondary text-text-primary shadow-sm"
-                : "text-text-muted hover:text-text-secondary"
-            )}
-          >
-            {o.label}
-            {o.count != null && (
-              <span
-                className={cn(
-                  "rounded px-1 text-[10px] tabular-nums",
-                  active ? "bg-bg-input text-text-secondary" : "text-text-muted"
-                )}
-              >
-                {o.count}
-              </span>
-            )}
-          </button>
-        );
-      })}
-    </div>
+    <span className="rounded bg-bg-input px-1 text-[10px] tabular-nums text-text-muted">
+      {n}
+    </span>
   );
 }
