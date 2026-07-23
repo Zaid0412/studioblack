@@ -249,14 +249,31 @@ export function BoqTable({
   const { byId: divisionById } = useDivisions({
     enabled: !isExternalViewer(role),
   });
+  // Fallback division metadata read straight off the BOQ rows (server-joined
+  // `division_name`), so the client — which can't fetch the divisions API, so
+  // `divisionById` is empty — still labels and orders the bands instead of
+  // rendering every one as "No division". Rows arrive in the server's canonical
+  // division order, so first-appearance is a usable rank.
+  const rowDivisions = useMemo(() => {
+    const m = new Map<string, { name: string | null; rank: number }>();
+    let rank = 0;
+    const note = (id: string | null, name: string | null | undefined) => {
+      if (id && !m.has(id)) m.set(id, { name: name ?? null, rank: rank++ });
+    };
+    for (const it of items) note(it.division_id, it.division_name);
+    for (const s of sections) note(s.division_id, s.division_name);
+    return m;
+  }, [items, sections]);
   const divisionRank = useCallback(
     (divisionId: string | null): number => {
       if (!divisionId) return Number.MAX_SAFE_INTEGER;
       return (
-        divisionById.get(divisionId)?.sort_order ?? Number.MAX_SAFE_INTEGER
+        divisionById.get(divisionId)?.sort_order ??
+        rowDivisions.get(divisionId)?.rank ??
+        Number.MAX_SAFE_INTEGER
       );
     },
-    [divisionById]
+    [divisionById, rowDivisions]
   );
 
   const visibleItems = useMemo(() => {
@@ -280,7 +297,11 @@ export function BoqTable({
       sections,
       sectionTotal,
       divisionName: (divId) =>
-        divId ? (divisionById.get(divId)?.name ?? null) : null,
+        divId
+          ? (divisionById.get(divId)?.name ??
+            rowDivisions.get(divId)?.name ??
+            null)
+          : null,
       divisionRank,
     });
   }, [
@@ -288,6 +309,7 @@ export function BoqTable({
     visibleItems,
     summary.section_totals,
     divisionRank,
+    rowDivisions,
     divisionById,
   ]);
 

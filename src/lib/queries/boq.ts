@@ -499,7 +499,15 @@ export async function getBoq(
       boqId,
     ]),
     pool.query<BoqSection>(
-      `SELECT * FROM boq_section WHERE boq_id = $1 ORDER BY sort_order, created_at`,
+      // Join the division so each section carries its code/name (per the
+      // BoqSection type). The client can't fetch the divisions API, so the
+      // division bands rely on these joined names to render a real label
+      // instead of "No division".
+      `SELECT bs.*, div.code AS division_code, div.name AS division_name
+         FROM boq_section bs
+         LEFT JOIN division div ON div.id = bs.division_id
+        WHERE bs.boq_id = $1
+        ORDER BY bs.sort_order, bs.created_at`,
       [boqId]
     ),
     pool.query<BoqItemWithComputed>(
@@ -2992,7 +3000,11 @@ export async function getBoqForExport(boqId: string): Promise<{
       [boqId]
     ),
     pool.query<BoqSection>(
-      `SELECT * FROM boq_section WHERE boq_id = $1 ORDER BY sort_order, created_at`,
+      `SELECT bs.*, div.code AS division_code, div.name AS division_name
+         FROM boq_section bs
+         LEFT JOIN division div ON div.id = bs.division_id
+        WHERE bs.boq_id = $1
+        ORDER BY bs.sort_order, bs.created_at`,
       [boqId]
     ),
   ]);
