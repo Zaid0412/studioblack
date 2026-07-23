@@ -48,6 +48,8 @@ export function create(
     versionGroup?: string;
     disciplineId?: string | null;
     drawingType?: string | null;
+    representation?: string;
+    location?: string;
   }
 ) {
   return apiPost<DbAttachment>(API.attachments(projectId), data);

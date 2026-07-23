@@ -355,20 +355,31 @@ export const patchNotificationsSchema = z.object({
 
 // ─── Drawings (Document Control, PR-2) ──────────────────────────────────────
 
-/** Drawing-type classifications (PRD "01.Design doc" §6). */
+/** Drawing-type classifications (PDS v2.0 §4C — the 13 types). */
 export const DRAWING_TYPES = [
   "PLAN",
   "ELEV",
   "SECT",
   "DET",
+  "PROD",
+  "SHOP",
   "RCP",
-  "LAY",
+  "ISO",
   "SCH",
   "SPEC",
-  "3DV",
   "REND",
+  "MOD",
+  "CAL",
 ] as const;
 export type DrawingType = (typeof DRAWING_TYPES)[number];
+
+/**
+ * How a drawing is presented (PDS v2.0 §4D). Independent metadata — replaces the
+ * old hard-coded 2D/3D tabs and never appears in the document number. Backed by
+ * a nullable `drawing.representation` CHECK column.
+ */
+export const REPRESENTATIONS = ["2D", "3D", "REN", "VR"] as const;
+export type Representation = (typeof REPRESENTATIONS)[number];
 
 /**
  * Drawing lifecycle (12 states). Backed by a DB CHECK; the declarative
@@ -403,6 +414,10 @@ export const createProjectAttachmentSchema = z.object({
   // create branch, per PRD §22/§24); inherited from the drawing on a new version.
   disciplineId: optionalUuid,
   drawingType: z.enum(DRAWING_TYPES).optional(),
+  // Independent drawing metadata (PDS v2.0). Both optional at the API layer
+  // (additive, nullable columns); the classify UI asks for Representation.
+  representation: z.enum(REPRESENTATIONS).optional(),
+  location: z.string().trim().max(120).optional(),
 });
 
 export const updateAttachmentStatusSchema = z.object({
@@ -513,23 +528,32 @@ export const updatePinSchema = z.object({
   page: z.number().int().min(1).optional(),
 });
 
-/** Issue purposes for an official drawing revision (Design → Document Control). */
+/**
+ * Issue purposes for an official drawing revision (PDS v2.0 §4E — the 8 purposes).
+ * `for_information` is the code for "Information Only" (kept from the earlier set).
+ */
 export const ISSUE_PURPOSES = [
-  "for_review",
+  "internal_review",
+  "client_review",
   "for_approval",
-  "for_information",
+  "for_tender",
   "for_construction",
   "as_built",
+  "record_copy",
+  "for_information",
 ] as const;
 export type IssuePurpose = (typeof ISSUE_PURPOSES)[number];
 
 /** Human labels for issue purposes (dropdowns, revision history). */
 export const ISSUE_PURPOSE_LABELS: Record<IssuePurpose, string> = {
-  for_review: "For Review",
+  internal_review: "Internal Review",
+  client_review: "Client Review",
   for_approval: "For Approval",
-  for_information: "For Information",
+  for_tender: "For Tender",
   for_construction: "For Construction",
-  as_built: "As Built",
+  as_built: "As-Built",
+  record_copy: "Record Copy",
+  for_information: "Information Only",
 };
 
 export const issueRevisionSchema = z.object({

@@ -136,6 +136,8 @@ export interface DbAttachment {
   discipline_id?: string | null;
   discipline_code?: string | null;
   discipline_name?: string | null;
+  representation?: string | null;
+  location?: string | null;
 }
 
 /** Comment record from the database. */

@@ -15,8 +15,11 @@ import {
   joinFileName,
   UPLOAD_ACCEPTED_TYPES,
 } from "@/lib/fileUtils";
-import { DRAWING_TYPES } from "@/lib/validations";
-import { DRAWING_TYPE_LABELS } from "@/lib/designTemplates";
+import { DRAWING_TYPES, REPRESENTATIONS } from "@/lib/validations";
+import {
+  DRAWING_TYPE_LABELS,
+  REPRESENTATION_LABELS,
+} from "@/lib/designTemplates";
 import type { DbAttachment, DesignDiscipline } from "@/types";
 
 /** Per-file editable fields for a design upload. */
@@ -25,12 +28,20 @@ interface DesignFields {
   description: string;
   disciplineId: string;
   drawingType: string;
+  representation: string;
+  location: string;
 }
 
 /** Static — the drawing-type list never changes. */
 const TYPE_OPTIONS = DRAWING_TYPES.map((t) => ({
   code: t,
   name: `${t} · ${DRAWING_TYPE_LABELS[t]}`,
+}));
+
+/** Static — the representation list never changes. */
+const REPRESENTATION_OPTIONS = REPRESENTATIONS.map((r) => ({
+  code: r,
+  name: `${r} · ${REPRESENTATION_LABELS[r]}`,
 }));
 
 interface UploadDesignDialogProps {
@@ -91,6 +102,8 @@ export function UploadDesignDialog({
         ? {
             disciplineId: entry.fields.disciplineId,
             drawingType: entry.fields.drawingType,
+            representation: entry.fields.representation,
+            location: entry.fields.location.trim() || undefined,
           }
         : {}),
     });
@@ -107,7 +120,7 @@ export function UploadDesignDialog({
         isVersion
           ? "One file replaces the latest version; classification is inherited."
           : classify
-            ? "Each file gets its own discipline, type, and document number."
+            ? "Each file gets its own discipline, type, representation, and document number."
             : "Add one or more files to this project."
       }
       uploadLabel="Upload"
@@ -117,11 +130,16 @@ export function UploadDesignDialog({
         description: "",
         disciplineId: "",
         drawingType: "",
+        representation: "",
+        location: "",
       })}
       entryLabel={(e) => e.fields.baseName.trim() || e.file.name}
       isEntryValid={(e) =>
         e.fields.baseName.trim().length > 0 &&
-        (!classify || (!!e.fields.disciplineId && !!e.fields.drawingType))
+        (!classify ||
+          (!!e.fields.disciplineId &&
+            !!e.fields.drawingType &&
+            !!e.fields.representation))
       }
       uploadEntry={uploadEntry}
       onSuccess={onSuccess}
@@ -178,6 +196,28 @@ export function UploadDesignDialog({
                   hideCode
                   hideTriggerCode
                 />
+                <LabeledSearchableSelect<string>
+                  label="Representation"
+                  required
+                  value={entry.fields.representation}
+                  onChange={(v) => onChange({ representation: v })}
+                  options={REPRESENTATION_OPTIONS}
+                  triggerPlaceholder="Select representation"
+                  hideCode
+                  hideTriggerCode
+                />
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-medium text-text-secondary">
+                    Location <span className="text-text-muted">(optional)</span>
+                  </label>
+                  <Input
+                    value={entry.fields.location}
+                    onChange={(e) => onChange({ location: e.target.value })}
+                    placeholder="e.g. Ground Floor"
+                    maxLength={120}
+                    disabled={disabled || entry.status === "done"}
+                  />
+                </div>
               </div>
             )}
 

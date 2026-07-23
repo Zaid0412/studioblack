@@ -33,13 +33,13 @@ const sampleRevision = {
   org_id: "org-1",
   rev_number: 1,
   attachment_id: ATTACHMENT_ID,
-  issue_purpose: "for_review",
+  issue_purpose: "internal_review",
   issued_by: TEST_USER_ID,
   issued_at: "2026-07-20T00:00:00Z",
   created_at: "2026-07-20T00:00:00Z",
 };
 
-function issueRequest(body: unknown = { issuePurpose: "for_review" }) {
+function issueRequest(body: unknown = { issuePurpose: "internal_review" }) {
   return buildRequest(path, { method: "POST", body });
 }
 
@@ -107,7 +107,7 @@ describe("POST .../attachments/[attachmentId]/issue", () => {
         attachmentId: ATTACHMENT_ID,
         projectId: PROJECT_ID,
         userId: TEST_USER_ID,
-        issuePurpose: "for_review",
+        issuePurpose: "internal_review",
       })
     );
   });
