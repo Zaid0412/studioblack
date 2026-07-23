@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import useSWR from "swr";
+import useSWR, { preload } from "swr";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -39,8 +39,14 @@ import { emphasisTags } from "@/components/ui/richText";
 import { toast } from "@/components/ui/useToast";
 import { divisions as divisionsApi } from "@/lib/api";
 import { API } from "@/lib/api/routes";
+import { swrFetcher } from "@/lib/swr";
 import { useDivisions } from "@/hooks/useDivisions";
+import { useDebouncedValue } from "@/hooks/useDebounce";
 import type { Division, DivisionUsage } from "@/types";
+
+/** Warm the usage cache before the delete dialog opens (hover/focus the trash). */
+const prefetchUsage = (id: string) =>
+  preload(API.divisionUsage(id), swrFetcher);
 
 // One grid template shared by the header, every row, and the add row, so the
 // Code / Name columns line up exactly and the toggles/actions column aligns.
@@ -129,6 +135,8 @@ function DivisionRow({
         type="button"
         aria-label={t("deleteAction")}
         onClick={() => onDelete(division)}
+        onMouseEnter={() => prefetchUsage(division.id)}
+        onFocus={() => prefetchUsage(division.id)}
         className="flex justify-center text-text-muted transition-colors hover:text-error"
       >
         <Trash2 className="h-4 w-4" />
@@ -173,6 +181,11 @@ export function DivisionsSection() {
   const usage = usageData?.usage ?? [];
   const usageLoading = toDelete !== null && !usageData && !usageError;
   const divisionInUse = usage.length > 0;
+  // Only surface the "checking" state if the fetch is actually slow — most
+  // resolve in a blink (or are already prefetched from the trash hover), and a
+  // loader that flashes for a frame then vanishes reads as jank.
+  const loadingSettled = useDebouncedValue(usageLoading, 300);
+  const showChecking = usageLoading && loadingSettled;
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
@@ -456,8 +469,15 @@ export function DivisionsSection() {
         onConfirm={handleDelete}
       >
         {toDelete &&
-          (usageLoading ? (
-            <p className="text-sm text-text-muted">{t("usageChecking")}</p>
+          (showChecking ? (
+            <div
+              aria-busy="true"
+              className="flex flex-col gap-2 rounded-lg border border-border-default bg-bg-elevated/30 p-3"
+            >
+              <span className="sr-only">{t("usageChecking")}</span>
+              <Skeleton className="h-3.5 w-44" />
+              <Skeleton className="h-4 w-full" />
+            </div>
           ) : divisionInUse ? (
             <div className="flex flex-col gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3">
               <p className="text-sm text-text-secondary">{t("usageIntro")}</p>
