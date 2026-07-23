@@ -472,14 +472,14 @@ export function DivisionsSection() {
           (showChecking ? (
             <div
               aria-busy="true"
-              className="flex flex-col gap-2 rounded-lg border border-border-default bg-bg-elevated/30 p-3"
+              className="flex flex-col gap-2 rounded-lg border border-border-default bg-bg-elevated/30 p-3 animate-in fade-in duration-200 ease-out motion-reduce:animate-none"
             >
               <span className="sr-only">{t("usageChecking")}</span>
               <Skeleton className="h-3.5 w-44" />
               <Skeleton className="h-4 w-full" />
             </div>
           ) : divisionInUse ? (
-            <div className="flex flex-col gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3">
+            <div className="flex flex-col gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3 animate-in fade-in slide-in-from-top-1 duration-200 ease-out motion-reduce:animate-none">
               <p className="text-sm text-text-secondary">{t("usageIntro")}</p>
               <ul className="flex flex-col divide-y divide-border-default">
                 {usage.map((u) => (
