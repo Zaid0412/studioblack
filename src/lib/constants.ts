@@ -58,3 +58,12 @@ export const DEFAULT_ELEMENT_UNIT = "sqft";
  * or per-org override would route through here.
  */
 export const BOQ_LINE_INCREMENT = 10;
+
+/**
+ * Fallback Margin % a new BOQ line starts on when its BOQ carries no usable
+ * margin (an empty or 0 `minimum_margin_pct`). A new line always defaults to the
+ * BOQ's margin — set when the BOQ is created — and only drops to this global
+ * default when the BOQ has none. Shared by the create-item sheet and the
+ * server-side element-add path so both entry points agree.
+ */
+export const DEFAULT_LINE_MARGIN_PCT = 15;

@@ -11,7 +11,11 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { DEFAULT_CURRENCY, DEFAULT_ELEMENT_UNIT } from "@/lib/constants";
+import {
+  DEFAULT_CURRENCY,
+  DEFAULT_ELEMENT_UNIT,
+  DEFAULT_LINE_MARGIN_PCT,
+} from "@/lib/constants";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { TagInput } from "@/components/ui/TagInput";
@@ -102,7 +106,7 @@ const INITIAL: FormState = {
   currency: DEFAULT_CURRENCY,
   quantity: "1",
   unitCost: "0",
-  marginPct: "15",
+  marginPct: String(DEFAULT_LINE_MARGIN_PCT),
   materialCost: "",
   labourCost: "",
   overheadPct: "0",
@@ -314,7 +318,10 @@ export function BoqCreateItemSheet({
         el.service_charge_pct != null
           ? String(el.service_charge_pct)
           : prev.serviceChargePct,
-      marginPct: el.margin_pct != null ? String(el.margin_pct) : prev.marginPct,
+      // Margin stays the BOQ default (seeded above) — a picked element's own
+      // margin does NOT override it, so a library element with a 0/blank margin
+      // can't drop the line to 0%.
+      marginPct: prev.marginPct,
       clientRate:
         el.client_rate != null ? String(el.client_rate) : prev.clientRate,
       budgetRate:
@@ -537,7 +544,7 @@ export function BoqCreateItemSheet({
         labourCost: parseOptionalNumber(v.labourCost.trim()),
         overheadPct: num(v.overheadPct, 0),
         serviceChargePct: num(v.serviceChargePct, 0),
-        marginPct: num(v.marginPct, 15),
+        marginPct: num(v.marginPct, DEFAULT_LINE_MARGIN_PCT),
         clientRate: parseOptionalNumber(v.clientRate.trim()),
         budgetRate: parseOptionalNumber(v.budgetRate.trim()),
         length: parseDimensionValue(v.length, v.dimensionUnit),

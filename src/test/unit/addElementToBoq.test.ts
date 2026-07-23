@@ -32,12 +32,19 @@ const BOQ_ID = "550e8400-e29b-41d4-a716-446655440000";
 const ELEMENT_ID = "550e8400-e29b-41d4-a716-446655440005";
 
 /** Route the pooled/client query mock by SQL shape. */
-function wire(elementRow: Record<string, unknown> | null) {
+function wire(
+  elementRow: Record<string, unknown> | null,
+  boqMinMarginPct: string | null = null
+) {
   mocks.db.query.mockImplementation((sql: string) => {
     // Division is mandatory — createBoqItem resolves one (section's, else GEN)
     // for library adds that don't pass a division.
     if (/lower\(d\.code\) = 'gen'/.test(sql))
       return Promise.resolve({ rows: [{ id: "gen-div" }] });
+    if (/minimum_margin_pct FROM boq WHERE id/.test(sql))
+      return Promise.resolve({
+        rows: [{ minimum_margin_pct: boqMinMarginPct }],
+      });
     if (/FROM element WHERE/.test(sql))
       return Promise.resolve({ rows: elementRow ? [elementRow] : [] });
     if (/INSERT INTO boq_item/.test(sql))
@@ -113,6 +120,62 @@ describe("addElementToBoq", () => {
     expect(insertCall[0]).toMatch(
       /\(1 \+ COALESCE\(bi\.service_charge_pct, 0\)\/100\)/
     );
+  });
+
+  it("defaults the line margin to the BOQ's margin, not the element's", async () => {
+    wire(
+      {
+        code: "EL-010",
+        name: "Faucet",
+        description: null,
+        unit: "no",
+        unit_cost: "100.00",
+        material_cost: null,
+        labour_cost: null,
+        overhead_pct: null,
+        service_charge_pct: null,
+        margin_pct: "5.00", // element's own margin — must be ignored
+        client_rate: null,
+        budget_rate: null,
+      },
+      "20.00" // BOQ margin
+    );
+
+    await realAddElementToBoq(BOQ_ID, ORG, {
+      sectionId: null,
+      elementId: ELEMENT_ID,
+    });
+
+    const params = insertParams()![1] as unknown[];
+    expect(params[15]).toBe(20); // $16 margin_pct = the BOQ's margin
+  });
+
+  it("falls back to the global default margin when the BOQ margin is 0/blank", async () => {
+    wire(
+      {
+        code: "EL-011",
+        name: "Faucet",
+        description: null,
+        unit: "no",
+        unit_cost: "100.00",
+        material_cost: null,
+        labour_cost: null,
+        overhead_pct: null,
+        service_charge_pct: null,
+        margin_pct: "5.00",
+        client_rate: null,
+        budget_rate: null,
+      },
+      "0" // no-floor BOQ
+    );
+
+    await realAddElementToBoq(BOQ_ID, ORG, {
+      sectionId: null,
+      elementId: ELEMENT_ID,
+    });
+
+    const params = insertParams()![1] as unknown[];
+    expect(params[15]).toBe(15); // DEFAULT_LINE_MARGIN_PCT
   });
 
   it("returns null when the element doesn't exist", async () => {
