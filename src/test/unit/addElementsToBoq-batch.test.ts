@@ -60,6 +60,8 @@ describe("addElementsToBoq (batched, transactional)", () => {
       // per row when the batch doesn't pass a division.
       if (/lower\(d\.code\) = 'gen'/.test(sql))
         return Promise.resolve({ rows: [{ id: "gen-div" }] });
+      if (/minimum_margin_pct FROM boq WHERE id/.test(sql))
+        return Promise.resolve({ rows: [{ minimum_margin_pct: "12.00" }] });
       if (/FROM element WHERE .* ANY/s.test(sql))
         return Promise.resolve({
           rows: [elementRow(EL_A, "EL-A"), elementRow(EL_B, "EL-B")],
@@ -104,6 +106,13 @@ describe("addElementsToBoq (batched, transactional)", () => {
     expect(calls.filter((c) => c.includes("line_number = o.rn"))).toHaveLength(
       1
     );
+    // Every inserted line takes the BOQ's margin ($16 = params[15]), not the
+    // element's (both fixtures have a null element margin).
+    for (const c of mocks.db.query.mock.calls) {
+      if (/INSERT INTO boq_item/.test(String(c[0]))) {
+        expect((c[1] as unknown[])[15]).toBe(12);
+      }
+    }
   });
 
   it("rolls back and returns null when an element id is unresolved", async () => {

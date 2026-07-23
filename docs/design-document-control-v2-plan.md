@@ -36,24 +36,28 @@ last, and riskiest step — see §9 (PR-D) and §11.
 
 ## 2. Current state (shipped, behind the dormant `designDocumentControl` flag)
 
-PR-1 (#216), PR-2 (#217), PR-3 (#222) are merged; migrations applied to dev/staging/prod; the flag
-is at **0%**. What exists:
+PR-1 (#216), PR-2 (#217), PR-3 (#222), and **PR-3a (#233)** are merged, with all migrations applied
+to dev + prod — including PR-3a's `migrate-drawing-representation-location.sql` (Representation/Location
+columns + the PDS discipline/issue-purpose/drawing-type reconcile; its two columns are read by the
+ungated attachment projection, so the migration was a deploy prerequisite). The flag is at **0%**.
+What exists:
 
-| Area              | Built                                                                                               | File(s)                                                        |
-| ----------------- | --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| Packages          | `design_package` (per-project, 6 seeded, 10-state CHECK)                                            | `queries/designPackages.ts`, `migrate-design-packages.sql`     |
-| Disciplines       | `design_discipline` (per-org lookup, 10 seeded)                                                     | same                                                           |
-| Drawing register  | `drawing` (1 per `version_group`, discipline/type/docnum, 12-state CHECK) + `attachment.drawing_id` | `queries/drawings.ts`, `migrate-drawings.sql`                  |
-| Numbering         | `nextDrawingNumber` on `sequence_counter`                                                           | `queries/sequences.ts`                                         |
-| Revisions         | `drawing_revision` (append-only, `issue_purpose`, `current_revision_id`)                            | `queries/drawingRevisions.ts`, `migrate-drawing-revisions.sql` |
-| Markup 3-state    | `pin_comment.status` (open/resolved/closed)                                                         | same                                                           |
-| Upload classify   | per-file Discipline + Drawing Type on upload                                                        | `UploadDesignDialog.tsx`, `queries/attachments.ts`             |
-| Reuse (unchanged) | viewer, markup, review→approve/reject, freeze (`frozen_at`), versioning                             | `DocumentViewer`, `submitAttachmentReview`, `uploadNewVersion` |
+| Area              | Built                                                                                                                           | File(s)                                                                               |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Packages          | `design_package` (per-project, 6 seeded, 10-state CHECK)                                                                        | `queries/designPackages.ts`, `migrate-design-packages.sql`                            |
+| Disciplines       | `design_discipline` (per-org lookup, 10 seeded)                                                                                 | same                                                                                  |
+| Drawing register  | `drawing` (1 per `version_group`, discipline/type/docnum, 12-state CHECK) + `attachment.drawing_id`                             | `queries/drawings.ts`, `migrate-drawings.sql`                                         |
+| Numbering         | `nextDrawingNumber` on `sequence_counter`                                                                                       | `queries/sequences.ts`                                                                |
+| Revisions         | `drawing_revision` (append-only, `issue_purpose`, `current_revision_id`)                                                        | `queries/drawingRevisions.ts`, `migrate-drawing-revisions.sql`                        |
+| Markup 3-state    | `pin_comment.status` (open/resolved/closed)                                                                                     | same                                                                                  |
+| Upload classify   | per-file Discipline + Drawing Type **+ Representation + Location** on upload (PR-3a)                                            | `UploadDesignDialog.tsx`, `queries/attachments.ts`                                    |
+| Classification    | enums reconciled to PDS §4 (disciplines, 8 issue purposes, 13 drawing types) + `drawing.representation`/`location` cols (PR-3a) | `validations.ts`, `designTemplates.ts`, `migrate-drawing-representation-location.sql` |
+| Reuse (unchanged) | viewer, markup, review→approve/reject, freeze (`frozen_at`), versioning                                                         | `DocumentViewer`, `submitAttachmentReview`, `uploadNewVersion`                        |
 
 **Seeding:** disciplines seed per-org in `provisionNewOrg` (`orgProvisioning.ts`); packages seed
 per-project in `createProject` (`queries/projects.ts`).
 
-**Not yet built:** Representation, Location, lifecycle _enforcement_, package rollup / mandatory
+**Not yet built:** lifecycle _enforcement_, package rollup / mandatory
 gate, audit+notify per transition, RBAC tiers, configurable master data, document categories beyond
 drawings, cross-module relationships, the filter-based library UI, revision compare, and the phase
 cutover.
@@ -185,18 +189,18 @@ sees only sent drawings via the same flat library, filtered to their scope (no i
 
 ## 9. Delivery — remaining PRs (metadata-first, cutover last)
 
-> PR-1/2/3 shipped (§2). PR-3a below is the additive catch-up; PR-A…PR-F carry the rest. Each ships
-> value and de-risks the next; the NOT-NULL cutover (PR-D) runs last.
+> PR-1/2/3 shipped and **PR-3a merged (#233)** (§2); PR-A…PR-F carry the rest. Each ships value and
+> de-risks the next; the NOT-NULL cutover (PR-D) runs last.
 
-| PR                                             | Goal                                                                      | Key work                                                                                                                                                       | Risk           |
-| ---------------------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
-| **PR-3a** Revision catch-up                    | Match PDS enums + add the two new dimensions                              | discipline rename ×6; issue-purpose 5→8; drawing-type 10→13; `drawing.representation` + `drawing.location` cols; capture both on upload                        | Low (additive) |
-| **PR-A** Filter-based library UI               | The flat drawing list as the Designs tab (staff, flag-on) — no phase tabs | `getProjectDrawings`; `/api/projects/[id]/drawings`; filter bar (Discipline·Type·Representation·Location·Status); responsive table/cards; row→review           | Med            |
-| **PR-B** Lifecycle + rollup                    | Enforce 12/10-state transitions; mandatory gate; progress %               | `transitionDrawing`/`transitionPackage`; `drawing.is_mandatory`; wire review/freeze; `logAuditSafe` + notify per transition                                    | Med-High       |
-| **PR-C** Client portal + revision compare      | Client flat view; approve package/individual; compare revisions           | client-scoped list; package approve; side-by-side revision viewer                                                                                              | Med            |
-| **PR-D** Cutover                               | Retire the 6 phase tabs everywhere; enforce classification                | backfill phases→metadata (§11); migrate design tasks to project-level; client flat view; flip `drawing_id`/`package_id`/`status` NOT NULL; stop seeding phases | **High**       |
-| **PR-E** Categories + relationships            | Non-drawing document categories; BOQ/CO links                             | `drawing.category` discriminator; `drawing_link`; drawer "Related" panel                                                                                       | Med            |
-| **PR-F** Configurable master data + RBAC tiers | Per-org lookups; Junior/Senior tiers                                      | promote Types/Purposes/Packages/Representation/Location to lookup tables; `role_permission`; admin settings UI                                                 | Med            |
+| PR                                             | Goal                                                                      | Key work                                                                                                                                                                           | Risk     |
+| ---------------------------------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| **✅ PR-3a** Revision catch-up (#233)          | Match PDS enums + add the two new dimensions                              | discipline rename ×6; issue-purpose 5→8; drawing-type 10→13; `drawing.representation` + `drawing.location` cols; capture both on upload — **merged; migration applied dev + prod** | Done     |
+| **PR-A** Filter-based library UI               | The flat drawing list as the Designs tab (staff, flag-on) — no phase tabs | `getProjectDrawings`; `/api/projects/[id]/drawings`; filter bar (Discipline·Type·Representation·Location·Status); responsive table/cards; row→review                               | Med      |
+| **PR-B** Lifecycle + rollup                    | Enforce 12/10-state transitions; mandatory gate; progress %               | `transitionDrawing`/`transitionPackage`; `drawing.is_mandatory`; wire review/freeze; `logAuditSafe` + notify per transition                                                        | Med-High |
+| **PR-C** Client portal + revision compare      | Client flat view; approve package/individual; compare revisions           | client-scoped list; package approve; side-by-side revision viewer                                                                                                                  | Med      |
+| **PR-D** Cutover                               | Retire the 6 phase tabs everywhere; enforce classification                | backfill phases→metadata (§11); migrate design tasks to project-level; client flat view; flip `drawing_id`/`package_id`/`status` NOT NULL; stop seeding phases                     | **High** |
+| **PR-E** Categories + relationships            | Non-drawing document categories; BOQ/CO links                             | `drawing.category` discriminator; `drawing_link`; drawer "Related" panel                                                                                                           | Med      |
+| **PR-F** Configurable master data + RBAC tiers | Per-org lookups; Junior/Senior tiers                                      | promote Types/Purposes/Packages/Representation/Location to lookup tables; `role_permission`; admin settings UI                                                                     | Med      |
 
 Order rationale: PR-3a + PR-A deliver the visible PRD win (metadata library) additively without
 touching phases; PR-B/C add the workflow depth; **PR-D is the irreversible cutover** and runs only

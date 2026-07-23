@@ -1,5 +1,9 @@
 import type { Pool, PoolClient } from "pg";
-import { BOQ_LINE_INCREMENT, DEFAULT_CURRENCY } from "@/lib/constants";
+import {
+  BOQ_LINE_INCREMENT,
+  DEFAULT_CURRENCY,
+  DEFAULT_LINE_MARGIN_PCT,
+} from "@/lib/constants";
 import { getPool } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { mapPgError } from "./_pgErrors";
@@ -2228,6 +2232,19 @@ interface ElementCostRow {
 }
 
 /**
+ * Resolve the Margin % a new BOQ line starts on: the BOQ's own margin (set at
+ * BOQ creation), falling back to the global default when the BOQ carries none
+ * (empty or 0). Mirrors the create-item sheet's seeding so a line added from the
+ * library defaults to the same margin as one typed by hand.
+ */
+export function defaultLineMarginPct(
+  boqMinMarginPct: string | number | null | undefined
+): number {
+  const m = Number(boqMinMarginPct);
+  return Number.isFinite(m) && m > 0 ? m : DEFAULT_LINE_MARGIN_PCT;
+}
+
+/**
  * Map a fetched element row (+ an optional resolved rate-contract rate) to a
  * `createBoqItem` input. Shared by the single (`addElementToBoq`) and batch
  * (`addElementsToBoq`) flows so the element→line field mapping and its
@@ -2243,6 +2260,8 @@ function elementRowToBoqItemInput(
     quantity?: number;
     rateContractItemId?: string | null;
     rc: { rate: string; unit: string } | null;
+    /** The line's Margin % — the BOQ's margin, not the element's (see below). */
+    marginPct: number;
   }
 ): CreateBoqItemInput {
   const { rc } = opts;
@@ -2267,7 +2286,10 @@ function elementRowToBoqItemInput(
     overheadPct: e.overhead_pct !== null ? Number(e.overhead_pct) : 0,
     serviceChargePct:
       e.service_charge_pct !== null ? Number(e.service_charge_pct) : 0,
-    marginPct: e.margin_pct !== null ? Number(e.margin_pct) : 0,
+    // Margin defaults to the BOQ's margin (still editable per line), NOT the
+    // element's — a library element with a 0/blank margin would otherwise land
+    // the line at 0% while a hand-typed line gets the BOQ default.
+    marginPct: opts.marginPct,
     // Library default-flow: copy rates onto the line. The line can be
     // edited independently after — changing one doesn't ripple to the
     // library element or vice versa. `!= null` (loose) so an undefined
@@ -2295,15 +2317,22 @@ export async function addElementToBoq(
   }
 ): Promise<BoqItemWithComputed | null> {
   const pool = getPool();
-  const { rows: elementRows } = await pool.query<ElementCostRow>(
-    `SELECT code, name, description, unit, unit_cost, material_cost, labour_cost,
-            overhead_pct, service_charge_pct, margin_pct, client_rate, budget_rate,
-            category_id
-     FROM element WHERE id = $1 AND org_id = $2`,
-    [params.elementId, orgId]
-  );
+  const [{ rows: elementRows }, { rows: boqRows }] = await Promise.all([
+    pool.query<ElementCostRow>(
+      `SELECT code, name, description, unit, unit_cost, material_cost, labour_cost,
+              overhead_pct, service_charge_pct, margin_pct, client_rate, budget_rate,
+              category_id
+       FROM element WHERE id = $1 AND org_id = $2`,
+      [params.elementId, orgId]
+    ),
+    pool.query<{ minimum_margin_pct: string | null }>(
+      `SELECT minimum_margin_pct FROM boq WHERE id = $1`,
+      [boqId]
+    ),
+  ]);
   if (elementRows.length === 0) return null;
   const e = elementRows[0];
+  const marginPct = defaultLineMarginPct(boqRows[0]?.minimum_margin_pct);
 
   let rc: { rate: string; unit: string } | null = null;
   if (params.rateContractItemId) {
@@ -2340,6 +2369,7 @@ export async function addElementToBoq(
       quantity: params.quantity,
       rateContractItemId: params.rateContractItemId ?? null,
       rc,
+      marginPct,
     })
   );
 }
@@ -2466,6 +2496,11 @@ export async function addElementsToBoq(
     const batchDivisionId =
       params.divisionId ??
       (await resolveLineDivisionId(client, orgId, params.sectionId));
+    // The whole batch shares one BOQ, so resolve its default line margin once.
+    const { rows: boqRows } = await client.query<{
+      minimum_margin_pct: string | null;
+    }>(`SELECT minimum_margin_pct FROM boq WHERE id = $1`, [boqId]);
+    const marginPct = defaultLineMarginPct(boqRows[0]?.minimum_margin_pct);
     const insertedIds: string[] = [];
     for (const item of params.items) {
       const e = elemById.get(item.elementId)!;
@@ -2482,6 +2517,7 @@ export async function addElementsToBoq(
           quantity: item.quantity,
           rateContractItemId: item.rateContractItemId ?? null,
           rc,
+          marginPct,
         }),
         client
       );
