@@ -8,6 +8,7 @@ import {
   SheetBody,
   SheetClose,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
@@ -646,6 +647,11 @@ export function BoqCreateItemSheet({
               ? `Insert item ${insertPosition ?? "below"}`
               : "Add BOQ item"}
           </SheetTitle>
+          <SheetDescription>
+            {isInsert
+              ? `Insert a new line ${insertPosition ?? "below"} the selected row.`
+              : "Add a new line item to this BOQ. Costs and margin pre-fill from the BOQ and stay editable."}
+          </SheetDescription>
         </SheetHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">

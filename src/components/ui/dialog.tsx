@@ -23,7 +23,11 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-1/2 top-1/2 z-50 grid w-[calc(100%-2rem)] max-w-lg max-h-[calc(100dvh-2rem)] overflow-x-hidden overflow-y-auto -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border border-border-default bg-bg-secondary p-4 lg:p-6 shadow-2xl",
+        // `grid-cols-1` (minmax(0,1fr)) is load-bearing: without it the implicit
+        // `auto` column is sized to the pre-scrollbar width, so when the content
+        // is tall enough for the vertical scrollbar the children end up a
+        // scrollbar-width too wide and get clipped by `overflow-x-hidden`.
+        "fixed left-1/2 top-1/2 z-50 grid grid-cols-1 w-[calc(100%-2rem)] max-w-lg max-h-[calc(100dvh-2rem)] overflow-x-hidden overflow-y-auto -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border border-border-default bg-bg-secondary p-4 lg:p-6 shadow-2xl",
         "data-[state=open]:animate-in data-[state=closed]:animate-out",
         "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
         "data-[state=closed]:slide-out-to-bottom-4 data-[state=open]:slide-in-from-bottom-4",
