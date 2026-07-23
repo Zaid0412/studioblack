@@ -22,6 +22,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   ArrowLeft,
+  ArrowUpRight,
   GripVertical,
   Plus,
   RotateCcw,
@@ -462,23 +463,28 @@ export function DivisionsSection() {
               <p className="text-sm text-text-secondary">{t("usageIntro")}</p>
               <ul className="flex flex-col divide-y divide-border-default">
                 {usage.map((u) => (
-                  <li
-                    key={u.project_id}
-                    className="flex items-center justify-between gap-3 py-1.5 text-sm"
-                  >
-                    <span className="truncate text-text-primary">
-                      {u.project_name}
-                    </span>
-                    <span className="shrink-0 text-text-muted">
-                      {[
-                        u.item_count > 0 &&
-                          t("usageItems", { count: u.item_count }),
-                        u.section_count > 0 &&
-                          t("usageSections", { count: u.section_count }),
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </span>
+                  <li key={u.project_id}>
+                    <Link
+                      href={`/projects/${u.project_id}/boq`}
+                      onClick={() => setToDelete(null)}
+                      className="group flex items-center justify-between gap-3 py-1.5 text-sm"
+                      title={t("usageOpenBoq", { project: u.project_name })}
+                    >
+                      <span className="inline-flex min-w-0 items-center gap-1.5 text-text-primary group-hover:text-accent-strong">
+                        <span className="truncate">{u.project_name}</span>
+                        <ArrowUpRight className="h-3.5 w-3.5 shrink-0 opacity-60 group-hover:opacity-100" />
+                      </span>
+                      <span className="shrink-0 text-text-muted">
+                        {[
+                          u.item_count > 0 &&
+                            t("usageItems", { count: u.item_count }),
+                          u.section_count > 0 &&
+                            t("usageSections", { count: u.section_count }),
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
+                    </Link>
                   </li>
                 ))}
               </ul>
