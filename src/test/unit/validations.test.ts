@@ -458,6 +458,55 @@ describe("createProjectAttachmentSchema", () => {
       description: "a".repeat(2000),
     });
   });
+
+  it("accepts representation + location (PDS v2.0 classification)", () => {
+    expectPass(createProjectAttachmentSchema, {
+      fileUrl: "https://example.com/file.pdf",
+      fileName: "test.pdf",
+      disciplineId: VALID_UUID,
+      drawingType: "PLAN",
+      representation: "2D",
+      location: "Ground Floor",
+    });
+  });
+
+  it("rejects an off-enum representation", () => {
+    expectFail(createProjectAttachmentSchema, {
+      fileUrl: "https://example.com/file.pdf",
+      fileName: "test.pdf",
+      representation: "4D",
+    });
+  });
+
+  it("rejects location over 120 chars", () => {
+    expectFail(createProjectAttachmentSchema, {
+      fileUrl: "https://example.com/file.pdf",
+      fileName: "test.pdf",
+      location: "a".repeat(121),
+    });
+  });
+
+  it("accepts the new drawing types (PROD/SHOP/ISO/MOD/CAL)", () => {
+    for (const drawingType of ["PROD", "SHOP", "ISO", "MOD", "CAL"]) {
+      expectPass(createProjectAttachmentSchema, {
+        fileUrl: "https://example.com/file.pdf",
+        fileName: "test.pdf",
+        disciplineId: VALID_UUID,
+        drawingType,
+      });
+    }
+  });
+
+  it("rejects a retired drawing type (LAY/3DV)", () => {
+    for (const drawingType of ["LAY", "3DV"]) {
+      expectFail(createProjectAttachmentSchema, {
+        fileUrl: "https://example.com/file.pdf",
+        fileName: "test.pdf",
+        disciplineId: VALID_UUID,
+        drawingType,
+      });
+    }
+  });
 });
 
 // ── updateAttachmentStatusSchema ─────────────────────────────────────────────
@@ -917,8 +966,23 @@ describe("updatePinSchema", () => {
 // ── issueRevisionSchema ──────────────────────────────────────────────────────
 
 describe("issueRevisionSchema", () => {
-  it("accepts a valid issue purpose", () => {
-    expectPass(issueRevisionSchema, { issuePurpose: "for_construction" });
+  it("accepts each of the 8 PDS v2.0 issue purposes", () => {
+    for (const issuePurpose of [
+      "internal_review",
+      "client_review",
+      "for_approval",
+      "for_tender",
+      "for_construction",
+      "as_built",
+      "record_copy",
+      "for_information",
+    ]) {
+      expectPass(issueRevisionSchema, { issuePurpose });
+    }
+  });
+
+  it("rejects the retired `for_review` purpose", () => {
+    expectFail(issueRevisionSchema, { issuePurpose: "for_review" });
   });
 
   it("rejects an unknown issue purpose", () => {

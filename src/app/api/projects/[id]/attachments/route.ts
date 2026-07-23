@@ -51,6 +51,8 @@ export const POST = withAuth(
       versionGroup,
       disciplineId,
       drawingType,
+      representation,
+      location,
     } = parsed.data;
 
     // Business logic: fileUrl must point to Supabase storage
@@ -145,6 +147,8 @@ export const POST = withAuth(
       description: description || "",
       disciplineId: disciplineId || null,
       drawingType: drawingType || null,
+      representation: representation || null,
+      location: location || null,
     });
 
     await sendUploadNotifications(fileName, attachment.id);

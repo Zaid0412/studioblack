@@ -52,7 +52,7 @@ export function IssueRevisionDialog({
   submitting,
   onIssue,
 }: IssueRevisionDialogProps) {
-  const [purpose, setPurpose] = useState<IssuePurpose>("for_review");
+  const [purpose, setPurpose] = useState<IssuePurpose>("internal_review");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

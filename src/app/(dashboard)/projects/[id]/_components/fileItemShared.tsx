@@ -61,6 +61,8 @@ export function DrawingMeta({ att }: { att: DbAttachment }) {
     att.drawing_type
       ? (DRAWING_TYPE_LABELS[att.drawing_type] ?? att.drawing_type)
       : null,
+    att.representation,
+    att.location,
   ].filter(Boolean);
   return (
     <span className="block text-[10px] leading-tight text-text-muted truncate">

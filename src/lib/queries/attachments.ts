@@ -4,6 +4,7 @@ import { createDrawing } from "./drawings";
 // Drawing-register projection shared by the attachment read queries (`a` is the
 // attachment alias). One drawing per version_group, so both joins are 1:1.
 const DRAWING_COLS = `dr.document_number, dr.drawing_type, dr.discipline_id,
+       dr.representation, dr.location,
        dsc.code AS discipline_code, dsc.name AS discipline_name`;
 const DRAWING_JOINS = `LEFT JOIN drawing dr ON dr.version_group = a.version_group
      LEFT JOIN design_discipline dsc ON dsc.id = dr.discipline_id`;
@@ -318,6 +319,8 @@ export async function createProjectAttachment(params: {
   description: string;
   disciplineId?: string | null;
   drawingType?: string | null;
+  representation?: string | null;
+  location?: string | null;
 }) {
   const pool = getPool();
   const client = await pool.connect();
@@ -332,12 +335,20 @@ export async function createProjectAttachment(params: {
     );
     if (!project) throw new Error("Project not found");
 
-    // Open a register drawing only for a classified design upload. Task
+    // Open a register drawing when a design upload carries ANY classification
+    // metadata — discipline/type (which also number it) OR the independent
+    // Representation/Location dimensions, which stand alone (PDS v2.0). Task
     // attachments aren't drawings, and when Document Control is gated off no
     // classification is sent — those uploads stay plain version_groups with no
     // drawing row or document number (pre-Document-Control behaviour).
     const classify =
-      !params.taskId && (params.disciplineId || params.drawingType);
+      !params.taskId &&
+      !!(
+        params.disciplineId ||
+        params.drawingType ||
+        params.representation ||
+        params.location
+      );
     const drawing = classify
       ? await createDrawing(client, {
           projectId: params.projectId,
@@ -345,6 +356,8 @@ export async function createProjectAttachment(params: {
           projectNumber: project.project_number,
           disciplineId: params.disciplineId,
           drawingType: params.drawingType,
+          representation: params.representation,
+          location: params.location,
           title: params.fileName,
         })
       : null;
@@ -374,6 +387,8 @@ export async function createProjectAttachment(params: {
       document_number: drawing?.documentNumber ?? null,
       drawing_type: drawing?.drawingType ?? null,
       discipline_id: drawing?.disciplineId ?? null,
+      representation: drawing?.representation ?? null,
+      location: drawing?.location ?? null,
     };
   } catch (err) {
     await client.query("ROLLBACK");

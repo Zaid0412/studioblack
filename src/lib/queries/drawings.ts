@@ -16,6 +16,8 @@ interface CreateDrawingParams {
   projectNumber: string | null;
   disciplineId?: string | null;
   drawingType?: string | null;
+  representation?: string | null;
+  location?: string | null;
   title?: string | null;
 }
 
@@ -35,6 +37,8 @@ export async function createDrawing(
   documentNumber: string | null;
   disciplineId: string | null;
   drawingType: string | null;
+  representation: string | null;
+  location: string | null;
 }> {
   const hasDiscipline = !!params.disciplineId;
   const hasType = !!params.drawingType;
@@ -68,18 +72,26 @@ export async function createDrawing(
     );
   }
 
+  // Representation + Location are independent classification metadata (PDS v2.0):
+  // they don't gate numbering and are stored even when present alone.
+  const representation = params.representation || null;
+  const location = params.location?.trim() || null;
+
   const {
     rows: [drawing],
   } = await client.query<{ id: string; version_group: string }>(
     `INSERT INTO drawing
-       (project_id, org_id, discipline_id, drawing_type, document_number, title)
-     VALUES ($1, $2, $3, $4, $5, $6)
+       (project_id, org_id, discipline_id, drawing_type, representation, location,
+        document_number, title)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      RETURNING id, version_group`,
     [
       params.projectId,
       params.orgId,
       disciplineId,
       drawingType,
+      representation,
+      location,
       documentNumber,
       params.title ?? null,
     ]
@@ -91,5 +103,7 @@ export async function createDrawing(
     documentNumber,
     disciplineId,
     drawingType,
+    representation,
+    location,
   };
 }
