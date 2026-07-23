@@ -215,6 +215,16 @@ const ITEM_LIBRARY_JOIN = `LEFT JOIN element e ON e.id = bi.element_id LEFT JOIN
 
 const ITEM_SELECT = `SELECT bi.*, ${ITEM_LIBRARY_COLS}, ${ITEM_COMPUTED_COLS} FROM boq_item bi JOIN boq b ON b.id = bi.boq_id ${ITEM_LIBRARY_JOIN}`;
 
+/**
+ * Sections with their division code/name joined on (per the `BoqSection` type).
+ * The client can't fetch the divisions API, so the BOQ view's division bands
+ * rely on these joined names to render a real label instead of "No division".
+ * Callers append `WHERE bs.boq_id = $1 ORDER BY bs.sort_order, bs.created_at`.
+ */
+const SECTION_SELECT = `SELECT bs.*, div.code AS division_code, div.name AS division_name
+       FROM boq_section bs
+       LEFT JOIN division div ON div.id = bs.division_id`;
+
 /** Confirm a BOQ exists and belongs to the given project. Used for project-scope guards in API routes. */
 export async function verifyBoqOwnership(
   boqId: string,
@@ -499,7 +509,7 @@ export async function getBoq(
       boqId,
     ]),
     pool.query<BoqSection>(
-      `SELECT * FROM boq_section WHERE boq_id = $1 ORDER BY sort_order, created_at`,
+      `${SECTION_SELECT} WHERE bs.boq_id = $1 ORDER BY bs.sort_order, bs.created_at`,
       [boqId]
     ),
     pool.query<BoqItemWithComputed>(
@@ -2992,7 +3002,7 @@ export async function getBoqForExport(boqId: string): Promise<{
       [boqId]
     ),
     pool.query<BoqSection>(
-      `SELECT * FROM boq_section WHERE boq_id = $1 ORDER BY sort_order, created_at`,
+      `${SECTION_SELECT} WHERE bs.boq_id = $1 ORDER BY bs.sort_order, bs.created_at`,
       [boqId]
     ),
   ]);
