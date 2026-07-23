@@ -1348,7 +1348,7 @@ function DrawerCard({
       {(title || action) && (
         <div className="flex items-center justify-between gap-2">
           {title && (
-            <h3 className="text-[11px] font-semibold uppercase tracking-wide text-text-secondary">
+            <h3 className="text-sm font-bold uppercase tracking-wide text-text-primary">
               {title}
             </h3>
           )}
