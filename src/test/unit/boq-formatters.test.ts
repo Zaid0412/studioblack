@@ -114,6 +114,13 @@ describe("phaseToLabel", () => {
     );
     expect(phaseToLabel("client_approved", null)).toBe("Client Approved");
   });
+
+  it("leaves studio-internal phases unchanged for clients", () => {
+    expect(phaseToLabel("internal_review", "client")).toBe("Internal Review");
+    expect(phaseToLabel("internally_approved", "client")).toBe(
+      "Internally Approved"
+    );
+  });
 });
 
 describe("boqStatusBadge", () => {
@@ -139,13 +146,6 @@ describe("boqStatusBadge", () => {
     expect(
       boqStatusBadge({ phase: "draft", is_excluded: true }, "client")
     ).toEqual({ label: "Out of scope", variant: "archived" });
-  });
-
-  it("leaves studio-internal phases unchanged for clients", () => {
-    expect(phaseToLabel("internal_review", "client")).toBe("Internal Review");
-    expect(phaseToLabel("internally_approved", "client")).toBe(
-      "Internally Approved"
-    );
   });
 });
 
