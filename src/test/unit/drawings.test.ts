@@ -92,6 +92,40 @@ describe("createDrawing", () => {
       "org-1",
       "dis-1",
       "PLAN",
+      null,
+      null,
+      "P2026-001-AR-PLAN-001",
+      "Ground Floor",
+    ]);
+  });
+
+  it("persists representation + location (trimmed) when provided", async () => {
+    const { client, calls } = mockClient({
+      disciplineCode: "AR",
+      counterValue: 1,
+    });
+
+    const res = await createDrawing(client, {
+      projectId: "proj-1",
+      orgId: "org-1",
+      projectNumber: "P2026-001",
+      disciplineId: "dis-1",
+      drawingType: "PLAN",
+      representation: "2D",
+      location: "  Ground Floor  ",
+      title: "Ground Floor",
+    });
+
+    expect(res.representation).toBe("2D");
+    expect(res.location).toBe("Ground Floor");
+    const insert = calls.find(([sql]) => /INSERT INTO drawing/.test(sql))!;
+    expect(insert[1]).toEqual([
+      "proj-1",
+      "org-1",
+      "dis-1",
+      "PLAN",
+      "2D",
+      "Ground Floor",
       "P2026-001-AR-PLAN-001",
       "Ground Floor",
     ]);
@@ -109,7 +143,16 @@ describe("createDrawing", () => {
     expect(res.documentNumber).toBeNull();
     expect(calls.some(([sql]) => /sequence_counter/.test(sql))).toBe(false);
     const insert = calls.find(([sql]) => /INSERT INTO drawing/.test(sql))!;
-    expect(insert[1]).toEqual(["proj-1", "org-1", null, null, null, null]);
+    expect(insert[1]).toEqual([
+      "proj-1",
+      "org-1",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+    ]);
   });
 
   it("throws when the discipline isn't found in the org", async () => {

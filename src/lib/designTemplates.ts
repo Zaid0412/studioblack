@@ -6,6 +6,8 @@
  * lookup that companies may extend with custom entries.
  */
 
+import type { Representation } from "@/lib/validations";
+
 export interface DesignPackageTemplate {
   code: string;
   name: string;
@@ -26,30 +28,45 @@ export interface DisciplineTemplate {
   name: string;
 }
 
-/** Human labels for the drawing-type codes (PRD "01.Design doc" §6). */
+/** Human labels for the drawing-type codes (PDS v2.0 §4C — the 13 types). */
 export const DRAWING_TYPE_LABELS: Record<string, string> = {
   PLAN: "Floor Plan",
   ELEV: "Elevation",
   SECT: "Section",
   DET: "Detail",
+  PROD: "Production Drawing",
+  SHOP: "Shop Drawing",
   RCP: "Reflected Ceiling Plan",
-  LAY: "Layout",
+  ISO: "Isometric",
   SCH: "Schedule",
   SPEC: "Specification",
-  "3DV": "3D View",
   REND: "Rendering",
+  MOD: "BIM Model",
+  CAL: "Calculation Sheet",
 };
 
-/** The 10 default disciplines — seeded per org; extendable with custom entries. */
+/** Human labels for the representation codes (PDS v2.0 §4D). */
+export const REPRESENTATION_LABELS: Record<Representation, string> = {
+  "2D": "2D Drawing",
+  "3D": "3D Model",
+  REN: "Rendering",
+  VR: "Walkthrough / Animation",
+};
+
+/**
+ * The 10 default disciplines — seeded per org; extendable with custom entries.
+ * Codes follow PDS v2.0 §4B; existing orgs are reconciled in-place by
+ * `migrate-drawing-representation-location.sql` (names are unchanged).
+ */
 export const DISCIPLINE_DEFAULTS: ReadonlyArray<DisciplineTemplate> = [
   { code: "AR", name: "Architecture" },
   { code: "ID", name: "Interior Design" },
   { code: "ST", name: "Structural" },
-  { code: "EL", name: "Electrical" },
-  { code: "PL", name: "Plumbing" },
-  { code: "ME", name: "Mechanical" },
+  { code: "ELC", name: "Electrical" },
+  { code: "PLB", name: "Plumbing" },
+  { code: "MEC", name: "Mechanical" },
   { code: "HVAC", name: "HVAC" },
-  { code: "LS", name: "Landscape" },
-  { code: "FF", name: "Furniture" },
-  { code: "3D", name: "Visualization" },
+  { code: "LND", name: "Landscape" },
+  { code: "FUR", name: "Furniture" },
+  { code: "VIS", name: "Visualization" },
 ];
