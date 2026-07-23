@@ -431,6 +431,7 @@ vi.mock("@/lib/queries", () => ({
   createDivision: vi.fn(),
   updateDivision: vi.fn().mockResolvedValue(null),
   deleteDivision: vi.fn().mockResolvedValue({ deleted: true }),
+  getDivisionUsage: vi.fn().mockResolvedValue([]),
   reorderDivisions: vi.fn().mockResolvedValue(undefined),
   seedDefaultDivisions: vi.fn().mockResolvedValue(0),
   seedDefaultDisciplines: vi.fn().mockResolvedValue(0),

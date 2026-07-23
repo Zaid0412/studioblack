@@ -731,6 +731,18 @@ export interface Division {
   updated_at: string;
 }
 
+/**
+ * Where a division is referenced, grouped by project — powers the "can't
+ * delete, here's why" breakdown. A BOQ section counts even with no line items,
+ * which is exactly the invisible reference that blocks a delete.
+ */
+export interface DivisionUsage {
+  project_id: string;
+  project_name: string;
+  item_count: number;
+  section_count: number;
+}
+
 /** A per-org design discipline (Architecture, Structural, …). Document Control. */
 export interface DesignDiscipline {
   id: string;

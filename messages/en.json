@@ -785,7 +785,11 @@
     "toastDisabled": "Division disabled",
     "deleteAction": "Delete",
     "deleteTitle": "Delete division",
-    "deleteConfirm": "Delete \"<b>{name}</b>\"? This can't be undone. A division still used by a BOQ can't be deleted — disable it instead."
+    "deleteConfirm": "Delete \"<b>{name}</b>\"? This can't be undone. A division still used by a BOQ can't be deleted — disable it instead.",
+    "usageChecking": "Checking where this division is used…",
+    "usageIntro": "Still used here — remove or reassign these first, or disable the division instead:",
+    "usageItems": "{count, plural, one {# line item} other {# line items}}",
+    "usageSections": "{count, plural, one {# section} other {# sections}}"
   },
   "organisation": {
     "title": "Organisation",

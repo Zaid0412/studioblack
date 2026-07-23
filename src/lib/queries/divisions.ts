@@ -1,6 +1,6 @@
 import { getPool } from "@/lib/db";
 import { DIVISION_DEFAULTS } from "@/lib/divisionTemplates";
-import type { Division } from "@/types";
+import type { Division, DivisionUsage } from "@/types";
 
 /** Columns an update is allowed to set (route handler sends snake_case keys). */
 const DIVISION_COLS = new Set([
@@ -130,6 +130,39 @@ export async function deleteDivision(id: string, orgId: string) {
       error: "Division is in use by a BOQ. Disable it instead.",
     };
   return { deleted: false as const, error: "Division not found" };
+}
+
+/**
+ * Where a division is referenced, grouped by project — both BOQ line items and
+ * BOQ sections (a section holds the division even with zero lines, which is the
+ * invisible reference that blocks a delete). Org-scoped; ordered by project
+ * name. Empty array ⇒ safe to delete.
+ */
+export async function getDivisionUsage(
+  id: string,
+  orgId: string
+): Promise<DivisionUsage[]> {
+  const pool = getPool();
+  const { rows } = await pool.query<DivisionUsage>(
+    `WITH refs AS (
+       SELECT b.project_id, 'item' AS kind
+         FROM boq_item bi JOIN boq b ON b.id = bi.boq_id
+        WHERE bi.division_id = $1
+       UNION ALL
+       SELECT b.project_id, 'section' AS kind
+         FROM boq_section bs JOIN boq b ON b.id = bs.boq_id
+        WHERE bs.division_id = $1
+     )
+     SELECT p.id AS project_id, p.name AS project_name,
+            COUNT(*) FILTER (WHERE r.kind = 'item')::int AS item_count,
+            COUNT(*) FILTER (WHERE r.kind = 'section')::int AS section_count
+       FROM refs r
+       JOIN project p ON p.id = r.project_id AND p.org_id = $2
+      GROUP BY p.id, p.name
+      ORDER BY p.name`,
+    [id, orgId]
+  );
+  return rows;
 }
 
 /** Reorder an org's divisions to match `orderedIds`. */

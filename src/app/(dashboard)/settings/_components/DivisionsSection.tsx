@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import useSWR from "swr";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -36,8 +37,9 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { emphasisTags } from "@/components/ui/richText";
 import { toast } from "@/components/ui/useToast";
 import { divisions as divisionsApi } from "@/lib/api";
+import { API } from "@/lib/api/routes";
 import { useDivisions } from "@/hooks/useDivisions";
-import type { Division } from "@/types";
+import type { Division, DivisionUsage } from "@/types";
 
 // One grid template shared by the header, every row, and the add row, so the
 // Code / Name columns line up exactly and the toggles/actions column aligns.
@@ -161,6 +163,15 @@ export function DivisionsSection() {
   const [restoring, setRestoring] = useState(false);
   const [toDelete, setToDelete] = useState<Division | null>(null);
   const [deleting, setDeleting] = useState(false);
+  // Where the pending-delete division is used, so the dialog can name the
+  // projects blocking it (a BOQ section holds a division even with no lines —
+  // the reference the user can't see just by scanning line items).
+  const { data: usageData, error: usageError } = useSWR<{
+    usage: DivisionUsage[];
+  }>(toDelete ? API.divisionUsage(toDelete.id) : null);
+  const usage = usageData?.usage ?? [];
+  const usageLoading = toDelete !== null && !usageData && !usageError;
+  const divisionInUse = usage.length > 0;
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
@@ -440,8 +451,40 @@ export function DivisionsSection() {
         cancelLabel={tc("cancel")}
         destructive
         submitting={deleting}
+        confirmDisabled={usageLoading || divisionInUse}
         onConfirm={handleDelete}
-      />
+      >
+        {toDelete &&
+          (usageLoading ? (
+            <p className="text-sm text-text-muted">{t("usageChecking")}</p>
+          ) : divisionInUse ? (
+            <div className="flex flex-col gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3">
+              <p className="text-sm text-text-secondary">{t("usageIntro")}</p>
+              <ul className="flex flex-col divide-y divide-border-default">
+                {usage.map((u) => (
+                  <li
+                    key={u.project_id}
+                    className="flex items-center justify-between gap-3 py-1.5 text-sm"
+                  >
+                    <span className="truncate text-text-primary">
+                      {u.project_name}
+                    </span>
+                    <span className="shrink-0 text-text-muted">
+                      {[
+                        u.item_count > 0 &&
+                          t("usageItems", { count: u.item_count }),
+                        u.section_count > 0 &&
+                          t("usageSections", { count: u.section_count }),
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null)}
+      </ConfirmDialog>
     </div>
   );
 }
