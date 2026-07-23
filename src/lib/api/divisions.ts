@@ -1,6 +1,6 @@
 import { apiGet, apiPost, apiPatch, apiDelete } from "./client";
 import { API } from "./routes";
-import type { Division, DivisionUsage } from "@/types";
+import type { Division } from "@/types";
 import type { z } from "zod";
 import type {
   createDivisionSchema,
@@ -28,11 +28,6 @@ export function update(id: string, data: UpdateInput) {
 /** Delete a division (409 when it's still referenced by a BOQ section). */
 export function remove(id: string) {
   return apiDelete(API.division(id));
-}
-
-/** Projects (+ counts) that reference the division; empty ⇒ safe to delete. */
-export function usage(id: string) {
-  return apiGet<{ usage: DivisionUsage[] }>(API.divisionUsage(id));
 }
 
 /** Set the display order of the org's divisions. */

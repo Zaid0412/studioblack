@@ -137,6 +137,10 @@ export async function deleteDivision(id: string, orgId: string) {
  * BOQ sections (a section holds the division even with zero lines, which is the
  * invisible reference that blocks a delete). Org-scoped; ordered by project
  * name. Empty array ⇒ safe to delete.
+ *
+ * The referencing tables here MUST stay in sync with `deleteDivision`'s guard —
+ * if that ever blocks on a third table, add it to the `refs` union below or the
+ * breakdown will under-report why a delete failed.
  */
 export async function getDivisionUsage(
   id: string,
