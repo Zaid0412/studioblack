@@ -126,7 +126,7 @@ export function RfqAddItemsDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="rounded-lg border border-border-default bg-bg-input max-h-[420px] overflow-y-auto">
+        <div className="rounded-lg border border-border-default bg-bg-input max-h-[420px] overflow-y-auto [scrollbar-gutter:stable]">
           {boqLoading ? (
             <p className="px-4 py-8 text-sm text-text-muted text-center">
               {t("loading")}
