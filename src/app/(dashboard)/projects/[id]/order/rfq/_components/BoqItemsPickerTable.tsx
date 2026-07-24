@@ -39,6 +39,13 @@ interface Props {
    */
   rateAvailability?: Record<string, AvailableRate | null>;
   onUseContract?: (item: BoqItemWithComputed) => void;
+  /**
+   * Row entrance cascade. Off for callers that render the table inside a
+   * fixed-height scroll box (the add-items dialog): the reveal's `translateY`
+   * briefly extends the scroll area on a near-full list and flashes a
+   * scrollbar on open. Defaults on for the create form, which isn't clipped.
+   */
+  animateRows?: boolean;
 }
 
 /**
@@ -55,18 +62,29 @@ export function BoqItemsPickerTable({
   disabledReasons,
   rateAvailability,
   onUseContract,
+  animateRows = true,
 }: Props) {
-  // Select-all reflects only the selectable rows — disabled ones can't be picked.
-  const selectableCount = disabledReasons
-    ? items.filter((it) => !disabledReasons[it.id]).length
-    : items.length;
-  const allSelected = selectableCount > 0 && selected.size === selectableCount;
-  const someSelected = selected.size > 0 && selected.size < selectableCount;
+  // Select-all reflects only the selectable rows that are currently shown —
+  // disabled ones can't be picked, and counting *visible* selected rows keeps
+  // the header correct when the caller filters the list (search) while
+  // selections persist off-filter.
+  const selectableItems = disabledReasons
+    ? items.filter((it) => !disabledReasons[it.id])
+    : items;
+  const selectedVisible = selectableItems.reduce(
+    (n, it) => (selected.has(it.id) ? n + 1 : n),
+    0
+  );
+  const allSelected =
+    selectableItems.length > 0 && selectedVisible === selectableItems.length;
+  const someSelected =
+    selectedVisible > 0 && selectedVisible < selectableItems.length;
   const showRates = !!rateAvailability && !!onUseContract;
 
   // Cascade the rows in on mount / when the item set changes.
   const bodyRef = useStaggerReveal<HTMLTableSectionElement>(
-    items.map((it) => it.id).join(",")
+    items.map((it) => it.id).join(","),
+    animateRows
   );
 
   return (

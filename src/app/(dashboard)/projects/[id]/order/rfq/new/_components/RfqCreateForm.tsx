@@ -17,17 +17,13 @@ import { useRfqMutations } from "@/hooks/useRfqs";
 import { useLoadStagger } from "@/hooks/useLoadStagger";
 import { toast } from "@/components/ui/useToast";
 import { toIsoDate } from "@/lib/formatDate";
-import {
-  RFQ_ELIGIBLE_PHASES,
-  RFQ_PACKAGE_TYPES,
-  isProcurementCommitted,
-  type RfqPackageType,
-} from "@/lib/validations";
+import { RFQ_PACKAGE_TYPES, type RfqPackageType } from "@/lib/validations";
 import { RFQ_PACKAGE_TYPE_ICONS } from "@/lib/rfqLabels";
 import { rateContracts as rateContractsApi } from "@/lib/api";
 import { API } from "@/lib/api/routes";
 import type { AvailableRate, BoqItemWithComputed } from "@/types";
 import { BoqItemsPickerTable } from "../../_components/BoqItemsPickerTable";
+import { useRfqItemPicker } from "../../_lib/useRfqItemPicker";
 import { BoqApplyRateDialog } from "../../../../boq/_components/BoqApplyRateDialog";
 
 interface Props {
@@ -35,19 +31,6 @@ interface Props {
 }
 
 const EMPTY_AVAILABILITY: Record<string, AvailableRate | null> = {};
-
-/**
- * Soft, per-status tint for a disabled row's reason pill — very light fills so
- * the badges read as a quiet hint, not a loud status. Keyed by `po_status`;
- * unknown statuses fall back to neutral.
- */
-const DISABLED_TONE: Record<string, string> = {
-  rfq_issued: "bg-info/10 text-info border-info/20",
-  quoted: "bg-warning/10 text-warning border-warning/20",
-  po_raised: "bg-accent/10 text-accent-strong border-accent-strong/20",
-  delivered: "bg-success/10 text-success border-success/20",
-};
-const NEUTRAL_TONE = "bg-bg-elevated text-text-muted border-border-default";
 
 /**
  * Single-page RFQ creator. Title is required; at least one BOQ item must be
@@ -75,38 +58,14 @@ export function RfqCreateForm({ projectId }: Props) {
     useState<BoqItemWithComputed | null>(null);
 
   // Show every Ready-for-Procurement item in the project. Ones already committed
-  // to procurement (po_status !== 'none') render disabled with a reason rather
-  // than vanishing — otherwise the PM wonders why an item they marked ready is
-  // missing, forgetting it's on another RFQ.
-  const items: BoqItemWithComputed[] = useMemo(
-    () =>
-      (boq?.items ?? []).filter((it) => RFQ_ELIGIBLE_PHASES.includes(it.phase)),
-    [boq?.items]
-  );
-
-  // RFQ-4a gate: only uncommitted items can actually be picked (same rule the
-  // server enforces). The rest are shown disabled. Kept off `t` so a locale
-  // change doesn't invalidate the downstream rate-availability fetch.
-  const selectableItems = useMemo(
-    () => items.filter((it) => !isProcurementCommitted(it.po_status)),
-    [items]
-  );
-
-  // Each disabled row's pill (label + tone), keyed by item id (absent →
-  // selectable). The tone lives here, not in the shared table, so the picker
-  // stays free of procurement-specific colours.
-  const disabledReasons = useMemo(() => {
-    const map: Record<string, { label: string; tone: string }> = {};
-    for (const it of items) {
-      if (isProcurementCommitted(it.po_status)) {
-        map[it.id] = {
-          label: t(`create.itemDisabled.${it.po_status}`),
-          tone: DISABLED_TONE[it.po_status] ?? NEUTRAL_TONE,
-        };
-      }
-    }
-    return map;
-  }, [items, t]);
+  // to procurement render disabled with a reason (rather than vanishing) so the
+  // PM isn't left wondering why an item they marked ready is missing. Same gate
+  // as the add-items dialog — the shared hook keeps the two from drifting.
+  const {
+    eligible: items,
+    selectable: selectableItems,
+    disabledReasons,
+  } = useRfqItemPicker(boq?.items);
 
   // PR C: flag eligible items that already have an active matching rate
   // contract, so the PM can procure via contract instead of requesting a quote.

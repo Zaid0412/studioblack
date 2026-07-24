@@ -1110,12 +1110,16 @@ export async function addRfqItems(
       project_id: string;
       next_sort: number;
     }>(
+      // next_sort comes from a scalar subquery, not a GROUP BY join: Postgres
+      // forbids FOR UPDATE alongside GROUP BY, and we need the row lock to
+      // serialise concurrent adds so their sort_order can't collide.
       `SELECT r.status, r.project_id,
-              COALESCE(MAX(ri.sort_order), -1) + 1 AS next_sort
+              COALESCE(
+                (SELECT MAX(ri.sort_order) FROM rfq_item ri WHERE ri.rfq_id = r.id),
+                -1
+              ) + 1 AS next_sort
          FROM rfq r
-         LEFT JOIN rfq_item ri ON ri.rfq_id = r.id
         WHERE r.id = $1
-        GROUP BY r.status, r.project_id
         FOR UPDATE`,
       [rfqId]
     );

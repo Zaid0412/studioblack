@@ -14,10 +14,12 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { SearchInput } from "@/components/ui/SearchInput";
 import { useBoq } from "@/hooks/useBoq";
 import { useRfqMutations } from "@/hooks/useRfqs";
-import type { BoqItemWithComputed } from "@/types";
 import { BoqItemsPickerTable } from "../../_components/BoqItemsPickerTable";
+import { isRfqEligiblePhase } from "../../_lib/itemEligibility";
+import { useRfqItemPicker } from "../../_lib/useRfqItemPicker";
 
 interface Props {
   projectId: string;
@@ -47,12 +49,16 @@ export function RfqAddItemsDialog({
   const { addItems } = useRfqMutations(projectId);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [query, setQuery] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Reset on every open so a cancel doesn't leak picks into the next session.
+  // Reset on every open so a cancel doesn't leak picks/search into the next session.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (open) setSelected(new Set());
+    if (open) {
+      setSelected(new Set());
+      setQuery("");
+    }
   }, [open]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
@@ -60,12 +66,40 @@ export function RfqAddItemsDialog({
     () => new Set(excludeBoqItemIds),
     [excludeBoqItemIds]
   );
-  const candidates: BoqItemWithComputed[] = useMemo(
-    () => (boq?.items ?? []).filter((it) => !excluded.has(it.id)),
-    [boq?.items, excluded]
+  // Same RFQ-4a gate the create form applies (shared hook): only
+  // Ready-for-Procurement items can enter an RFQ, minus those already on it.
+  // Without it the picker offered every BOQ item and the server rejected the
+  // ineligible picks (bad_items → 400).
+  const {
+    eligible: candidates,
+    selectable,
+    disabledReasons,
+  } = useRfqItemPicker(boq?.items, excluded);
+  // Tells the two empty causes apart: nothing ready at all vs. every ready
+  // item already added to this RFQ.
+  const hasReadyItems = useMemo(
+    () => (boq?.items ?? []).some(isRfqEligiblePhase),
+    [boq?.items]
+  );
+
+  // Free-text filter over code + description. Selection is kept off the filter
+  // (by id), so narrowing the search never drops an already-ticked item.
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return candidates;
+    return candidates.filter(
+      (it) =>
+        it.description.toLowerCase().includes(q) ||
+        (it.item_code?.toLowerCase().includes(q) ?? false)
+    );
+  }, [candidates, query]);
+  const filteredSelectable = useMemo(
+    () => filtered.filter((it) => !disabledReasons[it.id]),
+    [filtered, disabledReasons]
   );
 
   const toggleItem = (id: string) => {
+    if (disabledReasons[id]) return; // committed items can't be picked
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -73,12 +107,20 @@ export function RfqAddItemsDialog({
       return next;
     });
   };
+  // Select-all acts on the currently-visible (filtered) selectable rows, leaving
+  // any picks outside the current search untouched.
   const toggleAll = () => {
-    setSelected((prev) =>
-      prev.size === candidates.length
-        ? new Set()
-        : new Set(candidates.map((i) => i.id))
-    );
+    setSelected((prev) => {
+      const allShown =
+        filteredSelectable.length > 0 &&
+        filteredSelectable.every((it) => prev.has(it.id));
+      const next = new Set(prev);
+      for (const it of filteredSelectable) {
+        if (allShown) next.delete(it.id);
+        else next.add(it.id);
+      }
+      return next;
+    });
   };
 
   const canSubmit = selected.size > 0 && !submitting;
@@ -86,7 +128,7 @@ export function RfqAddItemsDialog({
   const submit = async () => {
     if (!canSubmit) return;
     setSubmitting(true);
-    const payload = candidates
+    const payload = selectable
       .filter((it) => selected.has(it.id))
       .map((it) => ({
         boqItemId: it.id,
@@ -113,23 +155,48 @@ export function RfqAddItemsDialog({
           </DialogDescription>
         </DialogHeader>
 
+        {!boqLoading && candidates.length > 0 && (
+          <SearchInput
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t("searchPlaceholder")}
+            aria-label={t("searchPlaceholder")}
+          />
+        )}
+
         <div className="rounded-lg border border-border-default bg-bg-input max-h-[420px] overflow-y-auto">
           {boqLoading ? (
             <p className="px-4 py-8 text-sm text-text-muted text-center">
               {t("loading")}
             </p>
           ) : candidates.length === 0 ? (
+            hasReadyItems ? (
+              <EmptyState
+                icon={FileText}
+                title={t("emptyAllAdded")}
+                description={t("emptyAllAddedHint")}
+              />
+            ) : (
+              <EmptyState
+                icon={FileText}
+                title={t("empty")}
+                description={t("emptyHint")}
+              />
+            )
+          ) : filtered.length === 0 ? (
             <EmptyState
               icon={FileText}
-              title={t("empty")}
-              description={t("emptyHint")}
+              title={t("noMatches")}
+              description={t("noMatchesHint")}
             />
           ) : (
             <BoqItemsPickerTable
-              items={candidates}
+              items={filtered}
               selected={selected}
               onToggleItem={toggleItem}
               onToggleAll={toggleAll}
+              disabledReasons={disabledReasons}
+              animateRows={false}
               labels={{
                 selectAll: t("selectAll"),
                 code: t("col.code"),
