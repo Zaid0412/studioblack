@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { SearchInput } from "@/components/ui/SearchInput";
 import { useBoq } from "@/hooks/useBoq";
 import { useRfqMutations } from "@/hooks/useRfqs";
 import { BoqItemsPickerTable } from "../../_components/BoqItemsPickerTable";
@@ -48,12 +49,16 @@ export function RfqAddItemsDialog({
   const { addItems } = useRfqMutations(projectId);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [query, setQuery] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Reset on every open so a cancel doesn't leak picks into the next session.
+  // Reset on every open so a cancel doesn't leak picks/search into the next session.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (open) setSelected(new Set());
+    if (open) {
+      setSelected(new Set());
+      setQuery("");
+    }
   }, [open]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
@@ -77,6 +82,22 @@ export function RfqAddItemsDialog({
     [boq?.items]
   );
 
+  // Free-text filter over code + description. Selection is kept off the filter
+  // (by id), so narrowing the search never drops an already-ticked item.
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return candidates;
+    return candidates.filter(
+      (it) =>
+        it.description.toLowerCase().includes(q) ||
+        (it.item_code?.toLowerCase().includes(q) ?? false)
+    );
+  }, [candidates, query]);
+  const filteredSelectable = useMemo(
+    () => filtered.filter((it) => !disabledReasons[it.id]),
+    [filtered, disabledReasons]
+  );
+
   const toggleItem = (id: string) => {
     if (disabledReasons[id]) return; // committed items can't be picked
     setSelected((prev) => {
@@ -86,12 +107,20 @@ export function RfqAddItemsDialog({
       return next;
     });
   };
+  // Select-all acts on the currently-visible (filtered) selectable rows, leaving
+  // any picks outside the current search untouched.
   const toggleAll = () => {
-    setSelected((prev) =>
-      prev.size === selectable.length
-        ? new Set()
-        : new Set(selectable.map((i) => i.id))
-    );
+    setSelected((prev) => {
+      const allShown =
+        filteredSelectable.length > 0 &&
+        filteredSelectable.every((it) => prev.has(it.id));
+      const next = new Set(prev);
+      for (const it of filteredSelectable) {
+        if (allShown) next.delete(it.id);
+        else next.add(it.id);
+      }
+      return next;
+    });
   };
 
   const canSubmit = selected.size > 0 && !submitting;
@@ -126,6 +155,15 @@ export function RfqAddItemsDialog({
           </DialogDescription>
         </DialogHeader>
 
+        {!boqLoading && candidates.length > 0 && (
+          <SearchInput
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t("searchPlaceholder")}
+            aria-label={t("searchPlaceholder")}
+          />
+        )}
+
         <div className="rounded-lg border border-border-default bg-bg-input max-h-[420px] overflow-y-auto [scrollbar-gutter:stable]">
           {boqLoading ? (
             <p className="px-4 py-8 text-sm text-text-muted text-center">
@@ -145,9 +183,15 @@ export function RfqAddItemsDialog({
                 description={t("emptyHint")}
               />
             )
+          ) : filtered.length === 0 ? (
+            <EmptyState
+              icon={FileText}
+              title={t("noMatches")}
+              description={t("noMatchesHint")}
+            />
           ) : (
             <BoqItemsPickerTable
-              items={candidates}
+              items={filtered}
               selected={selected}
               onToggleItem={toggleItem}
               onToggleAll={toggleAll}

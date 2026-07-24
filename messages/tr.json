@@ -1505,6 +1505,9 @@
       "emptyHint": "BOQ'ta kalemleri satın almaya hazır olarak işaretleyin, sonra buraya dönün.",
       "emptyAllAdded": "Hazır kalemlerin tümü bu talepte zaten var",
       "emptyAllAddedHint": "Buraya eklemek için BOQ'ta daha fazla kalemi satın almaya hazır olarak işaretleyin.",
+      "searchPlaceholder": "Koda veya açıklamaya göre ara…",
+      "noMatches": "Aramanızla eşleşen kalem yok",
+      "noMatchesHint": "Farklı bir kod veya açıklama deneyin.",
       "selectAll": "Tümünü seç",
       "col": {
         "code": "Kod",

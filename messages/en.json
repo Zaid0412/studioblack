@@ -1505,6 +1505,9 @@
       "emptyHint": "Mark items ready for procurement in the BOQ, then come back here.",
       "emptyAllAdded": "All ready items are already on this RFQ",
       "emptyAllAddedHint": "Mark more BOQ items ready for procurement to add them here.",
+      "searchPlaceholder": "Search by code or description…",
+      "noMatches": "No items match your search",
+      "noMatchesHint": "Try a different code or description.",
       "selectAll": "Select all",
       "col": {
         "code": "Code",
