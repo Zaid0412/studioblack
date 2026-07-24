@@ -164,7 +164,7 @@ export function RfqAddItemsDialog({
           />
         )}
 
-        <div className="rounded-lg border border-border-default bg-bg-input max-h-[420px] overflow-y-auto [scrollbar-gutter:stable]">
+        <div className="rounded-lg border border-border-default bg-bg-input max-h-[420px] overflow-y-auto">
           {boqLoading ? (
             <p className="px-4 py-8 text-sm text-text-muted text-center">
               {t("loading")}
@@ -196,6 +196,7 @@ export function RfqAddItemsDialog({
               onToggleItem={toggleItem}
               onToggleAll={toggleAll}
               disabledReasons={disabledReasons}
+              animateRows={false}
               labels={{
                 selectAll: t("selectAll"),
                 code: t("col.code"),

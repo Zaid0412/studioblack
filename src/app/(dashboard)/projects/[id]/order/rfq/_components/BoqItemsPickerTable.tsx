@@ -39,6 +39,13 @@ interface Props {
    */
   rateAvailability?: Record<string, AvailableRate | null>;
   onUseContract?: (item: BoqItemWithComputed) => void;
+  /**
+   * Row entrance cascade. Off for callers that render the table inside a
+   * fixed-height scroll box (the add-items dialog): the reveal's `translateY`
+   * briefly extends the scroll area on a near-full list and flashes a
+   * scrollbar on open. Defaults on for the create form, which isn't clipped.
+   */
+  animateRows?: boolean;
 }
 
 /**
@@ -55,6 +62,7 @@ export function BoqItemsPickerTable({
   disabledReasons,
   rateAvailability,
   onUseContract,
+  animateRows = true,
 }: Props) {
   // Select-all reflects only the selectable rows that are currently shown —
   // disabled ones can't be picked, and counting *visible* selected rows keeps
@@ -75,7 +83,8 @@ export function BoqItemsPickerTable({
 
   // Cascade the rows in on mount / when the item set changes.
   const bodyRef = useStaggerReveal<HTMLTableSectionElement>(
-    items.map((it) => it.id).join(",")
+    items.map((it) => it.id).join(","),
+    animateRows
   );
 
   return (
