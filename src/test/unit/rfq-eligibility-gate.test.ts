@@ -118,4 +118,17 @@ describe("addRfqItems — RFQ-4a eligibility gate", () => {
     expect(res).toEqual({ ok: true, count: ITEMS.length });
     expect(sqlsOf()).toContain("COMMIT");
   });
+
+  it("locks the RFQ row without GROUP BY (Postgres forbids FOR UPDATE + GROUP BY)", async () => {
+    wire(ITEMS.length);
+    await addRfqItems("rfq-1", ITEMS);
+    // The status/next_sort lookup takes FOR UPDATE to serialise concurrent
+    // adds; it must derive next_sort via a subquery, not a GROUP BY, or the
+    // statement fails at runtime ("FOR UPDATE is not allowed with GROUP BY").
+    const lockSql = sqlsOf().find(
+      (s) => /FROM rfq r/.test(s) && /FOR UPDATE/.test(s)
+    );
+    expect(lockSql).toBeTruthy();
+    expect(lockSql).not.toMatch(/GROUP BY/);
+  });
 });
