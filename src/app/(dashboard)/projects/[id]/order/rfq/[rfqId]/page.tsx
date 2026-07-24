@@ -139,6 +139,12 @@ export default function OrderRfqDetailPage({
     () => rfq?.vendors.map((v) => v.vendor_id) ?? [],
     [rfq?.vendors]
   );
+  // Stable ref so the add-items dialog's filter/eligibility memos actually
+  // cache across renders instead of rebuilding on every parent re-render.
+  const excludeBoqItemIds = useMemo(
+    () => rfq?.items.map((it) => it.boq_item_id) ?? [],
+    [rfq?.items]
+  );
 
   if (isLoading) {
     return (
@@ -756,7 +762,7 @@ export default function OrderRfqDetailPage({
       <RfqAddItemsDialog
         projectId={projectId}
         rfqId={rfqId}
-        excludeBoqItemIds={rfq.items.map((it) => it.boq_item_id)}
+        excludeBoqItemIds={excludeBoqItemIds}
         open={addItemsOpen}
         onOpenChange={setAddItemsOpen}
         onSaved={() => mutate()}
